@@ -4,7 +4,7 @@ Compara o Boto com Roda e Sinatra em dois cenários: `hello` (`GET /` com JSON f
 
 `db_schema` é o `db` com `returns` de um schema (`id` e `name`), e mede o custo do `returns`. Só existe para o Boto: Roda e Sinatra não têm equivalente, então não serve para comparar frameworks.
 
-`db_auth` é o `db` com os plugins `:auth` (bearer) e `:rate_limit` do boto-security, e mede o custo deles (o limite é alto, então nada é bloqueado). Só para o Boto; as requisições mandam `Authorization: Bearer bench-token`.
+`db_auth` é o `db` com os plugins `:auth` (bearer) e `:rate_limit` do boto-rb-security, e mede o custo deles (o limite é alto, então nada é bloqueado). Só para o Boto; as requisições mandam `Authorization: Bearer bench-token`.
 
 `db_auth_redis` é o `db_auth` com o rate limit contando no Redis (`Boto::Redis::RateLimitStore`, banco 15 ou `REDIS_URL`), e mede o custo do round trip ao Redis comparado ao contador em memória do `db_auth`. Só para o Boto e precisa de um Redis acessível; sem ele o cenário é pulado com um aviso.
 

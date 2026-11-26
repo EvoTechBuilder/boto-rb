@@ -120,7 +120,7 @@ module OpenAPIFakes
     end
   end
 
-  # Stands in for the real :auth plugin, so the core test does not depend on boto-security.
+  # Stands in for the real :auth plugin, so the core test does not depend on boto-rb-security.
   class Auth < Boto::Plugin
     scope :endpoint
 

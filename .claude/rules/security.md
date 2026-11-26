@@ -1,9 +1,9 @@
 ---
 paths:
-  - "gems/boto-security/lib/**/*.rb"
-  - "gems/boto-redis/lib/**/*.rb"
-  - "gems/boto/lib/boto/plugin.rb"
-  - "gems/boto/lib/boto/plugin/**/*.rb"
+  - "gems/boto-rb-security/lib/**/*.rb"
+  - "gems/boto-rb-redis/lib/**/*.rb"
+  - "gems/boto-rb/lib/boto/plugin.rb"
+  - "gems/boto-rb/lib/boto/plugin/**/*.rb"
   - "**/config/app.rb"
   - "**/credentials/**"
 ---

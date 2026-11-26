@@ -7,7 +7,7 @@ description: Use ao criar ou alterar um plugin do Boto (auth, cors, rate_limit, 
 
 1. Para um plugin novo, use antes a skill `propose-api`.
 2. Implemente o plugin na gem certa:
-   - de segurança vai em `gems/boto-security/lib/boto/plugins/<nome>.rb`;
+   - de segurança vai em `gems/boto-rb-security/lib/boto/plugins/<nome>.rb`;
    - os outros vão na gem da área dele.
    
    Em ambos os casos, a classe é `Boto::Plugins::<Nome> < Boto::Plugin`, com:

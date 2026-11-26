@@ -3,7 +3,7 @@
 require_relative "lib/boto/redis/version"
 
 Gem::Specification.new do |spec|
-  spec.name = "boto-redis"
+  spec.name = "boto-rb-redis"
   spec.version = Boto::Redis::VERSION
   spec.authors = ["Evo Tech Builder"]
   spec.license = "MIT"
@@ -14,7 +14,7 @@ Gem::Specification.new do |spec|
   spec.files = Dir["lib/**/*.rb"]
   spec.require_paths = ["lib"]
 
-  spec.add_dependency "boto-security", "= #{Boto::Redis::VERSION}"
+  spec.add_dependency "boto-rb-security", "= #{Boto::Redis::VERSION}"
   spec.add_dependency "connection_pool", "~> 3.0"
   spec.add_dependency "redis-client", "~> 0.31"
 end

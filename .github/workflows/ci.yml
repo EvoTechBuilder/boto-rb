@@ -22,7 +22,7 @@ jobs:
       matrix:
         ruby: ["3.4", "4.0", "head"]
         yjit: [true, false]
-    # boto-redis tests need a real Redis; locally they skip when none is reachable.
+    # boto-rb-redis tests need a real Redis; locally they skip when none is reachable.
     services:
       redis:
         image: redis:7

@@ -3,7 +3,7 @@
 require_relative "lib/boto/cli/version"
 
 Gem::Specification.new do |spec|
-  spec.name = "boto-cli"
+  spec.name = "boto-rb-cli"
   spec.version = Boto::CLI::VERSION
   spec.authors = ["Evo Tech Builder"]
   spec.license = "MIT"

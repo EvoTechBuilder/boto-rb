@@ -122,10 +122,11 @@ isolamento: um projeto só enxerga o namespace dos projetos que referencia
 ```
 boto/
 ├── gems/
-│   ├── boto/            # core (gem `boto-rb`: o nome `boto` já existe no RubyGems)
-│   ├── boto-cli/        # inclui templates/ oficiais
-│   ├── boto-security/   # plugins de segurança (hosts, cors, auth, rate_limit...)
-│   └── boto-telemetry/
+│   ├── boto-rb/          # core (o nome `boto` já existe no RubyGems)
+│   ├── boto-rb-cli/      # inclui templates/ oficiais
+│   ├── boto-rb-security/ # plugins de segurança (hosts, cors, auth, rate_limit...)
+│   ├── boto-rb-redis/    # store Redis do rate_limit
+│   └── boto-rb-telemetry/
 ├── benchmarks/
 ├── examples/            # solutions completas de exemplo
 └── docs/
@@ -248,14 +249,14 @@ só declaram exceções (`skip`) ou exigências específicas (`authenticate`).
   - **CORS antes do auth:** o preflight não leva credenciais, então o `cors`
     precisa vir antes do `auth`.
   - **Onde ficam:** o core guarda só a base (`Boto::Plugin`,
-    `Boto.configure`). Os plugins de segurança vivem na gem `boto-security`.
+    `Boto.configure`). Os plugins de segurança vivem na gem `boto-rb-security`.
 - **Nunca escrever primitivas de criptografia próprias:** usar OpenSSL,
   `Rack::Utils.secure_compare` e, onde fizer sentido, reaproveitar código
   auditado como o `rack-protection`.
 
 ## Roadmap
 
-- **Fase 0 (atual)**: monorepo com as gems `boto` (core) e `boto-cli`; parser
+- **Fase 0 (atual)**: monorepo com as gems `boto-rb` (core) e `boto-rb-cli`; parser
   do Botofile com validação de refs e detecção de ciclos; `boto new` criando
   solution; comandos básicos do CLI; `Boto::Endpoint` com roteador, params
   tipados, descoberta automática de endpoints e erros JSON; testes; benchmark contra Roda e Sinatra (hello world e

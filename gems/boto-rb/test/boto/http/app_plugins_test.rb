@@ -5,7 +5,7 @@ require "rack/mock"
 require "stringio"
 require "json"
 
-# Stand-ins for real plugins: the core must not depend on boto-security.
+# Stand-ins for real plugins: the core must not depend on boto-rb-security.
 module AppPluginsFakes
   module Trail
     def self.record(env, name)

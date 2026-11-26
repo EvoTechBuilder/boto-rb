@@ -85,7 +85,7 @@ module Boto
       raise ArgumentError, "invalid plugin name #{name.inspect}" unless name.match?(PLUGIN_NAME)
 
       klass = find_plugin(name) || load_security_gem_and_find(name)
-      raise ArgumentError, %(unknown plugin :#{name} (add gem "boto-security" to the Gemfile)) unless klass
+      raise ArgumentError, %(unknown plugin :#{name} (add gem "boto-rb-security" to the Gemfile)) unless klass
 
       check_class(klass)
     end

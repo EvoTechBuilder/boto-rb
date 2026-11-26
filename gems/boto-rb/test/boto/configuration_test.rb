@@ -77,7 +77,7 @@ module Boto
     def test_unknown_name_points_to_security_gem
       error = assert_raises(ArgumentError) { @config.use :no_such_plugin }
 
-      assert_equal %(unknown plugin :no_such_plugin (add gem "boto-security" to the Gemfile)), error.message
+      assert_equal %(unknown plugin :no_such_plugin (add gem "boto-rb-security" to the Gemfile)), error.message
     end
 
     def test_class_must_inherit_from_plugin

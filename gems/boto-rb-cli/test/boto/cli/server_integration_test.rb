@@ -11,7 +11,7 @@ require "tmpdir"
 class Boto::CLI::ServerIntegrationTest < Minitest::Test
   GEMS_ROOT = File.expand_path("../../../..", __dir__)
   BOTO_LIB = File.join(GEMS_ROOT, "boto", "lib")
-  BOTO_CLI_ROOT = File.join(GEMS_ROOT, "boto-cli")
+  BOTO_CLI_ROOT = File.join(GEMS_ROOT, "boto-rb-cli")
   BOTO_CLI_LIB = File.join(BOTO_CLI_ROOT, "lib")
   EXECUTABLE = File.join(BOTO_CLI_ROOT, "exe", "boto")
   HOST = "127.0.0.1"

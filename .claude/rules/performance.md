@@ -1,6 +1,6 @@
 ---
 paths:
-  - "gems/boto/lib/**/*.rb"
+  - "gems/boto-rb/lib/**/*.rb"
 ---
 
 # Caminho quente do core

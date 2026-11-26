@@ -22,7 +22,7 @@ class Boto::CLI::NewCommandTest < Minitest::Test
     Dir.mktmpdir do |cwd|
       new_command(["shop"], cwd: cwd).call
 
-      assert_includes File.read(File.join(cwd, "shop", "Gemfile")), %(gem "boto-security")
+      assert_includes File.read(File.join(cwd, "shop", "Gemfile")), %(gem "boto-rb-security")
     end
   end
 
