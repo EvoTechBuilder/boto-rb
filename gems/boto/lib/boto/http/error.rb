@@ -68,5 +68,39 @@ module Boto
         super(detail)
       end
     end
+
+    class Unauthorized < Error
+      STATUS = 401
+
+      attr_reader :challenge
+
+      def initialize(challenge = nil, detail = nil)
+        @challenge = challenge
+        super(detail)
+      end
+
+      def headers
+        challenge ? { "www-authenticate" => challenge } : NO_HEADERS
+      end
+    end
+
+    class Forbidden < Error
+      STATUS = 403
+    end
+
+    class TooManyRequests < Error
+      STATUS = 429
+
+      attr_reader :retry_after
+
+      def initialize(retry_after, detail = nil)
+        @retry_after = retry_after
+        super(detail)
+      end
+
+      def headers
+        { "retry-after" => retry_after.to_s }
+      end
+    end
   end
 end

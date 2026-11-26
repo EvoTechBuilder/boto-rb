@@ -8,4 +8,10 @@ loader.inflector.inflect("openapi" => "OpenAPI")
 loader.setup
 
 module Boto
+  # Called from config/app.rb. Yields the configuration of the project being booted and returns it.
+  def self.configure
+    config = Configuration.capture
+    yield config
+    config
+  end
 end

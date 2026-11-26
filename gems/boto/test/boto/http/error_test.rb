@@ -11,6 +11,9 @@ module Boto
       assert_equal 405, Error::MethodNotAllowed.new(["GET"]).status
       assert_equal 413, Error::PayloadTooLarge.new.status
       assert_equal 422, Error::Unprocessable.new([]).status
+      assert_equal 401, Error::Unauthorized.new.status
+      assert_equal 403, Error::Forbidden.new.status
+      assert_equal 429, Error::TooManyRequests.new(1).status
     end
 
     def test_base_status_is_500
@@ -68,13 +71,61 @@ module Boto
       assert_predicate error.headers, :frozen?
     end
 
+    def test_unauthorized_sends_www_authenticate_challenge
+      challenge = 'Bearer realm="api"'
+      error = Error::Unauthorized.new(challenge)
+      status, headers, _body = error.to_response
+
+      assert_equal 401, status
+      assert_equal challenge, error.challenge
+      assert_equal({ "www-authenticate" => challenge }, error.headers)
+      assert_equal challenge, headers["www-authenticate"]
+    end
+
+    def test_unauthorized_without_challenge_has_no_headers
+      error = Error::Unauthorized.new
+
+      assert_nil error.challenge
+      assert_empty error.headers
+      assert_predicate error.headers, :frozen?
+      assert_equal "Unauthorized", error.message
+    end
+
+    def test_unauthorized_keeps_custom_detail
+      error = Error::Unauthorized.new(nil, "token expired")
+
+      assert_equal "token expired", error.detail
+    end
+
+    def test_forbidden_to_response
+      status, _headers, body = Error::Forbidden.new("not your order").to_response
+      json = JSON.parse(body.first)
+
+      assert_equal 403, status
+      assert_equal "Forbidden", json["title"]
+      assert_equal "not your order", json["detail"]
+    end
+
+    def test_too_many_requests_sends_retry_after
+      error = Error::TooManyRequests.new(30, "slow down")
+      status, headers, _body = error.to_response
+
+      assert_equal 429, status
+      assert_equal 30, error.retry_after
+      assert_equal "30", headers["retry-after"]
+      assert_equal "slow down", error.detail
+    end
+
     def test_all_subclasses_are_boto_errors
       [
         Error::BadRequest.new,
         Error::NotFound.new,
         Error::MethodNotAllowed.new(["GET"]),
         Error::PayloadTooLarge.new,
-        Error::Unprocessable.new([])
+        Error::Unprocessable.new([]),
+        Error::Unauthorized.new,
+        Error::Forbidden.new,
+        Error::TooManyRequests.new(1)
       ].each { |error| assert_kind_of Error, error }
     end
   end
