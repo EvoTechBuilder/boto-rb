@@ -9,6 +9,7 @@ module Boto
     SKIP_ENV = "BOTO_SKIP_ISOLATION"
     SKIP_VALUE = "1"
     SKIP_WARNING = "Boto: project isolation check skipped (BOTO_SKIP_ISOLATION=1)"
+    UNLOAD_WARNING = "Boto: failed to unload project %<name>s (%<error>s): %<message>s"
 
     def initialize(solution, root:, env: ENV, warn_output: $stderr)
       @solution = solution
@@ -27,9 +28,8 @@ module Boto
 
     def load(name)
       verify_isolation(name)
-      loaders = load_order(name).map { |item| loader_for(item) }
-      loaders.each(&:setup)
-      loaders.each(&:eager_load)
+      created = load_order(name).reject { @loaders.key?(_1) }
+      load_loaders(load_order(name).map { loader_for(_1) }, created)
       loader_for(name).namespace
     end
 
@@ -47,11 +47,34 @@ module Boto
     def shutdown
       @apps.reverse_each(&:stop)
       @apps.clear
-      @loaders.each_value(&:unload)
-      @loaders.clear
+      unload_all
     end
 
     private
+
+    def load_loaders(loaders, created)
+      loaders.each(&:setup)
+      loaders.each(&:eager_load)
+    rescue StandardError
+      discard(created)
+      raise
+    end
+
+    def discard(names)
+      names.each { |name| unload_quietly(name, @loaders.delete(name)) }
+    end
+
+    def unload_all
+      @loaders.each { |name, loader| unload_quietly(name, loader) }
+    ensure
+      @loaders.clear
+    end
+
+    def unload_quietly(name, loader)
+      loader.unload
+    rescue StandardError => e
+      @warn_output.puts(format(UNLOAD_WARNING, name: name, error: e.class, message: e.message))
+    end
 
     def verify_isolation(name)
       pending = load_order(name).reject { @checked.include?(_1) }

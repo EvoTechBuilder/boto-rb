@@ -38,4 +38,28 @@ class Boto::ProjectLoaderTest < Minitest::Test
 
     assert_same @loader.namespace, namespace
   end
+
+  def test_unload_unregisters_even_when_zeitwerk_unload_fails
+    @loader.setup
+    zeitwerk = @loader.instance_variable_get(:@loader)
+    unregistered = false
+
+    with_singleton_method(zeitwerk, :unload, -> { raise "unload boom" }) do
+      with_singleton_method(zeitwerk, :unregister, -> { unregistered = true }) do
+        assert_raises(RuntimeError) { @loader.unload }
+      end
+    end
+
+    assert unregistered
+  end
+
+  private
+
+  # Replaces a method on one object only, and removes the replacement even if the block fails.
+  def with_singleton_method(object, name, body)
+    object.define_singleton_method(name, &body)
+    yield
+  ensure
+    object.singleton_class.remove_method(name)
+  end
 end

@@ -3,6 +3,8 @@
 require "test_helper"
 require "rack/mock"
 require "stringio"
+require "fileutils"
+require "tmpdir"
 require_relative "../../fixtures/boot_test_plugins"
 
 class Boto::BootTest < Minitest::Test
@@ -195,5 +197,124 @@ class Boto::BootLifecycleTest < Minitest::Test
     @boot.shutdown
 
     assert_equal started_then_stopped, EVENTS
+  end
+end
+
+class Boto::BootFailureTest < Minitest::Test
+  FIXTURE = File.expand_path("../../fixtures/broken", __dir__)
+  SHOP = File.expand_path("../../fixtures/shop", __dir__)
+  BROKEN_ENDPOINT = "services/bk_orders/endpoints/boom.rb"
+  FIXED_ENDPOINT = "# frozen_string_literal: true\n\nmodule BkOrders\n  class Boom; end\nend\n"
+
+  def setup
+    @warnings = StringIO.new
+    @boot = build_boot
+    @copies = []
+  end
+
+  def teardown
+    @boot.shutdown
+    @copies.each { FileUtils.remove_entry(_1) }
+    remove_leaked_constant
+  end
+
+  def test_eager_load_failure_reraises_the_original_error
+    error = assert_raises(RuntimeError) { @boot.load("bk_orders") }
+
+    assert_equal "boom", error.message
+  end
+
+  def test_failed_load_discards_only_loaders_created_by_the_call
+    @boot.load("bk_domain")
+
+    assert_raises(RuntimeError) { @boot.load("bk_orders") }
+
+    assert_equal ["bk_domain"], loader_names
+    assert_equal "hello ana", BkDomain::Greeting.call("ana")
+  end
+
+  def test_failed_setup_discards_loaders_created_by_the_call
+    build = Boto::ProjectLoader.method(:new)
+    failing = lambda do |project, root:|
+      build.call(project, root: root).tap do |loader|
+        loader.define_singleton_method(:setup) { raise "setup boom" } if project.name == "bk_orders"
+      end
+    end
+
+    with_singleton_method(Boto::ProjectLoader, :new, failing) do
+      error = assert_raises(RuntimeError) { @boot.load("bk_orders") }
+      assert_equal "setup boom", error.message
+    end
+    assert_empty loader_names
+  end
+
+  def test_shutdown_keeps_unloading_when_one_unload_fails
+    boot = build_boot(root: SHOP, warn_output: @warnings)
+    boot.load("orders")
+    domain = boot.send(:loader_for, "domain")
+    orders = boot.send(:loader_for, "orders")
+    unloaded = []
+    original_unload = { orders: orders.method(:unload), domain: domain.method(:unload) }
+
+    # Each stub runs the real unload first, so no loader is left registered when the test ends.
+    with_singleton_method(orders, :unload, -> { unloaded << "orders"; original_unload[:orders].call }) do
+      with_singleton_method(domain, :unload, lambda {
+        original_unload[:domain].call
+        raise "unload boom"
+      }) { boot.shutdown }
+    end
+
+    assert_equal ["orders"], unloaded
+    assert_includes @warnings.string, "failed to unload project domain (RuntimeError): unload boom"
+    assert_empty loader_names_of(boot)
+  end
+
+  def test_shutdown_twice_does_not_fail
+    boot = build_boot(root: SHOP, warn_output: @warnings)
+    boot.load("orders")
+    boot.shutdown
+    boot.shutdown
+
+    assert_empty @warnings.string
+  end
+
+  def test_load_works_again_once_the_cause_is_fixed
+    root = copy_fixture
+    @boot = build_boot(root: root)
+    assert_raises(RuntimeError) { @boot.load("bk_orders") }
+    File.write(File.join(root, BROKEN_ENDPOINT), FIXED_ENDPOINT)
+
+    assert_equal "BkOrders", @boot.load("bk_orders").name
+  end
+
+  private
+
+  def build_boot(root: FIXTURE, warn_output: @warnings)
+    Boto::Boot.new(Boto::Botofile.load(File.join(root, "Botofile")), root: root,
+                                                                    env: {}, warn_output: warn_output)
+  end
+
+  def copy_fixture
+    root = Dir.mktmpdir("boto-broken")
+    @copies << root
+    FileUtils.cp_r(File.join(FIXTURE, "."), root)
+    root
+  end
+
+  # Zeitwerk keeps eager-loaded constants after unload; a leftover would hide the broken file in later tests.
+  def remove_leaked_constant
+    BkOrders.send(:remove_const, :Boom) if defined?(BkOrders::Boom)
+  end
+
+  def loader_names = loader_names_of(@boot)
+
+  def loader_names_of(boot) = boot.instance_variable_get(:@loaders).keys
+
+  # Replaces a method on one object only, and removes the replacement even if the block fails.
+  def with_singleton_method(object, name, body)
+    object.define_singleton_method(name, &body)
+    yield
+  ensure
+    object.singleton_class.remove_method(name)
   end
 end

@@ -36,6 +36,7 @@ module Boto
 
     def unload
       @loader.unload
+    ensure
       @loader.unregister
     end
 

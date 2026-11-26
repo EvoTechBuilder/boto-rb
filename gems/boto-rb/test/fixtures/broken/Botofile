@@ -1,0 +1,4 @@
+solution "broken"
+
+project "bk_domain", template: :library
+project "bk_orders", template: :webapi, refs: %w[bk_domain]
