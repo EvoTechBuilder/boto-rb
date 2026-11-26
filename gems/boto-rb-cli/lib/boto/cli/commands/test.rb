@@ -111,7 +111,7 @@ module Boto
         end
 
         def report(tested_count, failed)
-          out.puts "#{tested_count} projects tested, #{failed.size} failed"
+          out.puts "#{tested_count} #{tested_count == 1 ? "project" : "projects"} tested, #{failed.size} failed"
           out.puts "failed: #{failed.join(", ")}" if failed.any?
           failed.empty? ? SUCCESS : FAILURE
         end

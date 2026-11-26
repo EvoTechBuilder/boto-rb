@@ -116,6 +116,14 @@ class Boto::CLI::TestCommandTest < Minitest::Test
     end
   end
 
+
+  def test_summary_uses_singular_for_one_project
+    command = Boto::CLI::Commands::Test.new([], out: out = StringIO.new, err: StringIO.new, cwd: Dir.pwd)
+    command.send(:report, 1, [])
+
+    assert_equal "1 project tested, 0 failed\n", out.string
+  end
+
   private
 
   def chdirs
