@@ -4,6 +4,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+
+- `boto new` adds Minitest to the generated Gemfile. Without it, `boto test` failed in a new solution with `cannot load such file -- minitest/autorun`, because Minitest is a bundled gem and Bundler only loads gems the Gemfile lists. Existing solutions can add `gem "minitest", "~> 6.0"` to a `:test` group.
+
 ## [0.7.0] - 2026-11-26
 
 First release published on RubyGems.

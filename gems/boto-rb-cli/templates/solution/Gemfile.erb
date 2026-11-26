@@ -3,3 +3,8 @@ source "https://rubygems.org"
 gem "boto-rb", "~> <%= boto_version %>", require: "boto"
 gem "boto-rb-cli", "~> <%= boto_version %>", require: "boto/cli"
 gem "boto-rb-security", "~> <%= boto_version %>", require: "boto/security"
+
+# Project tests run on Minitest, a bundled gem: Bundler only loads it when the Gemfile lists it.
+group :test do
+  gem "minitest", "~> 6.0"
+end

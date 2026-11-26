@@ -26,6 +26,14 @@ class Boto::CLI::NewCommandTest < Minitest::Test
     end
   end
 
+  def test_generated_gemfile_includes_minitest_for_project_tests
+    Dir.mktmpdir do |cwd|
+      new_command(["shop"], cwd: cwd).call
+
+      assert_includes File.read(File.join(cwd, "shop", "Gemfile")), %(gem "minitest")
+    end
+  end
+
   def test_existing_directory_raises
     Dir.mktmpdir do |cwd|
       Dir.mkdir(File.join(cwd, "shop"))
