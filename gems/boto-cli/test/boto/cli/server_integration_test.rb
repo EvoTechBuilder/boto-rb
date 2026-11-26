@@ -28,6 +28,9 @@ class Boto::CLI::ServerIntegrationTest < Minitest::Test
         response = wait_for_health(port)
         assert_equal "200", response.code
         assert_equal %({"status":"ok"}), response.body
+        # A repeated GET must reach the app again: Falcon's response cache stays off.
+        repeated = Net::HTTP.get_response(URI("http://#{HOST}:#{port}/health"))
+        assert_nil repeated["x-cache"]
       ensure
         stop(pid)
       end

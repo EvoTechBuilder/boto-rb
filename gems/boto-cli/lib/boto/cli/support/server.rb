@@ -25,10 +25,11 @@ module Boto
 
       private
 
-      # rack_middleware replaces the deprecated Falcon::Server.middleware.
+      # Falcon's HTTP cache is on by default and would replay GET responses without reaching the app,
+      # skipping auth, rate limits and per-user data; an API server must not cache, so it is disabled.
       def falcon_server(app, port)
         endpoint = Async::HTTP::Endpoint.parse("http://#{host}:#{port}")
-        Falcon::Server.new(Falcon::Server.rack_middleware(app), endpoint)
+        Falcon::Server.new(Falcon::Server.rack_middleware(app, cache: false), endpoint)
       end
     end
   end
