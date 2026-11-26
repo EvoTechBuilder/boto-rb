@@ -211,11 +211,35 @@ class Boto::Plugins::RateLimitTest < Minitest::Test
     assert_equal [429, 503], build_plugin(store: StatusStore.new).error_statuses
   end
 
+  def test_health_check_calls_the_store_healthy_method_at_check_time
+    store = HealthStore.new(answer: true)
+    check = build_plugin(store: store).health_checks.fetch(:rate_limit_store)
+
+    assert check.call
+    store.answer = false
+    refute check.call
+  end
+
+  def test_health_checks_are_empty_for_the_default_memory_store
+    assert_equal({}, build_plugin.health_checks)
+  end
+
   private
 
   class StatusStore
     def increment(_key, _period) = [1, PERIOD]
     def error_statuses = [503]
+  end
+
+  class HealthStore
+    attr_writer :answer
+
+    def initialize(answer:)
+      @answer = answer
+    end
+
+    def increment(_key, _period) = [1, PERIOD]
+    def healthy? = @answer
   end
 
   def build_plugin(**options)

@@ -42,6 +42,14 @@ class RateLimitStoreIntegrationTest < Minitest::Test
     assert_equal 503, get_status(build_app(store))
   end
 
+  def test_healthy_against_a_real_redis
+    store = Boto::Redis::RateLimitStore.new(url: @url)
+
+    assert store.healthy?
+  ensure
+    store&.close
+  end
+
   private
 
   def build_app(store)

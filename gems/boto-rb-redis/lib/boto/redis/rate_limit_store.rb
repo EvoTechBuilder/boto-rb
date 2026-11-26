@@ -17,6 +17,7 @@ module Boto
       FAILURES = [::RedisClient::Error, ConnectionPool::TimeoutError].freeze
       CUSTOM_CLIENT = "custom client"
       UNAVAILABLE_MESSAGE = "rate limit store unavailable"
+      PING_REPLY = "PONG"
       MIN_RESET_SECONDS = 1
       MIN_TTL_MS = 1
       MS_PER_SECOND = 1000
@@ -47,6 +48,13 @@ module Boto
         [count, seconds_from_ms(pttl)]
       rescue *FAILURES => error
         handle_failure(error, now, period)
+      end
+
+      # Only FAILURES count as unhealthy, like in increment: any other error is a bug and should surface.
+      def healthy?
+        @client.call("PING") == PING_REPLY
+      rescue *FAILURES
+        false
       end
 
       def inspect

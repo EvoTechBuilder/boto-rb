@@ -10,6 +10,7 @@ module Boto
       scope :endpoint
 
       DEFAULT_CLOCK = -> { Process.clock_gettime(Process::CLOCK_MONOTONIC) }.freeze
+      HEALTH_CHECK_NAME = :rate_limit_store
       LIMIT_HEADER = "ratelimit-limit"
       REMAINING_HEADER = "ratelimit-remaining"
       RESET_HEADER = "ratelimit-reset"
@@ -32,6 +33,13 @@ module Boto
       # The store adds its own statuses (a Redis store with on_error: :deny answers 503).
       def error_statuses
         [Boto::Error::TooManyRequests::STATUS, *store_error_statuses]
+      end
+
+      # Only stores that implement healthy? (the Redis one) add a check; the memory store has nothing to probe.
+      def health_checks
+        return {}.freeze unless @store.respond_to?(:healthy?)
+
+        { HEALTH_CHECK_NAME => -> { @store.healthy? } }
       end
 
       private
