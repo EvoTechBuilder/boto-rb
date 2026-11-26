@@ -88,7 +88,7 @@ class Boto::CLI::OpenapiCommandTest < Minitest::Test
     out = StringIO.new
     Boto::CLI::Runner.new(out: out, err: StringIO.new, cwd: self.class.solution_dir).run(["help"])
 
-    assert_includes out.string, "  openapi  #{Boto::CLI::Commands::Openapi::SUMMARY}"
+    assert_match(/^  openapi +#{Regexp.escape(Boto::CLI::Commands::Openapi::SUMMARY)}$/, out.string)
   end
 
   private

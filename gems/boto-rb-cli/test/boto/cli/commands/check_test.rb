@@ -103,7 +103,7 @@ class Boto::CLI::CheckCommandTest < Minitest::Test
       out = StringIO.new
 
       assert_equal 0, Boto::CLI::Runner.new(out: out, err: StringIO.new, cwd: cwd).run(["help"])
-      assert_includes out.string, "  check  #{Boto::CLI::Commands::Check::SUMMARY}\n"
+      assert_match(/^  check +#{Regexp.escape(Boto::CLI::Commands::Check::SUMMARY)}$/, out.string)
     end
   end
 
