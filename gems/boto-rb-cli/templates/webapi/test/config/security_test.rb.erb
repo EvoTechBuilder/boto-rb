@@ -3,13 +3,10 @@
 require "test_helper"
 
 class <%= namespace %>SecurityTest < Minitest::Test
-  def test_health_is_public
-    response = Rack::MockRequest.new(APP).get("/health")
-    assert_equal 200, response.status
-  end
-
-  def test_health_ignores_wrong_token
-    response = Rack::MockRequest.new(APP).get("/health", "HTTP_AUTHORIZATION" => "Bearer wrong")
-    assert_equal 200, response.status
+  def test_health_probes_ignore_wrong_token
+    %w[/health/live /health/ready].each do |path|
+      response = Rack::MockRequest.new(APP).get(path, "HTTP_AUTHORIZATION" => "Bearer wrong")
+      assert_equal 200, response.status, path
+    end
   end
 end

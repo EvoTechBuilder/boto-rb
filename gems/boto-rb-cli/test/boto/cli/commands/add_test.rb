@@ -12,22 +12,25 @@ class Boto::CLI::AddCommandTest < Minitest::Test
       out = StringIO.new
       assert_equal 0, add_command(%w[webapi api], cwd: dir, out: out).call
 
-      assert_includes read(dir, "services/api/endpoints/health.rb"), "class Api::Health < Boto::Endpoint"
-      assert_includes read(dir, "services/api/endpoints/health.rb"), "returns Api::HealthSchema"
-      assert_includes read(dir, "services/api/schemas/health_schema.rb"), "class Api::HealthSchema < Boto::Schema"
-      assert File.file?(File.join(dir, "services/api/test/schemas/health_schema_test.rb"))
+      %w[endpoints schemas test/endpoints test/schemas].each do |folder|
+        assert File.file?(File.join(dir, "services/api", folder, ".keep")), folder
+      end
+      refute File.exist?(File.join(dir, "services/api/endpoints/health.rb"))
+      refute File.exist?(File.join(dir, "services/api/schemas/health_schema.rb"))
       assert_includes read(dir, "services/api/test/test_helper.rb"), %(BOOT.app("api"))
-      assert_includes out.string, "create services/api/endpoints/health.rb"
+      assert_includes out.string, "create services/api/test/config/health_test.rb"
       assert_includes out.string, "update Botofile"
     end
   end
 
-  def test_webapi_generates_security_config_and_public_health
+  def test_webapi_generates_security_config_and_health_probes
     with_solution do |dir|
       add_command(%w[webapi api], cwd: dir).call
 
-      assert_includes read(dir, "services/api/config/app.rb"), "app.use :auth"
-      assert_includes read(dir, "services/api/endpoints/health.rb"), "skip :auth, :rate_limit"
+      app_config = read(dir, "services/api/config/app.rb")
+      assert_includes app_config, "app.use :auth"
+      assert_includes app_config, "app.use :health"
+      assert_includes read(dir, "services/api/test/config/health_test.rb"), "/health/live"
     end
   end
 
@@ -65,7 +68,7 @@ class Boto::CLI::AddCommandTest < Minitest::Test
     with_solution do |dir|
       add_command(%w[webapi order_items], cwd: dir).call
 
-      assert_includes read(dir, "services/order_items/endpoints/health.rb"), "class OrderItems::Health"
+      assert_includes read(dir, "services/order_items/test/config/health_test.rb"), "class OrderItemsHealthTest"
     end
   end
 

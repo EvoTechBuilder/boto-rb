@@ -45,7 +45,7 @@ class Boto::CLI::OpenapiCommandTest < Minitest::Test
     assert_equal "3.1.0", document["openapi"]
     assert_equal WEBAPI, document.dig("info", "title")
     assert_equal "0.1.0", document.dig("info", "version")
-    assert_includes document["paths"], "/health"
+    assert_empty document["paths"]
   end
 
   def test_api_version_option_sets_the_info_version

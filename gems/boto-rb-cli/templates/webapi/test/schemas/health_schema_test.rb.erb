@@ -1,9 +1,0 @@
-# frozen_string_literal: true
-
-require "test_helper"
-
-class <%= namespace %>HealthSchemaTest < Minitest::Test
-  def test_serialize_keeps_only_declared_fields
-    assert_equal({ status: "ok" }, <%= namespace %>::HealthSchema.serialize({ status: "ok", secret: "x" }))
-  end
-end

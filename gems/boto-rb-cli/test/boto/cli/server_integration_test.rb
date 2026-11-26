@@ -25,11 +25,11 @@ class Boto::CLI::ServerIntegrationTest < Minitest::Test
       port = free_port
       pid = spawn_run(dir, port)
       begin
-        response = wait_for_health(port)
+        response = wait_for_live(port)
         assert_equal "200", response.code
         assert_equal %({"status":"ok"}), response.body
         # A repeated GET must reach the app again: Falcon's response cache stays off.
-        repeated = Net::HTTP.get_response(URI("http://#{HOST}:#{port}/health"))
+        repeated = Net::HTTP.get_response(URI("http://#{HOST}:#{port}/health/live"))
         assert_nil repeated["x-cache"]
       ensure
         stop(pid)
@@ -59,10 +59,10 @@ class Boto::CLI::ServerIntegrationTest < Minitest::Test
                   "run", "--port", port.to_s, chdir: dir, out: File::NULL, err: File::NULL)
   end
 
-  def wait_for_health(port)
+  def wait_for_live(port)
     deadline = monotonic_now + STARTUP_TIMEOUT
     begin
-      Net::HTTP.get_response(URI("http://#{HOST}:#{port}/health"))
+      Net::HTTP.get_response(URI("http://#{HOST}:#{port}/health/live"))
     rescue Errno::ECONNREFUSED
       flunk "server did not start within #{STARTUP_TIMEOUT}s" if monotonic_now > deadline
       sleep POLL_INTERVAL

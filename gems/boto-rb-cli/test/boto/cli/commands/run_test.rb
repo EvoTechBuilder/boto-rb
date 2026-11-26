@@ -104,7 +104,7 @@ class Boto::CLI::RunCommandTest < Minitest::Test
   def test_each_port_answers_the_health_check
     run_command([])
 
-    response = Rack::MockRequest.new(@server.apps_by_port.fetch(3000)).get("/health")
+    response = Rack::MockRequest.new(@server.apps_by_port.fetch(3000)).get("/health/live")
     assert_equal 200, response.status
     assert_equal %({"status":"ok"}), response.body
   end
