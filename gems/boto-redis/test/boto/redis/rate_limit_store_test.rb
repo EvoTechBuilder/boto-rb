@@ -8,6 +8,8 @@ class Boto::Redis::RateLimitStoreTest < Minitest::Test
   # 1_000 falls in window 16 (960..1020), so the window ends 20 seconds later.
   START = 1_000.0
   WINDOW_RESET = 20
+  WARMUP_RUNS = 200
+  ALLOCATION_WINDOWS = 2
 
   def setup
     @url = redis_url_or_skip
@@ -91,7 +93,37 @@ class Boto::Redis::RateLimitStoreTest < Minitest::Test
     assert_equal (1..200).to_a, counts
   end
 
+  def test_counter_key_changes_when_the_window_changes
+    store = build_store
+    assert_equal [1, WINDOW_RESET], store.increment("client", PERIOD)
+
+    @now = START + PERIOD
+    assert_equal [1, WINDOW_RESET], store.increment("client", PERIOD)
+
+    assert_equal 1, @redis.call("EXISTS", "#{@prefix}:#{PERIOD}:16:client")
+    assert_equal 1, @redis.call("EXISTS", "#{@prefix}:#{PERIOD}:17:client")
+  end
+
+  def test_counter_key_allocates_only_the_final_string
+    store = build_store
+    WARMUP_RUNS.times { store.send(:counter_key, "client", PERIOD, 16) }
+
+    count = measure_allocations { store.send(:counter_key, "client", PERIOD, 16) }
+
+    assert_operator count, :<=, 1
+  end
+
   private
+
+  def measure_allocations(&block)
+    Array.new(ALLOCATION_WINDOWS) { allocations(&block) }.last
+  end
+
+  def allocations
+    before = GC.stat(:total_allocated_objects)
+    yield
+    GC.stat(:total_allocated_objects) - before
+  end
 
   def build_store(**options)
     Boto::Redis::RateLimitStore.new(url: @url, prefix: @prefix, clock: @clock, **options)

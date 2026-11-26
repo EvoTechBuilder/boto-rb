@@ -4,6 +4,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- `Boto::Redis::RateLimitStore` uses a pool of 20 connections by default (was 5; connections open on demand) and reuses the fixed part of the counter key, cutting two allocations per request.
+
 ## [0.5.0] - 2026-11-26
 
 ### Added
