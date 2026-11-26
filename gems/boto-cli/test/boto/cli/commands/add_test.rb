@@ -13,6 +13,9 @@ class Boto::CLI::AddCommandTest < Minitest::Test
       assert_equal 0, add_command(%w[webapi api], cwd: dir, out: out).call
 
       assert_includes read(dir, "services/api/endpoints/health.rb"), "class Api::Health < Boto::Endpoint"
+      assert_includes read(dir, "services/api/endpoints/health.rb"), "returns Api::HealthSchema"
+      assert_includes read(dir, "services/api/schemas/health_schema.rb"), "class Api::HealthSchema < Boto::Schema"
+      assert File.file?(File.join(dir, "services/api/test/schemas/health_schema_test.rb"))
       assert_includes read(dir, "services/api/test/test_helper.rb"), %(BOOT.app("api"))
       assert_includes out.string, "create services/api/endpoints/health.rb"
       assert_includes out.string, "update Botofile"
@@ -41,6 +44,7 @@ class Boto::CLI::AddCommandTest < Minitest::Test
 
       assert File.file?(File.join(dir, "libs/domain/operations/.keep"))
       assert File.file?(File.join(dir, "libs/domain/models/.keep"))
+      assert File.file?(File.join(dir, "libs/domain/schemas/.keep"))
       helper = read(dir, "libs/domain/test/test_helper.rb")
       assert_includes helper, %(BOOT.load("domain"))
       refute_includes helper, "rack/mock"

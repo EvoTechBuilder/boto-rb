@@ -20,6 +20,13 @@ class Boto::BootTest < Minitest::Test
     assert_equal '{"message":"hello ana"}', request.get("/greet/ana").body
   end
 
+  def test_app_loads_schemas_of_the_project
+    app = @boot.app("orders")
+
+    assert_equal "Orders::GreetingSchema", Orders::GreetingSchema.name
+    assert_equal '{"message":"hello ana"}', Rack::MockRequest.new(app).get("/greet/ana").body
+  end
+
   def test_app_serves_nested_endpoint_directories
     request = Rack::MockRequest.new(@boot.app("orders"))
 

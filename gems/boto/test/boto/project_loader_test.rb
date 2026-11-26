@@ -20,6 +20,13 @@ class Boto::ProjectLoaderTest < Minitest::Test
     assert_equal "hello ana", Domain::Greeting.call("ana")
   end
 
+  def test_setup_loads_schemas_directory_when_present
+    project = Boto::Botofile.load(File.join(FIXTURE, "Botofile")).project("orders")
+    @loader = Boto::ProjectLoader.new(project, root: FIXTURE).setup
+
+    assert_equal "Orders::GreetingSchema", Orders::GreetingSchema.name
+  end
+
   def test_setup_twice_does_not_fail
     assert_same @loader, @loader.setup
     assert_same @loader, @loader.setup

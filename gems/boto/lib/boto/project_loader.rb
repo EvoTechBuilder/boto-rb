@@ -6,7 +6,7 @@ module Boto
   # Loads one project's code directories directly under its namespace, using a Zeitwerk
   # loader of its own so each project can be set up and unloaded independently.
   class ProjectLoader
-    CODE_DIRS = %w[endpoints operations models].freeze
+    CODE_DIRS = %w[endpoints operations models schemas].freeze
 
     attr_reader :namespace
 
