@@ -138,7 +138,7 @@ module Boto
       def ensure_no_body_conflict!
         return unless body_schema && params.names.include?(:body)
 
-        raise ArgumentError, "#{self}: param :body conflicts with the body schema"
+        raise ArgumentError, "param :body conflicts with the body schema"
       end
 
       def define_route(verb, path)

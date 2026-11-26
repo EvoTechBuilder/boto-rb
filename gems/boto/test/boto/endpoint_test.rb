@@ -213,7 +213,7 @@ module Boto
         body EndpointTestSchemas::UserSchema
       end
       error = assert_raises(ArgumentError) { endpoint.compile! }
-      assert_equal "#{endpoint}: param :body conflicts with the body schema", error.message
+      assert_equal "param :body conflicts with the body schema", error.message
     end
 
     def test_compile_compiles_body_and_return_schemas

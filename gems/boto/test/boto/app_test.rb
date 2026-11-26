@@ -60,6 +60,56 @@ module AppTestDuplicate
   end
 end
 
+module AppTestSchemas
+  class AddressSchema < Boto::Schema
+    field :zip, String, pattern: /\A\d{5}\z/
+  end
+
+  class UserInputSchema < Boto::Schema
+    field :name, String, min: 1
+    field :address, AddressSchema, required: false
+  end
+
+  class UserSchema < Boto::Schema
+    field :id, Integer
+    field :name, String
+  end
+
+  User = Struct.new(:id, :name, :password_hash)
+
+  module Users
+    class Create < Boto::Endpoint
+      post "/users"
+      status 201
+      body AppTestSchemas::UserInputSchema
+      returns AppTestSchemas::UserSchema
+      param :notify, Boto::Boolean, default: false
+      def call(body:, notify:) = AppTestSchemas::User.new(1, body.name, "secret")
+    end
+
+    class Index < Boto::Endpoint
+      get "/users"
+      returns [AppTestSchemas::UserSchema]
+      def call = [AppTestSchemas::User.new(1, "Ana", "x"), { id: 2, name: "Bia" }]
+    end
+
+    class Broken < Boto::Endpoint
+      get "/broken"
+      returns AppTestSchemas::UserSchema
+      def call = { id: 1 }
+    end
+  end
+end
+
+module AppTestBodyConflict
+  class Create < Boto::Endpoint
+    post "/conflict"
+    body AppTestSchemas::UserInputSchema
+    param :body, String
+    def call(body:) = nil
+  end
+end
+
 module Boto
   class AppTest < Minitest::Test
     JSON_TYPE = "application/json"
@@ -187,10 +237,69 @@ module Boto
       assert_includes error.message, "AppTestDuplicate::Second"
     end
 
+    def test_body_with_param_body_raises_boot_error
+      error = assert_raises(Boto::App::BootError) { app(namespace: AppTestBodyConflict) }
+      assert_includes error.message, "AppTestBodyConflict::Create"
+      assert_includes error.message, "param :body conflicts"
+    end
+
+    def test_app_title_is_namespace_name
+      assert_equal "AppTestSchemas", app(namespace: AppTestSchemas).title
+      assert_predicate app(namespace: AppTestSchemas).title, :frozen?
+    end
+
+    def test_body_is_coerced_and_returned_serialized_without_hidden_fields
+      res = post_json("/users", { name: "Ana" }, namespace: AppTestSchemas)
+      assert_equal 201, res.status
+      assert_equal({ "id" => 1, "name" => "Ana" }, json(res.body))
+      refute_includes res.body, "password_hash"
+      refute_includes res.body, "secret"
+    end
+
+    def test_invalid_body_returns_422_with_paths
+      res = post_json("/users", { name: "", address: { zip: "x" } }, namespace: AppTestSchemas)
+      assert_equal 422, res.status
+      params = json(res.body)["errors"].map { |error| error["param"] }
+      assert_equal %w[name address.zip], params
+    end
+
+    def test_malformed_body_returns_400
+      res = request_for(namespace: AppTestSchemas).post("/users", input: "{", "CONTENT_TYPE" => JSON_TYPE)
+      assert_equal 400, res.status
+    end
+
+    def test_empty_object_body_returns_required_error
+      res = post_json("/users", {}, namespace: AppTestSchemas)
+      assert_equal 422, res.status
+      assert_equal [{ "param" => "name", "message" => "is required" }], json(res.body)["errors"]
+    end
+
+    def test_query_param_works_alongside_body
+      res = request_for(namespace: AppTestSchemas).post(
+        "/users?notify=true", input: JSON.generate({ name: "Ana" }), "CONTENT_TYPE" => JSON_TYPE
+      )
+      assert_equal 201, res.status
+      assert_equal({ "id" => 1, "name" => "Ana" }, json(res.body))
+    end
+
+    def test_list_return_serializes_each_item
+      res = request_for(namespace: AppTestSchemas).get("/users")
+      assert_equal 200, res.status
+      assert_equal [{ "id" => 1, "name" => "Ana" }, { "id" => 2, "name" => "Bia" }], json(res.body)
+      refute_includes res.body, "password_hash"
+    end
+
+    def test_return_missing_required_field_is_500_and_logged
+      res = request_for(namespace: AppTestSchemas).get("/broken")
+      assert_equal 500, res.status
+      refute_includes res.body, "OutputError"
+      assert_includes @error_output.string, "OutputError"
+    end
+
     private
 
-    def post_json(path, body)
-      request_for.post(path, input: JSON.generate(body), "CONTENT_TYPE" => JSON_TYPE)
+    def post_json(path, body, namespace: AppTestShop)
+      request_for(namespace: namespace).post(path, input: JSON.generate(body), "CONTENT_TYPE" => JSON_TYPE)
     end
   end
 end
