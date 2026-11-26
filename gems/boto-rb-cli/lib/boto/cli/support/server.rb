@@ -21,6 +21,7 @@ module Boto
         @clock = clock
         @tracker = RequestTracker.new
         @listeners = []
+        @server_tasks = []
         @closing = false
       end
 
@@ -40,16 +41,24 @@ module Boto
         close_listeners
         drained = wait_for_requests(timeout, interrupted)
         @tracker.cut_all unless drained
+        stop_servers
         drained
       end
 
       private
 
+      # Binding yields to the reactor (address resolution on Ruby 3.4), so a drain can run before the listener
+      # or the server task is registered; each is closed here when that happened.
       def listen(app, port)
         endpoint = Async::HTTP::Endpoint.parse("http://#{host}:#{port}")
         listener = endpoint.bound
         @listeners << listener
-        falcon_server(app, endpoint, listener).run.wait
+        return listener.close if @closing
+
+        server_task = falcon_server(app, endpoint, listener).run
+        @server_tasks << server_task
+        server_task.stop if @closing
+        server_task.wait
       rescue IOError
         # Closing the listener is how drain ends the accept loop; any other IOError is a real failure.
         raise unless @closing
@@ -65,6 +74,12 @@ module Boto
       def close_listeners
         @closing = true
         @listeners.each(&:close)
+      end
+
+      # Once the requests are done, the server tasks are stopped explicitly: on Ruby 3.4 the accept loop does
+      # not end when its listener closes, and keep-alive connections would hold them open on any version.
+      def stop_servers
+        @server_tasks.each(&:stop)
       end
 
       def pause(seconds, interrupted)

@@ -18,6 +18,8 @@ jobs:
   test:
     name: test (ruby ${{ matrix.ruby }}, yjit ${{ matrix.yjit }})
     runs-on: ubuntu-latest
+    # A hung test (e.g. a server that never stops) must not hold the runner for GitHub's 6-hour default.
+    timeout-minutes: 15
     continue-on-error: ${{ matrix.ruby == 'head' }}
     strategy:
       fail-fast: false

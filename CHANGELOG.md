@@ -4,6 +4,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+
+- `boto run` graceful shutdown no longer hangs on Ruby 3.4 or with keep-alive connections: the server tasks are stopped once the requests in flight are done, and a shutdown that starts before the listeners are bound closes them as they come up.
+
 ## [0.9.0] - 2026-11-26
 
 ### Added
