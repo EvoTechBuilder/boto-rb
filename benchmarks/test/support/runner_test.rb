@@ -7,16 +7,17 @@ require_relative "../../support/runner"
 class BenchRunnerTest < Minitest::Test
   FAKE_RESULT = { rps: 1000.0, p99_ms: 12.5 }.freeze
   FAKE_ALLOCATIONS = {
-    "boto" => { "hello" => 1.0, "db" => 2.0, "db_schema" => 3.0, "db_auth" => 8.0 },
+    "boto" => { "hello" => 1.0, "db" => 2.0, "db_schema" => 3.0, "db_auth" => 8.0, "db_auth_redis" => 9.0 },
     "roda" => { "hello" => 4.0, "db" => 5.0 },
     "sinatra" => { "hello" => 6.0, "db" => 7.0 }
   }.freeze
-  # boto: hello, db, db_schema, db_auth; roda: hello, db; sinatra: hello, db
+  # boto: hello, db, db_schema, db_auth; roda: hello, db; sinatra: hello, db (db_auth_redis only with Redis)
   COMBINATIONS = 8
   ROUNDS = BenchRunner::ROUNDS
   TOTAL = COMBINATIONS * ROUNDS
   HEADER = "Benchmark: boto, roda, sinatra (fake-tool), #{TOTAL} medições " \
            "(#{COMBINATIONS} combinações x #{ROUNDS} rodadas)\n"
+  AUTH = { "Authorization" => "Bearer bench-token" }.freeze
 
   class FakeLoadTest
     attr_reader :name, :headers_seen
@@ -47,9 +48,14 @@ class BenchRunnerTest < Minitest::Test
                     out: out, server_factory: FAKE_SERVER_FACTORY)
   end
 
+  # Runs with db_auth_redis left out, so the combination count is COMBINATIONS.
+  def run_without_redis(**options)
+    without_redis { build_runner(**options).run }
+  end
+
   def test_prints_header_and_one_progress_line_per_round
     out = StringIO.new
-    build_runner(out: out).run
+    run_without_redis(out: out)
 
     lines = out.string.lines
     assert_equal HEADER, lines.first
@@ -61,7 +67,7 @@ class BenchRunnerTest < Minitest::Test
 
   def test_quick_runs_one_round_per_combination
     out = StringIO.new
-    build_runner(out: out, quick: true).run
+    run_without_redis(out: out, quick: true)
 
     lines = out.string.lines
     assert_equal "Benchmark: boto, roda, sinatra (fake-tool), #{COMBINATIONS} medições " \
@@ -72,15 +78,15 @@ class BenchRunnerTest < Minitest::Test
 
   def test_failed_round_ends_line_with_message_and_reraises
     out = StringIO.new
-    runner = build_runner(out: out, load_test: FakeLoadTest.new(failure: RuntimeError.new("boom")))
+    load_test = FakeLoadTest.new(failure: RuntimeError.new("boom"))
 
-    assert_raises(RuntimeError) { runner.run }
+    assert_raises(RuntimeError) { run_without_redis(out: out, load_test: load_test) }
     assert_equal HEADER, out.string.lines.first
     assert_equal "[1/#{TOTAL}] boto hello round 1/#{ROUNDS} ... falhou: boom\n", out.string.lines.last
   end
 
   def test_run_returns_summarized_results_by_framework
-    result = build_runner(out: StringIO.new).run
+    result = run_without_redis(out: StringIO.new)
 
     assert_equal({ "rps" => 1000.0, "p99_ms" => 12.5, "allocations" => 1.0 }, result["boto"]["hello"])
     assert_equal %w[hello db db_schema db_auth], result["boto"].keys
@@ -89,11 +95,18 @@ class BenchRunnerTest < Minitest::Test
 
   def test_only_db_auth_rounds_send_authorization_header
     load_test = FakeLoadTest.new
-    build_runner(out: StringIO.new, load_test: load_test).run
+    run_without_redis(out: StringIO.new, load_test: load_test)
 
-    auth = { "Authorization" => "Bearer bench-token" }
-    assert_includes load_test.headers_seen, auth
+    assert_includes load_test.headers_seen, AUTH
     assert_includes load_test.headers_seen, {}
-    assert_equal ROUNDS, load_test.headers_seen.count(auth)
+    assert_equal ROUNDS, load_test.headers_seen.count(AUTH)
+  end
+
+  def test_db_auth_redis_runs_with_auth_when_redis_is_available
+    load_test = FakeLoadTest.new
+    result = with_redis { build_runner(out: StringIO.new, load_test: load_test).run }
+
+    assert_equal %w[hello db db_schema db_auth db_auth_redis], result["boto"].keys
+    assert_equal 2 * ROUNDS, load_test.headers_seen.count(AUTH)
   end
 end

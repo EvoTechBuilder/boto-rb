@@ -24,6 +24,8 @@ class BenchAllocationsTest < Minitest::Test
   def test_build_envs_sends_bearer_token_only_for_db_auth
     auth_envs = BenchAllocations.build_envs("db_auth", 2, offset: 0)
     assert_equal ["Bearer bench-token"] * 2, auth_envs.map { _1["HTTP_AUTHORIZATION"] }
+    redis_envs = BenchAllocations.build_envs("db_auth_redis", 2, offset: 0)
+    assert_equal ["Bearer bench-token"] * 2, redis_envs.map { _1["HTTP_AUTHORIZATION"] }
     assert_nil BenchAllocations.build_envs("db", 1, offset: 0).first["HTTP_AUTHORIZATION"]
   end
 end

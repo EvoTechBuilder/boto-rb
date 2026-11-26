@@ -58,8 +58,20 @@ jobs:
     runs-on: ubuntu-latest
     # A stuck server or load tool must not hold the runner for GitHub's 6-hour default.
     timeout-minutes: 30
+    # Redis for the db_auth_redis scenario; without it the scenario is skipped.
+    services:
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 2s
+          --health-timeout 2s
+          --health-retries 15
     env:
       RUBY_YJIT_ENABLE: "1"
+      REDIS_URL: redis://localhost:6379/15
     steps:
       - name: Checkout current
         uses: actions/checkout@v4

@@ -53,4 +53,19 @@ class BenchAppsTest < Minitest::Test
     status, _type, _text = get("boto", "db_auth", BenchScenarios::DB_LOAD_PATH, extra_env: {})
     assert_equal 401, status
   end
+
+  def test_boto_db_auth_redis_with_token_returns_user
+    skip "Redis não disponível" unless BenchScenarios.redis_available?
+
+    status, _type, text = get("boto", "db_auth_redis", BenchScenarios::DB_LOAD_PATH)
+    assert_equal 200, status
+    assert_equal({ "id" => 500, "name" => "user 500" }, JSON.parse(text))
+  end
+
+  def test_boto_db_auth_redis_without_token_is_401
+    skip "Redis não disponível" unless BenchScenarios.redis_available?
+
+    status, _type, _text = get("boto", "db_auth_redis", BenchScenarios::DB_LOAD_PATH, extra_env: {})
+    assert_equal 401, status
+  end
 end

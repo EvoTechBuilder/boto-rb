@@ -7,6 +7,9 @@ gem "boto", path: File.join(boto_root, "gems/boto")
 # Bases antigas (ex. CI) podem não ter o boto-security: só declara a gem se a pasta existir.
 boto_security_path = File.join(boto_root, "gems/boto-security")
 gem "boto-security", path: boto_security_path if File.directory?(boto_security_path)
+# Mesma regra: só o cenário db_auth_redis usa a boto-redis, e ele é pulado sem ela.
+boto_redis_path = File.join(boto_root, "gems/boto-redis")
+gem "boto-redis", path: boto_redis_path if File.directory?(boto_redis_path)
 gem "roda"
 gem "sinatra"
 gem "sequel"

@@ -21,6 +21,7 @@ module BenchMain
     $stdout.sync = true
     $stderr.sync = true
     options = BenchOptions.parse(argv)
+    BenchScenarios.warn_skipped
     results = run_benchmarks(options)
     puts BenchReport.table(results.slice(*BenchScenarios::FRAMEWORKS))
     status = options.compare ? compare(results) : 0

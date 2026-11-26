@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "stringio"
 require_relative "../test_helper"
 
 class BenchScenariosTest < Minitest::Test
@@ -29,9 +30,11 @@ class BenchScenariosTest < Minitest::Test
   end
 
   def test_db_schema_runs_only_on_boto
-    assert_equal ["boto"], BenchScenarios.frameworks_for("db_schema")
-    assert_equal %w[db_schema db_auth], BenchScenarios.scenarios_for("boto") - %w[hello db]
-    assert_equal %w[hello db], BenchScenarios.scenarios_for("roda")
+    without_redis do
+      assert_equal ["boto"], BenchScenarios.frameworks_for("db_schema")
+      assert_equal %w[db_schema db_auth], BenchScenarios.scenarios_for("boto") - %w[hello db]
+      assert_equal %w[hello db], BenchScenarios.scenarios_for("roda")
+    end
   end
 
   def test_db_auth_runs_only_on_boto
@@ -40,12 +43,22 @@ class BenchScenariosTest < Minitest::Test
   end
 
   def test_combinations_skip_unsupported_pairs
-    combinations = BenchScenarios.combinations
-    assert_includes combinations, ["boto", "db_schema"]
-    assert_includes combinations, ["boto", "db_auth"]
-    refute_includes combinations, ["roda", "db_schema"]
-    refute_includes combinations, ["sinatra", "db_auth"]
-    assert_equal 8, combinations.size
+    without_redis do
+      combinations = BenchScenarios.combinations
+      assert_includes combinations, ["boto", "db_schema"]
+      assert_includes combinations, ["boto", "db_auth"]
+      refute_includes combinations, ["roda", "db_schema"]
+      refute_includes combinations, ["sinatra", "db_auth"]
+      assert_equal 8, combinations.size
+    end
+  end
+
+  def test_combinations_include_db_auth_redis_only_with_redis
+    without_redis { refute_includes BenchScenarios.combinations, ["boto", "db_auth_redis"] }
+    with_redis do
+      assert_includes BenchScenarios.combinations, ["boto", "db_auth_redis"]
+      assert_equal 9, BenchScenarios.combinations.size
+    end
   end
 
   def test_db_schema_is_a_db_scenario_with_the_same_paths
@@ -62,19 +75,82 @@ class BenchScenariosTest < Minitest::Test
     assert File.exist?(BenchScenarios.app_path("boto", "db_auth"))
   end
 
-  def test_only_db_auth_sends_authorization_header
+  def test_db_auth_redis_is_a_db_scenario_with_its_own_app
+    assert BenchScenarios.db_scenario?("db_auth_redis")
+    assert_equal "/users/500", BenchScenarios.load_path("db_auth_redis")
+    assert_equal "/users/1", BenchScenarios.path_for("db_auth_redis", 0)
+    assert File.exist?(BenchScenarios.app_path("boto", "db_auth_redis"))
+  end
+
+  def test_db_auth_redis_runs_only_on_boto_when_redis_is_available
+    with_redis do
+      assert_equal ["boto"], BenchScenarios.frameworks_for("db_auth_redis")
+      assert_equal %w[hello db db_schema db_auth db_auth_redis], BenchScenarios.scenarios_for("boto")
+    end
+  end
+
+  def test_db_auth_redis_is_left_out_without_redis
+    without_redis do
+      assert_empty BenchScenarios.frameworks_for("db_auth_redis")
+      refute_includes BenchScenarios.scenarios_for("boto"), "db_auth_redis"
+    end
+  end
+
+  def test_only_db_auth_scenarios_send_authorization_header
     assert_equal({ "Authorization" => "Bearer bench-token" }, BenchScenarios.headers_for("db_auth"))
     assert_equal({ "HTTP_AUTHORIZATION" => "Bearer bench-token" }, BenchScenarios.rack_env_for("db_auth"))
+    assert_equal({ "HTTP_AUTHORIZATION" => "Bearer bench-token" }, BenchScenarios.rack_env_for("db_auth_redis"))
     assert_empty BenchScenarios.headers_for("db")
     assert_empty BenchScenarios.headers_for("hello")
     assert_empty BenchScenarios.rack_env_for("db_schema")
   end
 
   def test_matrix_holds_only_supported_combinations
-    matrix = BenchScenarios.matrix { |framework, scenario| "#{framework}/#{scenario}" }
-    assert_equal({ "hello" => "boto/hello", "db" => "boto/db", "db_schema" => "boto/db_schema",
-                   "db_auth" => "boto/db_auth" }, matrix["boto"])
-    assert_equal({ "hello" => "roda/hello", "db" => "roda/db" }, matrix["roda"])
-    assert_equal BenchScenarios::FRAMEWORKS, matrix.keys
+    without_redis do
+      matrix = BenchScenarios.matrix { |framework, scenario| "#{framework}/#{scenario}" }
+      assert_equal({ "hello" => "boto/hello", "db" => "boto/db", "db_schema" => "boto/db_schema",
+                     "db_auth" => "boto/db_auth" }, matrix["boto"])
+      assert_equal({ "hello" => "roda/hello", "db" => "roda/db" }, matrix["roda"])
+      assert_equal BenchScenarios::FRAMEWORKS, matrix.keys
+    end
+  end
+
+  def test_matrix_includes_db_auth_redis_with_redis
+    with_redis do
+      matrix = BenchScenarios.matrix { |framework, scenario| "#{framework}/#{scenario}" }
+      assert_equal "boto/db_auth_redis", matrix["boto"]["db_auth_redis"]
+      refute_includes matrix["roda"].keys, "db_auth_redis"
+    end
+  end
+
+  def test_redis_url_uses_env_or_default
+    assert_equal BenchScenarios::REDIS_DEFAULT_URL, BenchScenarios.redis_url(env: {})
+    assert_equal "redis://10.0.0.5:6390/1", BenchScenarios.redis_url(env: { "REDIS_URL" => "redis://10.0.0.5:6390/1" })
+  end
+
+  def test_redis_endpoint_shows_only_host_and_port
+    assert_equal "10.0.0.5:6390", BenchScenarios.redis_endpoint("redis://:secret@10.0.0.5:6390/0")
+    assert_equal "127.0.0.1:6379", BenchScenarios.redis_endpoint("redis://127.0.0.1/0")
+    assert_equal "invalid REDIS_URL", BenchScenarios.redis_endpoint("redis://bad host/0")
+  end
+
+  def test_redis_reachable_is_false_when_nothing_listens
+    refute BenchScenarios.redis_reachable?("redis://127.0.0.1:1/0")
+  end
+
+  def test_skip_notice_is_nil_with_redis
+    with_redis { assert_nil BenchScenarios.skip_notice }
+  end
+
+  def test_warn_skipped_prints_one_line_without_redis
+    out = StringIO.new
+    without_redis { BenchScenarios.warn_skipped(io: out) }
+    assert_match(/\Adb_auth_redis skipped: Redis not available at \S+:\d+\n\z/, out.string)
+  end
+
+  def test_warn_skipped_is_silent_with_redis
+    out = StringIO.new
+    with_redis { BenchScenarios.warn_skipped(io: out) }
+    assert_empty out.string
   end
 end

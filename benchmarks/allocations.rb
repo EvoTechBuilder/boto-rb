@@ -60,5 +60,6 @@ module BenchAllocations
 end
 
 if __FILE__ == $PROGRAM_NAME
+  BenchScenarios.warn_skipped
   BenchAllocations.print_table(BenchAllocations.measure_all)
 end
