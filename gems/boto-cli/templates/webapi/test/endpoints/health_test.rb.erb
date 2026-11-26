@@ -1,0 +1,14 @@
+# frozen_string_literal: true
+
+require "test_helper"
+
+class <%= namespace %>HealthTest < Minitest::Test
+  def test_returns_ok
+    assert_equal({ status: "ok" }, <%= namespace %>::Health.new.call)
+  end
+
+  def test_responds_over_http
+    response = Rack::MockRequest.new(APP).get("/health")
+    assert_equal 200, response.status
+  end
+end

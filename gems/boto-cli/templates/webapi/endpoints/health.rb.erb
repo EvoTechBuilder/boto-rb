@@ -1,0 +1,7 @@
+# frozen_string_literal: true
+
+class <%= namespace %>::Health < Boto::Endpoint
+  get "/health"
+
+  def call = { status: "ok" }
+end

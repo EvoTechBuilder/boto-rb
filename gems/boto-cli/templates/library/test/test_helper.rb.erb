@@ -1,0 +1,8 @@
+# frozen_string_literal: true
+
+require "minitest/autorun"
+require "boto"
+
+SOLUTION_ROOT = File.expand_path("../../..", __dir__)
+BOOT = Boto::Boot.new(Boto::Botofile.load(File.join(SOLUTION_ROOT, "Botofile")), root: SOLUTION_ROOT)
+BOOT.load("<%= name %>")
