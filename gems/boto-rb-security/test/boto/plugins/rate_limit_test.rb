@@ -203,7 +203,20 @@ class Boto::Plugins::RateLimitTest < Minitest::Test
     assert_invalid(max_keys: 0)
   end
 
+  def test_error_statuses_are_429_for_a_store_without_error_statuses
+    assert_equal [429], build_plugin.error_statuses
+  end
+
+  def test_error_statuses_include_the_statuses_the_store_declares
+    assert_equal [429, 503], build_plugin(store: StatusStore.new).error_statuses
+  end
+
   private
+
+  class StatusStore
+    def increment(_key, _period) = [1, PERIOD]
+    def error_statuses = [503]
+  end
 
   def build_plugin(**options)
     Boto::Plugins::RateLimit.new(

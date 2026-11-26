@@ -427,6 +427,88 @@ class OpenAPITest < Minitest::Test
   end
 end
 
+module OpenAPIFakes
+  # Stands in for boto-rb-security's :rate_limit, which declares 429 for the endpoints it guards.
+  class RateLimit < Boto::Plugin
+    scope :endpoint
+
+    def error_statuses = [429]
+  end
+end
+
+module OpenAPITestGuarded
+  class Guarded < Boto::Endpoint
+    get "/guarded"
+  end
+
+  class Exempt < Boto::Endpoint
+    get "/exempt"
+    skip :rate_limit
+  end
+
+  class Declared < Boto::Endpoint
+    get "/declared"
+    errors 429
+  end
+end
+
+class OpenAPIErrorsTest < Minitest::Test
+  def test_endpoint_reading_body_documents_400_and_413
+    responses = operation(shop_document, "/users", "post")["responses"]
+
+    assert_equal "Bad Request", responses["400"]["description"]
+    assert_equal "Content Too Large", responses["413"]["description"]
+    assert_equal "Unprocessable Content", responses["422"]["description"]
+  end
+
+  def test_query_params_also_read_input_and_document_400_and_413
+    responses = operation(shop_document, "/users", "get")["responses"]
+
+    assert_equal %w[200 400 413 422], responses.keys
+  end
+
+  def test_path_only_endpoint_documents_404_without_input_errors
+    responses = operation(shop_document, "/users/{id}", "get")["responses"]
+
+    assert_equal %w[200 404 422], responses.keys
+  end
+
+  def test_plugin_error_status_is_documented_on_guarded_endpoint
+    responses = operation(guarded_document, "/guarded", "get")["responses"]
+
+    assert_equal "Too Many Requests", responses["429"]["description"]
+  end
+
+  def test_skipped_plugin_error_status_is_not_documented
+    refute_includes operation(guarded_document, "/exempt", "get")["responses"], "429"
+  end
+
+  def test_declared_and_plugin_error_status_appear_once
+    responses = operation(guarded_document, "/declared", "get")["responses"]
+
+    assert_equal %w[200 429], responses.keys
+  end
+
+  private
+
+  def shop_document
+    @shop_document ||= document_for(OpenAPITestShop)
+  end
+
+  def guarded_document
+    @guarded_document ||= document_for(OpenAPITestGuarded, plugins: [OpenAPIFakes::RateLimit.new(env_name: "production")])
+  end
+
+  def document_for(namespace, plugins: [])
+    app = Boto::App.new(namespace: namespace, plugins: plugins, error_output: StringIO.new)
+    Boto::OpenAPI.generate(app, title: "Errors API", version: "1.0.0")
+  end
+
+  def operation(document, path, verb)
+    document["paths"].fetch(path).fetch(verb)
+  end
+end
+
 module OpenAPITestReserved
   class Problem < Boto::Schema
     field :code, String

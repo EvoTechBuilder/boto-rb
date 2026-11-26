@@ -58,6 +58,19 @@ class Boto::Plugins::AuthTest < Minitest::Test
     assert_equal 'Bearer realm="Boto"', plugin.strategy.challenge
   end
 
+  def test_error_statuses_are_401_for_a_strategy_without_error_statuses
+    assert_equal [401], build(strategy: :bearer, tokens: ["t"]).error_statuses
+  end
+
+  def test_error_statuses_add_the_statuses_of_the_strategy
+    plugin = build(strategy: :bearer, tokens: ["t"])
+    strategy = Object.new
+    strategy.define_singleton_method(:error_statuses) { [413] }
+    plugin.define_singleton_method(:strategy) { strategy }
+
+    assert_equal [401, 413], plugin.error_statuses
+  end
+
   private
 
   def build(**options)

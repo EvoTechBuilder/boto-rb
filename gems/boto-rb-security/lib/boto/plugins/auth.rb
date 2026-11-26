@@ -11,6 +11,11 @@ module Boto
 
       attr_reader :strategy
 
+      # The strategy adds its own statuses (e.g. a signature that reads the body answers 413).
+      def error_statuses
+        [Boto::Error::Unauthorized::STATUS, *strategy_error_statuses]
+      end
+
       def call(env, app)
         principal = strategy.authenticate(env)
         return Boto::Error::Unauthorized.new(strategy.challenge).to_response unless principal
@@ -20,6 +25,10 @@ module Boto
       end
 
       private
+
+      def strategy_error_statuses
+        strategy.respond_to?(:error_statuses) ? strategy.error_statuses : []
+      end
 
       def configure(strategy:, **options)
         @strategy = build_strategy(strategy, options)

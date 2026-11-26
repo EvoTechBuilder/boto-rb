@@ -39,8 +39,10 @@ module Boto
     QUERY_LOCATION = "query"
     ARRAY_TYPE = "array"
     NO_CONTENT = 204
+    BAD_REQUEST = 400
     NOT_FOUND = 404
     UNAUTHORIZED = 401
+    PAYLOAD_TOO_LARGE = 413
     UNPROCESSABLE = 422
     UNKNOWN_STATUS_TITLE = "Unknown Status"
     CAMEL_WORD_BOUNDARY = /([a-z\d])([A-Z])/
@@ -53,17 +55,19 @@ module Boto
       {
         "openapi" => spec_version(endpoints),
         "info" => { "title" => title, "version" => version },
-        "paths" => paths(endpoints, guards),
+        "paths" => paths(app, endpoints, guards),
         "components" => components(endpoints, guards)
       }
     end
 
-    def self.paths(endpoints, guards)
+    def self.paths(app, endpoints, guards)
       sorted = endpoints.sort_by { |endpoint| [endpoint.route.last, endpoint.route.first] }
       secured = guards.each_value.any?
       sorted.each_with_object({}) do |endpoint, result|
         verb, path = endpoint.route
-        operation = Operation.new(endpoint, auth: guards[endpoint], secured: secured).to_h
+        operation = Operation.new(
+          endpoint, auth: guards[endpoint], secured: secured, plugins: app.plugins_for(endpoint)
+        ).to_h
         (result[openapi_path(path)] ||= {})[verb.downcase] = operation
       end
     end

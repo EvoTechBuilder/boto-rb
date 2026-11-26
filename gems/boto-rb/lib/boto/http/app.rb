@@ -37,6 +37,7 @@ module Boto
       @title = namespace.name.freeze
       @global_plugins, @endpoint_plugins = ordered(plugins).partition { |plugin| plugin.class.scope == GLOBAL_SCOPE }
       @auth_by_endpoint = {}
+      @plugins_by_endpoint = {}
       @router = Router.new
       @endpoints = discover(namespace).each { |endpoint| register(endpoint) }.freeze
       @router.compile
@@ -52,6 +53,11 @@ module Boto
     # The instance of :auth that guards the endpoint, or nil when the endpoint is not authenticated.
     def auth_for(endpoint)
       @auth_by_endpoint[endpoint]
+    end
+
+    # The global plugins plus the endpoint plugins that run on the endpoint (not skipped, including its own :auth).
+    def plugins_for(endpoint)
+      @global_plugins + @plugins_by_endpoint.fetch(endpoint, [])
     end
 
     # Idempotent. A plugin that fails to start stops the ones already started, then the boot fails.
@@ -135,6 +141,7 @@ module Boto
       endpoint.compile!
       check_skips!(endpoint)
       plugins = endpoint_plugins_for(endpoint)
+      @plugins_by_endpoint[endpoint] = plugins
       @auth_by_endpoint[endpoint] = plugins.find { |plugin| plugin.class.plugin_name == AUTH_PLUGIN }
       @router.add(*endpoint.route, entry_for(endpoint, plugins))
     rescue Router::DuplicateRouteError, ArgumentError => e

@@ -29,7 +29,16 @@ module Boto
         @store.close if @store.respond_to?(:close)
       end
 
+      # The store adds its own statuses (a Redis store with on_error: :deny answers 503).
+      def error_statuses
+        [Boto::Error::TooManyRequests::STATUS, *store_error_statuses]
+      end
+
       private
+
+      def store_error_statuses
+        @store.respond_to?(:error_statuses) ? @store.error_statuses : []
+      end
 
       def configure(limit:, period:, key: nil, trusted_proxies: [], store: nil, clock: nil, max_keys: nil)
         @limit = positive_integer!(limit, :limit)

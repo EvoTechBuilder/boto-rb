@@ -53,6 +53,11 @@ module Boto
         "#<#{self.class.name} endpoint=#{@endpoint} prefix=#{@prefix} on_error=#{@on_error}>"
       end
 
+      # With on_error: :deny, an outage answers 503 (see handle_failure).
+      def error_statuses
+        @on_error == :deny ? [::Boto::Error::ServiceUnavailable::STATUS] : []
+      end
+
       # An injected client belongs to the caller, so only the pool built from url: is closed here.
       def close
         return if @closed

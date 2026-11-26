@@ -5,10 +5,12 @@ module Boto
     # The operation object of one endpoint: its parameters, body and responses.
     class Operation
       # auth: the :auth plugin guarding the endpoint, or nil. secured: whether the document declares any security.
-      def initialize(endpoint, auth: nil, secured: false)
+      # plugins: every plugin that runs on the endpoint, each one declaring the errors it can answer.
+      def initialize(endpoint, auth: nil, secured: false, plugins: [])
         @endpoint = endpoint
         @auth = auth
         @secured = secured
+        @plugins = plugins
       end
 
       def to_h
@@ -89,11 +91,27 @@ module Boto
       end
 
       def error_codes
-        (@endpoint.error_statuses + implicit_error_codes).uniq.sort
+        (@endpoint.error_statuses + implicit_error_codes + plugin_error_statuses).uniq.sort
+      end
+
+      def plugin_error_statuses
+        @plugins.flat_map(&:error_statuses)
       end
 
       def implicit_error_codes
-        [(UNPROCESSABLE if validated?), (NOT_FOUND unless path_param_names.empty?), (UNAUTHORIZED if @auth)].compact
+        [
+          (UNPROCESSABLE if validated?), (NOT_FOUND unless path_param_names.empty?),
+          (UNAUTHORIZED if @auth), *body_error_codes
+        ].compact
+      end
+
+      def body_error_codes
+        reads_input? ? [BAD_REQUEST, PAYLOAD_TOO_LARGE] : []
+      end
+
+      # The core reads the body when the endpoint declares one, or when it takes params outside the path.
+      def reads_input?
+        !@endpoint.body_schema.nil? || !(@endpoint.params.names - path_param_names).empty?
       end
 
       def validated?

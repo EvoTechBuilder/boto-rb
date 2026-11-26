@@ -50,6 +50,9 @@ module Boto
           { "type" => "apiKey", "in" => "header", "name" => @header }
         end
 
+        # The body is read here, before the endpoint, so an oversized one is answered with 413.
+        def error_statuses = [Boto::Error::PayloadTooLarge::STATUS]
+
         private
 
         def validate_secret(secret)

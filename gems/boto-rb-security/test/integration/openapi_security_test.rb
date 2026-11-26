@@ -17,6 +17,11 @@ module OpenAPISecurityShop
     post "/webhook"
     authenticate :signature, secret: "s", header: "X-Signature"
   end
+
+  class Exempt < Boto::Endpoint
+    get "/exempt"
+    skip :rate_limit
+  end
 end
 
 class OpenAPISecurityTest < Minitest::Test
@@ -45,6 +50,15 @@ class OpenAPISecurityTest < Minitest::Test
     refute_includes operation("/health", "get")["responses"], "401"
   end
 
+  def test_rate_limited_operations_document_429
+    assert_equal "Too Many Requests", operation("/me", "get")["responses"]["429"]["description"]
+    assert_equal "Too Many Requests", operation("/health", "get")["responses"]["429"]["description"]
+  end
+
+  def test_operation_skipping_rate_limit_does_not_document_429
+    refute_includes operation("/exempt", "get")["responses"], "429"
+  end
+
   def test_every_ref_resolves
     refs = collect_refs(document)
 
@@ -61,6 +75,7 @@ class OpenAPISecurityTest < Minitest::Test
   def app
     config = Boto::Configuration.new(env_name: "production")
                                 .use(:auth, strategy: :jwt, secret: "x", algorithms: ["HS256"])
+                                .use(:rate_limit, limit: 10, period: 60)
     Boto::App.new(namespace: OpenAPISecurityShop, plugins: config.plugins, env_name: "production",
                   error_output: StringIO.new)
   end

@@ -200,4 +200,8 @@ class Boto::Plugins::Auth::SignatureTest < Minitest::Test
       strategy.security_scheme
     )
   end
+
+  def test_error_statuses_include_payload_too_large
+    assert_equal [413], Boto::Plugins::Auth::Signature.new(secret: "s3cret").error_statuses
+  end
 end

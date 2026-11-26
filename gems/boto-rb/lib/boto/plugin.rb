@@ -7,6 +7,7 @@ module Boto
     ORDER = %i[hosts cors secure_headers sessions csrf auth rate_limit].freeze
     SCOPES = %i[global endpoint].freeze
     DEFAULT_SCOPE = :endpoint
+    NO_ERROR_STATUSES = [].freeze
 
     class << self
       def scope(value = nil)
@@ -47,6 +48,9 @@ module Boto
 
     # Runs at shutdown; must tolerate being called after its resource is already closed.
     def stop = nil
+
+    # Statuses this plugin can answer for an endpoint it guards; documented by OpenAPI.
+    def error_statuses = NO_ERROR_STATUSES
 
     def development?
       env_name == "development"
