@@ -1,0 +1,14 @@
+# frozen_string_literal: true
+
+source "https://rubygems.org"
+
+gem "boto", path: File.join(ENV.fetch("BOTO_ROOT", File.expand_path("..", __dir__)), "gems/boto")
+gem "roda"
+gem "sinatra"
+gem "sequel"
+gem "sqlite3"
+gem "falcon"
+
+group :test do
+  gem "minitest", "~> 6.0"
+end
