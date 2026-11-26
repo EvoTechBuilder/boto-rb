@@ -6,16 +6,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- `Boto::Plugin#error_statuses` (empty by default) lets a plugin declare the statuses it can answer, and `Boto::App#plugins_for(endpoint)` lists the plugins that run on an endpoint.
 - Plugin lifecycle: `Boto::Plugin#start` and `#stop` (no-ops by default). `Boto::App#start` starts every plugin of the app in the fixed order, including the `:auth` instances built by `authenticate`; a failing start stops the plugins already started and raises `Boto::App::BootError`. `Boto::App#stop` stops them in reverse order and logs failures. Both are idempotent.
 - `Boto::Redis::RateLimitStore#close` shuts down the pool built from `url:` (an injected `client:` stays open), and the `:rate_limit` plugin closes its store on stop.
 - `Boto::RequestBody.read(env, limit:)` returns the raw request body under the same size limit as JSON parsing (1 MB by default) and raises `Boto::Error::PayloadTooLarge` (413) above it.
 
 ### Changed
 
+- The OpenAPI document lists every error the framework can answer for an operation: 400 and 413 when the core reads the body, 401 for `:auth` plus 413 for `:signature`, 429 for `:rate_limit` and 503 for a Redis store with `on_error: :deny`. Codes declared with `errors` are not repeated.
+- Invalid type constraints fail when the schema is declared: `min` greater than `max`, NaN or infinite bounds, negative or fractional length bounds, repeated `enum` values and `enum` values that break `min`, `max` or `pattern`.
+- `Boto::Boot#load` rolls back the loaders it created when `setup` or `eager_load` fails, so the same `Boot` can load again. `Boto::Boot#shutdown` tries every loader, logs each failure to `warn_output` and always clears its state.
 - `Boto::Boot#app` returns a started app, and `Boto::Boot#shutdown` stops the apps it built before unloading the project code. Code that builds `Boto::App.new` directly calls `start` and `stop` itself.
 
 ### Fixed
 
+- Auth strategies keep deep frozen copies of their settings (keys, credentials, tokens, algorithms, secrets, header and prefix). Changing the caller's objects after boot no longer changes authentication, and `:jwt` no longer freezes the caller's `algorithms` array.
 - The `:signature` auth strategy no longer reads an unbounded body: it reads through `Boto::RequestBody.read` and answers 413 above the limit. An input without `rewind` is replaced with the body it read, so the endpoint can still read it.
 - The Botofile rejects two projects whose names map to the same Ruby namespace (`foo_bar` and `foo__bar` both give `FooBar`), which would make them share one module and break isolation.
 - A schema whose compile failed is no longer reported as compiled: the next `compile!` retries and raises the same error, instead of `serialize` recursing until `SystemStackError`. Field names that shadow public `Object` methods (`object_id`, `send`...), `initialize` or the generated `__boto` methods are rejected. Ruby keywords such as `end` stay valid field names.
