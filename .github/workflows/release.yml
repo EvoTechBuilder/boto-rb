@@ -1,0 +1,51 @@
+name: Release
+
+# Publishes the four gems to RubyGems when a version tag (v1.2.3) is pushed.
+# Uses RubyGems trusted publishing (OIDC): no API key is stored in GitHub. Each gem needs a
+# trusted publisher on rubygems.org for this repository, this workflow file and the
+# "rubygems" environment.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Protection rules on this environment (required reviewers) can gate every release.
+    environment: rubygems
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "4.0"
+
+      # Builds in dependency order. gem build names the file after the gemspec version,
+      # so a tag that does not match every gem's VERSION fails here, before anything is pushed.
+      - name: Build gems
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          for gem in boto-rb boto-rb-security boto-rb-redis boto-rb-cli; do
+            (cd "gems/$gem" && gem build "$gem.gemspec")
+            test -f "gems/$gem/$gem-$version.gem" || { echo "::error::$gem is not at version $version"; exit 1; }
+          done
+
+      - uses: rubygems/configure-rubygems-credentials@v1.0.0
+
+      - name: Push gems
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          for gem in boto-rb boto-rb-security boto-rb-redis boto-rb-cli; do
+            gem push "gems/$gem/$gem-$version.gem"
+          done
