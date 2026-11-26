@@ -1,0 +1,4 @@
+solution "shop"
+
+project "domain", template: :library
+project "orders", template: :webapi, refs: %w[domain]
