@@ -22,8 +22,20 @@ jobs:
       matrix:
         ruby: ["3.4", "4.0", "head"]
         yjit: [true, false]
+    # boto-redis tests need a real Redis; locally they skip when none is reachable.
+    services:
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 2s
+          --health-timeout 2s
+          --health-retries 15
     env:
       RUBY_YJIT_ENABLE: ${{ matrix.yjit && '1' || '' }}
+      REDIS_URL: redis://localhost:6379/15
     steps:
       - uses: actions/checkout@v4
 
