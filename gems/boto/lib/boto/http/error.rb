@@ -102,5 +102,20 @@ module Boto
         { "retry-after" => retry_after.to_s }
       end
     end
+
+    class ServiceUnavailable < Error
+      STATUS = 503
+
+      attr_reader :retry_after
+
+      def initialize(detail = nil, retry_after: nil)
+        @retry_after = retry_after
+        super(detail)
+      end
+
+      def headers
+        retry_after ? { "retry-after" => retry_after.to_s } : NO_HEADERS
+      end
+    end
   end
 end

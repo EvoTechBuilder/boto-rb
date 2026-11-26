@@ -2,11 +2,22 @@
 
 require "test_helper"
 require "rack/mock"
+require "json"
 
 class Boto::Plugins::RateLimitTest < Minitest::Test
   OK_APP = ->(_env) { [200, { "content-type" => "text/plain" }, ["ok"]] }
   LIMIT = 2
   PERIOD = 60
+
+  class FailingStore
+    def initialize(error)
+      @error = error
+    end
+
+    def increment(_key, _period)
+      raise @error
+    end
+  end
 
   def setup
     @now = 0.0
@@ -134,6 +145,24 @@ class Boto::Plugins::RateLimitTest < Minitest::Test
     store = Boto::Plugins::RateLimit::MemoryStore.new(clock: @clock)
 
     assert_raises(ArgumentError) { build_plugin(store: store, max_keys: 2) }
+  end
+
+  def test_store_unavailable_returns_its_error_response_without_calling_app
+    store = FailingStore.new(Boto::Error::ServiceUnavailable.new("rate limit store unavailable"))
+    app = ->(_env) { flunk "app must not be called when the store is unavailable" }
+
+    response = get(build_plugin(store: store), {}, app)
+
+    assert_equal 503, response.status
+    assert_includes response.headers["content-type"], "problem+json"
+    assert_equal "rate limit store unavailable", JSON.parse(response.body)["detail"]
+    refute response.headers.key?("ratelimit-limit")
+  end
+
+  def test_store_error_that_is_not_a_boto_error_propagates
+    store = FailingStore.new(RuntimeError.new("boom"))
+
+    assert_raises(RuntimeError) { get(build_plugin(store: store)) }
   end
 
   def test_rejects_invalid_options

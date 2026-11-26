@@ -116,6 +116,39 @@ module Boto
       assert_equal "slow down", error.detail
     end
 
+    def test_service_unavailable_status_and_default_message
+      error = Error::ServiceUnavailable.new
+
+      assert_equal 503, error.status
+      assert_equal "Service Unavailable", error.message
+      assert_nil error.retry_after
+    end
+
+    def test_service_unavailable_sends_retry_after_when_given
+      error = Error::ServiceUnavailable.new("store down", retry_after: 5)
+
+      assert_equal 5, error.retry_after
+      assert_equal({ "retry-after" => "5" }, error.headers)
+    end
+
+    def test_service_unavailable_without_retry_after_has_empty_headers
+      error = Error::ServiceUnavailable.new("store down")
+
+      assert_empty error.headers
+      assert_predicate error.headers, :frozen?
+    end
+
+    def test_service_unavailable_to_response_is_problem_json
+      status, headers, body = Error::ServiceUnavailable.new("store down", retry_after: 5).to_response
+      json = JSON.parse(body.first)
+
+      assert_equal 503, status
+      assert_equal "application/problem+json", headers["content-type"]
+      assert_equal "5", headers["retry-after"]
+      assert_equal "Service Unavailable", json["title"]
+      assert_equal "store down", json["detail"]
+    end
+
     def test_all_subclasses_are_boto_errors
       [
         Error::BadRequest.new,
@@ -125,7 +158,8 @@ module Boto
         Error::Unprocessable.new([]),
         Error::Unauthorized.new,
         Error::Forbidden.new,
-        Error::TooManyRequests.new(1)
+        Error::TooManyRequests.new(1),
+        Error::ServiceUnavailable.new
       ].each { |error| assert_kind_of Error, error }
     end
   end

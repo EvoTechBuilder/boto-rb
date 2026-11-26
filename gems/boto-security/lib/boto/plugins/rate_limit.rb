@@ -15,7 +15,12 @@ module Boto
       RESET_HEADER = "ratelimit-reset"
 
       def call(env, app)
-        count, reset_in = @store.increment(client_key(env), @period)
+        count, reset_in = begin
+          @store.increment(client_key(env), @period)
+        rescue Boto::Error => error
+          return error.to_response
+        end
+
         status, headers, body = count > @limit ? too_many_requests(reset_in) : app.call(env)
         [status, with_rate_headers(headers, count, reset_in), body]
       end
