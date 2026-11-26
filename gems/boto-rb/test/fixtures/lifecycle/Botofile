@@ -1,0 +1,4 @@
+solution "lifecycle"
+
+project "lc_shop",   template: :webapi
+project "lc_broken", template: :webapi

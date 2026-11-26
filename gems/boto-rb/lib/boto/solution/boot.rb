@@ -16,6 +16,7 @@ module Boto
       @env = env
       @warn_output = warn_output
       @loaders = {}
+      @apps = []
       @checked = Set.new
       @skip_warned = false
     end
@@ -36,10 +37,16 @@ module Boto
       env_name = app_options.fetch(:env_name) { ENV.fetch("BOTO_ENV", "production") }
       namespace = load(name)
       config = Configuration.load(config_path(name), env_name: env_name)
-      App.new(**app_options, env_name: env_name, namespace: namespace, plugins: config.plugins)
+      app = App.new(**app_options, env_name: env_name, namespace: namespace, plugins: config.plugins)
+      app.start
+      @apps << app
+      app
     end
 
+    # Stops the apps before unloading, so plugins still see the project code. Safe to call twice.
     def shutdown
+      @apps.reverse_each(&:stop)
+      @apps.clear
       @loaders.each_value(&:unload)
       @loaders.clear
     end

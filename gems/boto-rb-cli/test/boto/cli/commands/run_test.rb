@@ -13,6 +13,15 @@ class Boto::CLI::RunCommandTest < Minitest::Test
   WEBAPI = "runapi"
   BILLING = "runbilling"
   HOST = "127.0.0.1"
+  LIFECYCLE = "runlifecycle"
+
+  # Records the lifecycle calls of the plugin declared by the solution's config/app.rb.
+  class LifecycleRecorder < Boto::Plugin
+    EVENTS = []
+
+    def start = EVENTS << :start
+    def stop = EVENTS << :stop
+  end
 
   class FakeServer
     attr_reader :apps_by_port, :host
@@ -117,7 +126,29 @@ class Boto::CLI::RunCommandTest < Minitest::Test
     assert_includes out.string, "Stopping"
   end
 
+  def test_stopping_the_run_stops_the_plugins_of_its_apps
+    LifecycleRecorder::EVENTS.clear
+    Dir.mktmpdir do |root|
+      dir = self.class.create_solution(root, [["webapi", LIFECYCLE]])
+      declare_lifecycle_recorder(dir)
+
+      assert_equal 0, run_command([], cwd: dir, server_class: InterruptedServer)
+    end
+
+    assert_equal %i[start stop], LifecycleRecorder::EVENTS
+  end
+
   private
+
+  # Appends to the template's config/app.rb, which already declares the security plugins.
+  def declare_lifecycle_recorder(dir)
+    path = File.join(dir, "services", LIFECYCLE, "config", "app.rb")
+    File.write(path, <<~RUBY, mode: "a")
+      Boto.configure do |config|
+        config.use Boto::CLI::RunCommandTest::LifecycleRecorder
+      end
+    RUBY
+  end
 
   def run_command(argv, cwd: self.class.solution_dir, out: StringIO.new, server_class: FakeServer)
     factory = ->(apps_by_port, host:) { @server = server_class.new(apps_by_port, host: host) }

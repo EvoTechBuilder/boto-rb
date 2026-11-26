@@ -135,3 +135,65 @@ class Boto::BootConfigTest < Minitest::Test
     assert_equal '{"pong":true}', res.body
   end
 end
+
+class Boto::BootLifecycleTest < Minitest::Test
+  FIXTURE = File.expand_path("../../fixtures/lifecycle", __dir__)
+  EVENTS = []
+
+  # Logs start and stop, and whether the probe constant is still loaded when the plugin stops.
+  class Recorder < Boto::Plugin
+    def configure(label:, probe:)
+      @label = label
+      @probe = probe
+    end
+
+    def start = EVENTS << [:start, @label]
+    def stop = EVENTS << [:stop, @label, Object.const_defined?(@probe)]
+  end
+
+  class FailingStart < Boto::Plugin
+    def start = raise("cannot start")
+  end
+
+  def setup
+    EVENTS.clear
+    @boot = Boto::Boot.new(Boto::Botofile.load(File.join(FIXTURE, "Botofile")), root: FIXTURE,
+                                                                               env: {}, warn_output: StringIO.new)
+  end
+
+  def teardown
+    @boot.shutdown
+  end
+
+  def test_app_is_started_before_it_is_returned
+    @boot.app("lc_shop")
+
+    assert_equal [[:start, "lc_shop"]], EVENTS
+  end
+
+  def test_shutdown_stops_apps_while_project_code_is_still_loaded
+    @boot.app("lc_shop")
+    @boot.shutdown
+
+    assert_equal [[:start, "lc_shop"], [:stop, "lc_shop", true]], EVENTS
+  end
+
+  def test_shutdown_twice_stops_each_app_once
+    @boot.app("lc_shop")
+    @boot.shutdown
+    @boot.shutdown
+
+    assert_equal 1, EVENTS.count { |event| event.first == :stop }
+  end
+
+  def test_app_whose_plugin_fails_to_start_raises_and_is_not_stopped_again
+    error = assert_raises(Boto::App::BootError) { @boot.app("lc_broken") }
+    assert_includes error.message, "failing_start"
+    started_then_stopped = [[:start, "lc_broken"], [:stop, "lc_broken", true]]
+    assert_equal started_then_stopped, EVENTS
+
+    @boot.shutdown
+
+    assert_equal started_then_stopped, EVENTS
+  end
+end
