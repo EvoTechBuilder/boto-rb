@@ -4,6 +4,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-11-26
+
+### Changed
+
+- Releases are published to RubyGems by the `Release` workflow when a `v*` tag is pushed, using trusted publishing. No code changes from 0.7.1.
+
 ## [0.7.1] - 2026-11-26
 
 ### Fixed
