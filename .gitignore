@@ -8,3 +8,4 @@
 *.key
 .env
 /benchmarks/results/baseline.json
+/benchmarks/results/logs/

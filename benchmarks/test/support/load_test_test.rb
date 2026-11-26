@@ -60,4 +60,42 @@ class BenchLoadTestTest < Minitest::Test
     ab = BenchLoadTest::Ab.new(quick: true)
     assert_includes ab.command("http://x/", 2_000), "2000"
   end
+
+  def test_ab_sets_per_request_timeout
+    command = BenchLoadTest::Ab.new(quick: true).command("http://x/", 2_000)
+    assert_equal ["-s", "10"], command.each_cons(2).find { |flag, _| flag == "-s" }
+  end
+
+  def test_wrk_timeout_is_duration_plus_margin
+    wrk = BenchLoadTest::Wrk.new(quick: false)
+    assert_equal 40, wrk.timeout_for("10s")
+    assert_equal 32, wrk.timeout_for("2s")
+  end
+
+  def test_capture_returns_output_of_finished_command
+    assert_equal "42\n", BenchLoadTest.capture(["ruby", "-e", "puts 42"], timeout: 10)
+  end
+
+  def test_capture_raises_on_failed_command
+    error = assert_raises(BenchLoadTest::Error) do
+      BenchLoadTest.capture(["ruby", "-e", "exit 3"], timeout: 10)
+    end
+    assert_match(/status 3/, error.message)
+  end
+
+  def test_capture_kills_command_that_exceeds_timeout
+    Dir.mktmpdir do |dir|
+      pid_file = File.join(dir, "pid")
+      command = ["sh", "-c", "echo $$ > \"$0\"; sleep 30", pid_file]
+      started = monotonic
+      error = assert_raises(BenchLoadTest::TimeoutError) { BenchLoadTest.capture(command, timeout: 1) }
+      assert_operator monotonic - started, :<, 3
+      assert_match(/sleep 30/, error.message)
+      assert_raises(Errno::ESRCH) { Process.kill(0, Integer(File.read(pid_file))) }
+    end
+  end
+
+  private
+
+  def monotonic = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 end
