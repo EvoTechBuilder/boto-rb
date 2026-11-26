@@ -13,11 +13,16 @@ module Boto
     def self.parse(env, limit: DEFAULT_LIMIT)
       return EMPTY unless json_content_type?(env["CONTENT_TYPE"])
 
-      check_declared_length(env["CONTENT_LENGTH"], limit)
-      raw = read_body(env["rack.input"], limit)
-      return EMPTY if raw.nil? || raw.empty?
+      raw = read(env, limit: limit)
+      return EMPTY if raw.empty?
 
       decode(raw)
+    end
+
+    # Returns the raw body as a String, or "" when there is no input. Raises PayloadTooLarge above limit.
+    def self.read(env, limit: DEFAULT_LIMIT)
+      check_declared_length(env["CONTENT_LENGTH"], limit)
+      read_body(env["rack.input"], limit) || ""
     end
 
     def self.json_content_type?(content_type)

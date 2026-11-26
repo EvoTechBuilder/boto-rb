@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "openssl"
+require "stringio"
 
 module Boto
   module Plugins
@@ -80,14 +81,22 @@ module Boto
           value.delete_prefix(@prefix) if value.start_with?(@prefix)
         end
 
-        # Rewinds the input so that the downstream app can still read the body.
         def read_body(env)
-          input = env[RACK_INPUT]
-          return "" unless input
-
-          body = input.read.to_s
-          input.rewind if input.respond_to?(:rewind)
+          body = Boto::RequestBody.read(env)
+          restore_input(env, body)
           body
+        end
+
+        # Lets the downstream app read the body again: rewinds rewindable inputs, replaces the others.
+        def restore_input(env, body)
+          input = env[RACK_INPUT]
+          return unless input
+
+          if input.respond_to?(:rewind)
+            input.rewind
+          else
+            env[RACK_INPUT] = StringIO.new(body)
+          end
         end
 
         def signed_message(env, body)

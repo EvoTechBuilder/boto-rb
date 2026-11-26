@@ -113,6 +113,14 @@ class PluginsAppTest < Minitest::Test
     assert_equal 401, res.status
   end
 
+  def test_signature_endpoint_rejects_body_above_limit_with_413
+    body = "x" * (Boto::RequestBody::DEFAULT_LIMIT + 1)
+    res = send_request("POST", "/webhook", { "HTTP_X_SIGNATURE" => sign(body, "s3") }, body)
+
+    assert_equal 413, res.status
+    assert_equal "application/problem+json", res.headers["content-type"]
+  end
+
   def test_auth_for_returns_the_endpoint_strategy
     assert_instance_of Boto::Plugins::Auth::Bearer, @app.auth_for(PluginsAppShop::Me).strategy
     assert_instance_of Boto::Plugins::Auth::Signature, @app.auth_for(PluginsAppShop::Webhook).strategy

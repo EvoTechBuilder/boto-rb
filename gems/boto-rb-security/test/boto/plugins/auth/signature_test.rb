@@ -73,6 +73,38 @@ class Boto::Plugins::Auth::SignatureTest < Minitest::Test
     assert_equal BODY, env["rack.input"].read
   end
 
+  def test_body_below_limit_still_authenticates
+    body = "x" * 1_000
+    env = env_for(body: body, headers: { "HTTP_X_SIGNATURE" => hmac(body) })
+
+    assert_equal({ signed: true }, strategy.authenticate(env))
+  end
+
+  def test_body_above_default_limit_raises_payload_too_large
+    body = "x" * (Boto::RequestBody::DEFAULT_LIMIT + 1)
+    env = env_for(body: body, headers: { "HTTP_X_SIGNATURE" => hmac(body) })
+    env.delete("CONTENT_LENGTH")
+
+    assert_raises(Boto::Error::PayloadTooLarge) { strategy.authenticate(env) }
+  end
+
+  def test_body_remains_readable_when_input_cannot_rewind
+    env = env_for(headers: { "HTTP_X_SIGNATURE" => hmac(BODY) })
+    env["rack.input"] = NonRewindableInput.new(BODY)
+
+    assert_equal({ signed: true }, strategy.authenticate(env))
+    assert_equal BODY, env["rack.input"].read
+  end
+
+  # Only responds to read, like a streaming input without rewind.
+  class NonRewindableInput
+    def initialize(content)
+      @io = StringIO.new(content)
+    end
+
+    def read(*args) = @io.read(*args)
+  end
+
   def test_tolerance_accepts_timestamp_inside_window
     message = "#{NOW - 30}.#{BODY}"
     env = env_for(headers: { "HTTP_X_SIGNATURE" => hmac(message), "HTTP_X_TIMESTAMP" => (NOW - 30).to_s })
