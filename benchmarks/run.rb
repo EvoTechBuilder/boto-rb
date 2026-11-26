@@ -18,6 +18,8 @@ module BenchMain
   NO_BASELINE_MESSAGE = "Sem #{BASELINE_PATH}: nada para comparar. Rode com --save-baseline antes."
 
   def self.main(argv)
+    $stdout.sync = true
+    $stderr.sync = true
     options = BenchOptions.parse(argv)
     results = run_benchmarks(options)
     puts BenchReport.table(results.slice(*BenchScenarios::FRAMEWORKS))
@@ -29,7 +31,7 @@ module BenchMain
   def self.run_benchmarks(options)
     load_test = BenchLoadTest.build(quick: options.quick)
     allocations = BenchAllocations.measure_all
-    frameworks = BenchRunner.new(load_test: load_test, allocations: allocations, quick: options.quick).run
+    frameworks = BenchRunner.new(load_test: load_test, allocations: allocations, quick: options.quick, out: $stdout).run
     document = BenchResults.document(frameworks, tool: load_test.name, ruby: RUBY_VERSION, yjit: RubyVM::YJIT.enabled?)
     BenchResults.write(LATEST_PATH, document)
     document
