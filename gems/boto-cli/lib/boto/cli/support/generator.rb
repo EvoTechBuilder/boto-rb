@@ -6,7 +6,7 @@ require "fileutils"
 module Boto
   module CLI
     class Generator
-      TEMPLATES_ROOT = File.expand_path("../../../templates", __dir__)
+      TEMPLATES_ROOT = File.expand_path("../../../../templates", __dir__)
       ERB_EXTENSION = ".erb"
       ERB_TRIM_MODE = "-"
 

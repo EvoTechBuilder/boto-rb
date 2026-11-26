@@ -25,7 +25,7 @@ class Boto::CLI::GeneratorTest < Minitest::Test
   end
 
   def test_gemspec_packages_dotfile_templates
-    spec = Gem::Specification.load(File.expand_path("../../../boto-cli.gemspec", __dir__))
+    spec = Gem::Specification.load(File.expand_path("../../../../boto-cli.gemspec", __dir__))
     assert_includes spec.files, "templates/solution/.gitignore"
     assert_includes spec.files, "templates/webapi/models/.keep"
   end
