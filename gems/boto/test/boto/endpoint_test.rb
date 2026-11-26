@@ -3,6 +3,17 @@
 require "test_helper"
 require "rack/mock"
 
+module EndpointTestSchemas
+  class UserSchema < Boto::Schema
+    field :id, Integer
+    field :name, String
+  end
+
+  class PostSchema < Boto::Schema
+    field :title, String
+  end
+end
+
 module Boto
   class EndpointTest < Minitest::Test
     def test_each_verb_defines_its_route
@@ -112,6 +123,107 @@ module Boto
       request = Class.new(Boto::Endpoint) { get "/x" }.new(env).request
       assert_instance_of Rack::Request, request
       assert_equal "1", request.GET["a"]
+    end
+
+    def test_body_defines_body_schema
+      endpoint = Class.new(Boto::Endpoint) { body EndpointTestSchemas::UserSchema }
+      assert_same EndpointTestSchemas::UserSchema, endpoint.body_schema
+    end
+
+    def test_body_rejects_non_schema_classes
+      assert_raises(ArgumentError) { Class.new(Boto::Endpoint) { body String } }
+      assert_raises(ArgumentError) { Class.new(Boto::Endpoint) { body Boto::Schema } }
+      assert_raises(ArgumentError) { Class.new(Boto::Endpoint) { body "UserSchema" } }
+    end
+
+    def test_second_body_raises_argument_error
+      assert_raises(ArgumentError) do
+        Class.new(Boto::Endpoint) do
+          body EndpointTestSchemas::UserSchema
+          body EndpointTestSchemas::PostSchema
+        end
+      end
+    end
+
+    def test_returns_single_schema
+      endpoint = Class.new(Boto::Endpoint) { returns EndpointTestSchemas::UserSchema }
+      assert_same EndpointTestSchemas::UserSchema, endpoint.return_schema
+      refute_predicate endpoint, :returns_list?
+    end
+
+    def test_returns_array_of_one_schema
+      endpoint = Class.new(Boto::Endpoint) { returns [EndpointTestSchemas::UserSchema] }
+      assert_same EndpointTestSchemas::UserSchema, endpoint.return_schema
+      assert_predicate endpoint, :returns_list?
+    end
+
+    def test_returns_rejects_invalid_shapes
+      assert_raises(ArgumentError) { Class.new(Boto::Endpoint) { returns [EndpointTestSchemas::UserSchema, EndpointTestSchemas::PostSchema] } }
+      assert_raises(ArgumentError) { Class.new(Boto::Endpoint) { returns [] } }
+      assert_raises(ArgumentError) { Class.new(Boto::Endpoint) { returns String } }
+      assert_raises(ArgumentError) { Class.new(Boto::Endpoint) { returns Boto::Schema } }
+    end
+
+    def test_second_returns_raises_argument_error
+      assert_raises(ArgumentError) do
+        Class.new(Boto::Endpoint) do
+          returns EndpointTestSchemas::UserSchema
+          returns [EndpointTestSchemas::PostSchema]
+        end
+      end
+    end
+
+    def test_summary_defines_summary_text
+      endpoint = Class.new(Boto::Endpoint) { summary "Lists users" }
+      assert_equal "Lists users", endpoint.summary_text
+    end
+
+    def test_summary_rejects_blank_or_non_string
+      assert_raises(ArgumentError) { Class.new(Boto::Endpoint) { summary "" } }
+      assert_raises(ArgumentError) { Class.new(Boto::Endpoint) { summary "   " } }
+      assert_raises(ArgumentError) { Class.new(Boto::Endpoint) { summary nil } }
+    end
+
+    def test_errors_accumulates_sorted_without_duplicates
+      endpoint = Class.new(Boto::Endpoint) do
+        errors 404, 409, 404
+        errors 422
+      end
+      assert_equal [404, 409, 422], endpoint.error_statuses
+      assert_predicate endpoint.error_statuses, :frozen?
+    end
+
+    def test_errors_rejects_statuses_outside_error_range
+      assert_raises(ArgumentError) { Class.new(Boto::Endpoint) { errors 200 } }
+      assert_raises(ArgumentError) { Class.new(Boto::Endpoint) { errors "x" } }
+    end
+
+    def test_schema_declarations_default_to_empty
+      endpoint = Class.new(Boto::Endpoint)
+      assert_nil endpoint.body_schema
+      assert_nil endpoint.return_schema
+      refute_predicate endpoint, :returns_list?
+      assert_nil endpoint.summary_text
+      assert_equal [], endpoint.error_statuses
+    end
+
+    def test_compile_rejects_body_param_with_body_schema
+      endpoint = Class.new(Boto::Endpoint) do
+        param :body, String
+        body EndpointTestSchemas::UserSchema
+      end
+      error = assert_raises(ArgumentError) { endpoint.compile! }
+      assert_equal "#{endpoint}: param :body conflicts with the body schema", error.message
+    end
+
+    def test_compile_compiles_body_and_return_schemas
+      endpoint = Class.new(Boto::Endpoint) do
+        body EndpointTestSchemas::PostSchema
+        returns [EndpointTestSchemas::UserSchema]
+      end
+      assert_same endpoint, endpoint.compile!
+      assert_predicate EndpointTestSchemas::PostSchema, :compiled?
+      assert_predicate EndpointTestSchemas::UserSchema, :compiled?
     end
   end
 end
