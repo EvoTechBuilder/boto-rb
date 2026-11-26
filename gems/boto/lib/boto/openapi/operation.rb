@@ -4,8 +4,11 @@ module Boto
   module OpenAPI
     # The operation object of one endpoint: its parameters, body and responses.
     class Operation
-      def initialize(endpoint)
+      # auth: the :auth plugin guarding the endpoint, or nil. secured: whether the document declares any security.
+      def initialize(endpoint, auth: nil, secured: false)
         @endpoint = endpoint
+        @auth = auth
+        @secured = secured
       end
 
       def to_h
@@ -13,11 +16,19 @@ module Boto
         operation["summary"] = @endpoint.summary_text if @endpoint.summary_text
         operation["parameters"] = parameters unless definitions.empty?
         operation["requestBody"] = request_body if @endpoint.body_schema
+        operation["security"] = security if @secured
         operation["responses"] = responses
         operation
       end
 
       private
+
+      # Empty list = public: the document has no global security, so each operation states its own.
+      def security
+        return [] unless @auth
+
+        [{ OpenAPI.scheme_name(@auth.strategy) => [] }]
+      end
 
       def operation_id
         @endpoint.name.split(NAMESPACE_SEPARATOR).drop(1).join
@@ -82,7 +93,7 @@ module Boto
       end
 
       def implicit_error_codes
-        [(UNPROCESSABLE if validated?), (NOT_FOUND unless path_param_names.empty?)].compact
+        [(UNPROCESSABLE if validated?), (NOT_FOUND unless path_param_names.empty?), (UNAUTHORIZED if @auth)].compact
       end
 
       def validated?

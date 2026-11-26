@@ -109,6 +109,123 @@ module OpenAPITestQuery
   end
 end
 
+module OpenAPIFakes
+  module Strategies
+    class Bearer
+      def security_scheme = { "type" => "http", "scheme" => "bearer" }
+    end
+
+    class ApiKey
+      def security_scheme = { "type" => "apiKey", "in" => "header", "name" => "X-API-Key" }
+    end
+  end
+
+  # Stands in for the real :auth plugin, so the core test does not depend on boto-security.
+  class Auth < Boto::Plugin
+    scope :endpoint
+
+    attr_reader :strategy
+
+    private
+
+    def configure
+      @strategy = Strategies::Bearer.new
+    end
+  end
+end
+
+module OpenAPITestSecured
+  class Me < Boto::Endpoint
+    get "/me"
+    returns OpenAPITestShop::UserSchema
+  end
+
+  class Status < Boto::Endpoint
+    get "/status"
+    skip :auth
+  end
+end
+
+class OpenAPISecurityTest < Minitest::Test
+  REF_PREFIX = "#/components/schemas/"
+  BEARER_SCHEME = { "type" => "http", "scheme" => "bearer" }.freeze
+
+  def test_security_scheme_name_is_the_snake_cased_strategy_class
+    assert_equal "api_key", Boto::OpenAPI.scheme_name(OpenAPIFakes::Strategies::ApiKey.new)
+    assert_equal "bearer", Boto::OpenAPI.scheme_name(OpenAPIFakes::Strategies::Bearer.new)
+  end
+
+  def test_security_scheme_is_declared_under_components
+    assert_equal({ "bearer" => BEARER_SCHEME }, secured_doc["components"]["securitySchemes"])
+  end
+
+  def test_authenticated_operation_requires_the_scheme_and_documents_401
+    me = secured_operation("/me", "get")
+
+    assert_equal [{ "bearer" => [] }], me["security"]
+    assert_equal problem_response("Unauthorized"), me["responses"]["401"]
+  end
+
+  def test_skipped_operation_is_public_with_empty_security
+    status = secured_operation("/status", "get")
+
+    assert_equal [], status["security"]
+    refute_includes status["responses"], "401"
+  end
+
+  def test_document_without_auth_has_no_security_fields
+    doc = generate(Boto::App.new(namespace: OpenAPITestShop, error_output: StringIO.new))
+
+    refute_includes doc["components"], "securitySchemes"
+    refute_includes doc["paths"]["/users"]["get"], "security"
+    refute_includes doc["paths"]["/users"]["get"]["responses"], "401"
+  end
+
+  def test_security_schemes_refs_resolve_in_secured_document
+    refs = collect_refs(secured_doc)
+
+    assert_includes refs, "#{REF_PREFIX}UserSchema"
+    refs.each { |ref| assert_includes secured_doc["components"]["schemas"], ref.delete_prefix(REF_PREFIX) }
+  end
+
+  private
+
+  def secured_doc
+    @secured_doc ||= begin
+      auth = OpenAPIFakes::Auth.new(env_name: "production")
+      Boto::OpenAPI.generate(
+        Boto::App.new(namespace: OpenAPITestSecured, plugins: [auth], error_output: StringIO.new),
+        title: "Secured API", version: "1.0.0"
+      )
+    end
+  end
+
+  def secured_operation(path, verb)
+    secured_doc["paths"].fetch(path).fetch(verb)
+  end
+
+  def generate(app)
+    Boto::OpenAPI.generate(app, title: "Secured API", version: "1.0.0")
+  end
+
+  def problem_response(description)
+    { "description" => description, "content" => { "application/problem+json" => { "schema" => { "$ref" => "#{REF_PREFIX}Problem" } } } }
+  end
+
+  def collect_refs(node, found = [])
+    case node
+    when Hash
+      node.each do |key, value|
+        found << value if key == "$ref"
+        collect_refs(value, found)
+      end
+    when Array
+      node.each { |item| collect_refs(item, found) }
+    end
+    found
+  end
+end
+
 class OpenAPITest < Minitest::Test
   REF_PREFIX = "#/components/schemas/"
   FIXTURE = File.expand_path("../fixtures/openapi/shop.json", __dir__)

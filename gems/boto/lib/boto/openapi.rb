@@ -40,25 +40,50 @@ module Boto
     ARRAY_TYPE = "array"
     NO_CONTENT = 204
     NOT_FOUND = 404
+    UNAUTHORIZED = 401
     UNPROCESSABLE = 422
     UNKNOWN_STATUS_TITLE = "Unknown Status"
+    CAMEL_WORD_BOUNDARY = /([a-z\d])([A-Z])/
+    CAMEL_ACRONYM_BOUNDARY = /([A-Z]+)([A-Z][a-z])/
+    SNAKE_JOIN = '\1_\2'
 
     def self.generate(app, title:, version:)
       endpoints = app.endpoints
+      guards = endpoints.to_h { |endpoint| [endpoint, app.auth_for(endpoint)] }
       {
         "openapi" => spec_version(endpoints),
         "info" => { "title" => title, "version" => version },
-        "paths" => paths(endpoints),
-        "components" => { "schemas" => schemas(endpoints) }
+        "paths" => paths(endpoints, guards),
+        "components" => components(endpoints, guards)
       }
     end
 
-    def self.paths(endpoints)
+    def self.paths(endpoints, guards)
       sorted = endpoints.sort_by { |endpoint| [endpoint.route.last, endpoint.route.first] }
+      secured = guards.each_value.any?
       sorted.each_with_object({}) do |endpoint, result|
         verb, path = endpoint.route
-        (result[openapi_path(path)] ||= {})[verb.downcase] = Operation.new(endpoint).to_h
+        operation = Operation.new(endpoint, auth: guards[endpoint], secured: secured).to_h
+        (result[openapi_path(path)] ||= {})[verb.downcase] = operation
       end
+    end
+
+    # The name of a strategy's security scheme: its class name in snake_case (Auth::ApiKey -> "api_key").
+    def self.scheme_name(strategy)
+      class_name = strategy.class.name.split(NAMESPACE_SEPARATOR).last
+      class_name.gsub(CAMEL_ACRONYM_BOUNDARY, SNAKE_JOIN).gsub(CAMEL_WORD_BOUNDARY, SNAKE_JOIN).downcase
+    end
+
+    def self.components(endpoints, guards)
+      components = { "schemas" => schemas(endpoints) }
+      schemes = security_schemes(guards.values.compact)
+      components["securitySchemes"] = schemes unless schemes.empty?
+      components
+    end
+
+    def self.security_schemes(auths)
+      auths.map { |auth| [scheme_name(auth.strategy), auth.strategy.security_scheme] }
+           .uniq.sort_by(&:first).to_h
     end
 
     def self.openapi_path(path)
