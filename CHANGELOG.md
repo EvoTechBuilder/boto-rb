@@ -4,6 +4,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-26
+
+### Added
+
+- `Boto.configure` in each project's `config/app.rb`, with `app.use :plugin, options`. Plugins are global (run before routing) or per endpoint (compiled per route at boot), in a fixed order: hosts, cors, auth, rate_limit.
+- New gem `boto-security` with the `:hosts`, `:cors`, `:auth` and `:rate_limit` plugins. Auth strategies: `basic`, `bearer`, `api_key`, `jwt` (algorithm allowlist, never `none`) and `signature` (HMAC of the raw body with optional timestamp tolerance).
+- Endpoint DSL `skip` and `authenticate`, and the `principal` helper.
+- 401, 403 and 429 problem responses with `WWW-Authenticate`, `Retry-After` and `RateLimit-*` headers.
+- OpenAPI `securitySchemes`, per-operation `security` and 401 responses.
+- The `webapi` template enables cors, bearer auth and rate limiting, with a public health endpoint and a development token.
+- Boto-only `db_auth` benchmark scenario.
+
+### Changed
+
+- `boto openapi` boots the app in development, so it does not need production secrets.
+
 ## [0.3.0] - 2026-11-26
 
 ### Added

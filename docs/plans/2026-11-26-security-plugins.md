@@ -1,6 +1,6 @@
 # Plano — Plugins de segurança
 
-Status: **aprovado, em execução**
+Status: **concluído** (2026-11-26)
 Proposta: `docs/proposals/0004-security-plugins.md`
 
 ## Objetivo
