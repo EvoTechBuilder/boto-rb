@@ -146,5 +146,32 @@ module Boto
     def test_without_declarations_returns_shared_empty_hash
       assert_same Params::EMPTY, call(Params.new, body: { "name" => "ana" })
     end
+
+    def test_every_missing_required_param_is_reported_in_declaration_order
+      params = Params.new.declare(:name, String).declare(:count, Integer)
+      assert_equal [{ param: "name", message: "is required" }, { param: "count", message: "is required" }],
+                   unprocessable_errors(params)
+    end
+
+    def test_happy_path_allocates_only_the_result_hash
+      params = Params.new.declare(:id, Integer).freeze
+      path = { id: "42" }
+      query = {}
+      body = {}
+      50.times { params.call(path: path, query: query, body: body) }
+      # The first GC.stat window also counts one object of its own; a dry run absorbs it.
+      allocations_during { params.call(path: path, query: query, body: body) }
+
+      assert_operator allocations_during { params.call(path: path, query: query, body: body) }, :<=, 1
+    end
+
+    private
+
+    def allocations_during
+      before = GC.stat(:total_allocated_objects)
+      yield
+      after = GC.stat(:total_allocated_objects)
+      after - before
+    end
   end
 end

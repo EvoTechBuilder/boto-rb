@@ -9,11 +9,12 @@ module Boto
     EMPTY = {}.freeze
     INTEGER_PATTERN = /\A-?\d+\z/
 
+    # Branches instead of `return`: the early-return version allocated once per call on Ruby 4.0.
     COERCE_INTEGER = lambda do |value|
-      return value if value.is_a?(Integer)
-      return Integer(value, 10) if value.is_a?(String) && INTEGER_PATTERN.match?(value)
-
-      raise ArgumentError, "must be an Integer"
+      if value.is_a?(Integer) then value
+      elsif value.is_a?(String) && INTEGER_PATTERN.match?(value) then Integer(value, 10)
+      else raise ArgumentError, "must be an Integer"
+      end
     end
 
     COERCE_FLOAT = lambda do |value|
@@ -61,11 +62,14 @@ module Boto
     def call(path:, query:, body:)
       return EMPTY if @definitions.empty?
 
-      errors = []
-      values = @definitions.to_h do |definition|
-        [definition.name, resolve(definition, path, query, body, errors)]
+      values = {}
+      errors = nil
+      @definitions.each do |definition|
+        values[definition.name] = resolve(definition, path, query, body)
+      rescue ArgumentError => e
+        (errors ||= []) << { param: definition.key, message: e.message }
       end
-      raise Boto::Error::Unprocessable.new(errors) unless errors.empty?
+      raise Boto::Error::Unprocessable.new(errors) if errors
 
       values
     end
@@ -82,14 +86,12 @@ module Boto
       )
     end
 
-    def resolve(definition, path, query, body, errors)
+    # ArgumentError is the error channel, rescued in #call, so the happy path builds no error objects.
+    def resolve(definition, path, query, body)
       raw = raw_value(definition, path, query, body)
-      return missing_value(definition, errors) if raw.nil?
+      return missing_value(definition) if raw.nil?
 
       definition.coercer.call(raw)
-    rescue ArgumentError => e
-      errors << { param: definition.key, message: e.message }
-      nil
     end
 
     # Precedence: path > query > body. Only nil counts as absent, so false is kept.
@@ -99,10 +101,10 @@ module Boto
       value.nil? ? body[definition.key] : value
     end
 
-    def missing_value(definition, errors)
+    def missing_value(definition)
       return definition.default unless definition.default.equal?(MISSING)
+      raise ArgumentError, "is required" if definition.required
 
-      errors << { param: definition.key, message: "is required" } if definition.required
       nil
     end
   end
