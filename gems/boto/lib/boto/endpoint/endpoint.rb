@@ -17,6 +17,9 @@ module Boto
     BODY_MESSAGE = "body must be a Boto::Schema subclass"
     RETURNS_MESSAGE = "returns must be a Boto::Schema subclass or [subclass]"
     SUMMARY_MESSAGE = "summary must be a non-empty String"
+    PLUGIN_NAME = /\A[a-z][a-z0-9_]*\z/
+    PRINCIPAL_KEY = "boto.principal"
+    NO_SKIPS = [].freeze
 
     class << self
       def get(path)
@@ -114,8 +117,27 @@ module Boto
         @error_statuses || NO_ERROR_STATUSES
       end
 
+      def skip(*names)
+        raise ArgumentError, "skip needs at least one plugin name" if names.empty?
+
+        @skipped_plugins = (skipped_plugins + names.map { |name| plugin_name(name) }).uniq.freeze
+      end
+
+      def skipped_plugins
+        @skipped_plugins || NO_SKIPS
+      end
+
+      def authenticate(strategy, **options)
+        raise ArgumentError, "authenticate already declared" if @authentication
+
+        @authentication = [plugin_name(strategy), options.freeze].freeze
+      end
+
+      attr_reader :authentication
+
       def compile!
         ensure_no_body_conflict!
+        ensure_no_auth_skip_conflict!
         params.freeze
         body_schema&.compile!
         return_schema&.compile!
@@ -145,6 +167,19 @@ module Boto
         raise ArgumentError, "param :body conflicts with the body schema"
       end
 
+      def plugin_name(name)
+        valid = (name.is_a?(String) || name.is_a?(Symbol)) && PLUGIN_NAME.match?(name.to_s)
+        raise ArgumentError, "invalid plugin name #{name.inspect}" unless valid
+
+        name.to_sym
+      end
+
+      def ensure_no_auth_skip_conflict!
+        return unless authentication && skipped_plugins.include?(:auth)
+
+        raise ArgumentError, "skip :auth conflicts with authenticate"
+      end
+
       def define_route(verb, path)
         raise RouteError, "route already defined: #{route.join(" ")}" if route
         raise ArgumentError, "path must start with /: #{path.inspect}" unless path.is_a?(String) && path.start_with?("/")
@@ -165,6 +200,10 @@ module Boto
 
     def request
       @request ||= Rack::Request.new(env)
+    end
+
+    def principal
+      env[PRINCIPAL_KEY]
     end
 
     def call(**)

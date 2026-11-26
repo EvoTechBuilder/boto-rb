@@ -239,5 +239,97 @@ module Boto
       assert_predicate EndpointTestSchemas::PostSchema, :compiled?
       assert_predicate EndpointTestSchemas::UserSchema, :compiled?
     end
+
+    def test_skip_declares_plugin_names
+      endpoint = Class.new(Boto::Endpoint) { skip :auth, :rate_limit }
+      assert_equal %i[auth rate_limit], endpoint.skipped_plugins
+      assert_predicate endpoint.skipped_plugins, :frozen?
+    end
+
+    def test_skip_accumulates_without_duplicates
+      endpoint = Class.new(Boto::Endpoint) do
+        skip :auth
+        skip :auth, :rate_limit
+      end
+      assert_equal %i[auth rate_limit], endpoint.skipped_plugins
+    end
+
+    def test_skip_accepts_strings
+      endpoint = Class.new(Boto::Endpoint) { skip "auth" }
+      assert_equal %i[auth], endpoint.skipped_plugins
+    end
+
+    def test_skip_rejects_invalid_names
+      ["Auth", "rate-limit", "1auth", "", "auth x", :"auth x", 1, nil].each do |name|
+        assert_raises(ArgumentError) { Class.new(Boto::Endpoint) { skip name } }
+      end
+    end
+
+    def test_skip_without_arguments_raises
+      assert_raises(ArgumentError) { Class.new(Boto::Endpoint) { skip } }
+    end
+
+    def test_skipped_plugins_defaults_to_frozen_empty_list
+      endpoint = Class.new(Boto::Endpoint)
+      assert_same Boto::Endpoint::NO_SKIPS, endpoint.skipped_plugins
+      assert_predicate endpoint.skipped_plugins, :frozen?
+    end
+
+    def test_authenticate_declares_strategy_and_options
+      endpoint = Class.new(Boto::Endpoint) { authenticate :signature, secret: "x" }
+      assert_equal [:signature, { secret: "x" }], endpoint.authentication
+      assert_predicate endpoint.authentication, :frozen?
+      assert_predicate endpoint.authentication.last, :frozen?
+    end
+
+    def test_authenticate_accepts_string_strategy
+      endpoint = Class.new(Boto::Endpoint) { authenticate "signature" }
+      assert_equal [:signature, {}], endpoint.authentication
+    end
+
+    def test_second_authenticate_raises_argument_error
+      error = assert_raises(ArgumentError) do
+        Class.new(Boto::Endpoint) do
+          authenticate :signature
+          authenticate :bearer
+        end
+      end
+      assert_equal "authenticate already declared", error.message
+    end
+
+    def test_authenticate_rejects_invalid_strategy_name
+      assert_raises(ArgumentError) { Class.new(Boto::Endpoint) { authenticate "Signature" } }
+      assert_raises(ArgumentError) { Class.new(Boto::Endpoint) { authenticate nil } }
+    end
+
+    def test_authentication_defaults_to_nil
+      assert_nil Class.new(Boto::Endpoint).authentication
+    end
+
+    def test_compile_rejects_skip_auth_with_authenticate
+      endpoint = Class.new(Boto::Endpoint) do
+        skip :auth
+        authenticate :signature
+      end
+      error = assert_raises(ArgumentError) { endpoint.compile! }
+      assert_equal "skip :auth conflicts with authenticate", error.message
+    end
+
+    def test_compile_allows_skipping_other_plugins_with_authenticate
+      endpoint = Class.new(Boto::Endpoint) do
+        skip :rate_limit
+        authenticate :signature
+      end
+      assert_same endpoint, endpoint.compile!
+    end
+
+    def test_principal_reads_from_env
+      endpoint = Class.new(Boto::Endpoint).new({ "boto.principal" => { sub: "1" } })
+      assert_equal({ sub: "1" }, endpoint.principal)
+    end
+
+    def test_principal_is_nil_without_key
+      assert_nil Class.new(Boto::Endpoint).new.principal
+    end
   end
 end
