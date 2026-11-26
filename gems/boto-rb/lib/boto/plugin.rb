@@ -4,10 +4,11 @@ module Boto
   # Base class of project plugins. A plugin wraps the app like Rack middleware: it either
   # calls app.call(env) to continue, or returns a Rack response itself.
   class Plugin
-    ORDER = %i[hosts cors secure_headers sessions csrf auth rate_limit].freeze
+    ORDER = %i[health hosts cors secure_headers sessions csrf auth rate_limit].freeze
     SCOPES = %i[global endpoint].freeze
     DEFAULT_SCOPE = :endpoint
     NO_ERROR_STATUSES = [].freeze
+    NO_HEALTH_CHECKS = {}.freeze
 
     class << self
       def scope(value = nil)
@@ -43,11 +44,20 @@ module Boto
       raise NotImplementedError, "#{self.class} must implement #call"
     end
 
+    # Receives the Boto::App right before start, so the plugin can call back into it.
+    def attach(_app) = nil
+
     # Runs once, before the first request.
     def start = nil
 
     # Runs at shutdown; must tolerate being called after its resource is already closed.
     def stop = nil
+
+    # Tells the plugin the app is shutting down, so it can stop accepting new work.
+    def drain = nil
+
+    # Named callables that /health/ready runs for this plugin; a value that is truthy means ok.
+    def health_checks = NO_HEALTH_CHECKS
 
     # Statuses this plugin can answer for an endpoint it guards; documented by OpenAPI.
     def error_statuses = NO_ERROR_STATUSES

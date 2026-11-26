@@ -48,6 +48,15 @@ module AppLifecycleFakes
 
   class Silent < Boto::Plugin; end
 
+  class Attached < Tracked
+    def attach(_app) = record(:attach)
+    def start = record(:start)
+  end
+
+  class Draining < Tracked
+    def drain = record(:drain)
+  end
+
   module Stand
     # Stands in for boto-rb-security's :auth; a name ending in Auth keeps plugin_name :auth.
     class Auth < Boto::Plugin
@@ -153,6 +162,29 @@ module Boto
 
       assert_equal [[:alpha, :start], [:alpha, :stop]], @log
       assert_empty @error_output.string
+    end
+
+    def test_attach_runs_before_start
+      application = app(plugins: [tracked(AppLifecycleFakes::Attached)])
+      application.start
+
+      assert_equal [[:attached, :attach], [:attached, :start]], @log
+    end
+
+    def test_drain_reaches_each_plugin_once_however_often_it_is_called
+      application = app(plugins: [tracked(AppLifecycleFakes::Draining), tracked(AppLifecycleFakes::Alpha)])
+      application.drain!
+      application.drain!
+
+      assert_equal [[:draining, :drain]], @log
+    end
+
+    def test_plugins_lists_the_lifecycle_plugins_in_order
+      alpha = tracked(AppLifecycleFakes::Alpha)
+      health = Boto::Plugins::Health.new(env_name: "production", error_output: @error_output)
+      application = app(plugins: [alpha, health])
+
+      assert_equal [health, alpha], application.plugins
     end
   end
 end

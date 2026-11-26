@@ -50,7 +50,7 @@ module Boto
     end
 
     def test_order_index_follows_known_order
-      assert_equal 0, PluginTestPlugins::Hosts.order_index
+      assert_equal Boto::Plugin::ORDER.index(:hosts), PluginTestPlugins::Hosts.order_index
       assert_equal Boto::Plugin::ORDER.index(:rate_limit), PluginTestPlugins::RateLimit.order_index
     end
 

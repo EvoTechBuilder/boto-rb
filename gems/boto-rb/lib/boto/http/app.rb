@@ -60,12 +60,28 @@ module Boto
       @global_plugins + @plugins_by_endpoint.fetch(endpoint, [])
     end
 
+    # Every plugin the app runs at boot and shutdown: the declared ones plus the :auth instances of endpoints.
+    def plugins
+      declared = ordered(@global_plugins + @endpoint_plugins)
+      declared + extra_auth_plugins(declared)
+    end
+
     # Idempotent. A plugin that fails to start stops the ones already started, then the boot fails.
     def start
       return if @started_plugins
 
       @started_plugins = []
-      lifecycle_plugins.each { |plugin| start_plugin(plugin) }
+      lifecycle = plugins
+      lifecycle.each { |plugin| plugin.attach(self) }
+      lifecycle.each { |plugin| start_plugin(plugin) }
+    end
+
+    # Idempotent. Tells every plugin the app is draining (shutdown in progress); requests are not touched.
+    def drain!
+      return if @draining
+
+      @draining = true
+      plugins.each(&:drain)
     end
 
     # Idempotent. Stops the started plugins in reverse order; a failing stop is logged, not raised.
@@ -90,11 +106,6 @@ module Boto
       plugin.stop
     rescue StandardError => e
       log_error(e)
-    end
-
-    def lifecycle_plugins
-      declared = ordered(@global_plugins + @endpoint_plugins)
-      declared + extra_auth_plugins(declared)
     end
 
     # The :auth instances built by `authenticate` are not in the plugin lists, so they are started here.
