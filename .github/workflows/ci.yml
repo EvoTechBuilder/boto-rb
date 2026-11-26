@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test (ruby ${{ matrix.ruby }}, yjit ${{ matrix.yjit }})
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.ruby == 'head' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ["3.4", "4.0", "head"]
+        yjit: [true, false]
+    env:
+      RUBY_YJIT_ENABLE: ${{ matrix.yjit && '1' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+
+      - name: Run tests
+        run: bundle exec rake test
+
+  benchmark:
+    name: benchmark (PR vs base)
+    if: github.event_name == 'pull_request'
+    needs: test
+    runs-on: ubuntu-latest
+    env:
+      RUBY_YJIT_ENABLE: "1"
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout base
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.base_ref }}
+          path: base
+
+      - name: Install wrk
+        run: sudo apt-get update && sudo apt-get install -y wrk
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "4.0"
+
+      - name: Check base has benchmarks
+        id: base
+        run: |
+          if [ -f "$GITHUB_WORKSPACE/base/gems/boto/lib/boto/app.rb" ]; then
+            echo "has_base=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_base=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Base branch has no Boto::App to measure; skipping comparison."
+          fi
+
+      - name: Save baseline from base Boto
+        if: steps.base.outputs.has_base == 'true'
+        # benchmarks/ comes from the PR (same apps and script); only the measured Boto copy changes.
+        run: |
+          cd "$GITHUB_WORKSPACE/benchmarks"
+          BOTO_ROOT="$GITHUB_WORKSPACE/base" bundle install
+          BOTO_ROOT="$GITHUB_WORKSPACE/base" bundle exec ruby run.rb --save-baseline
+
+      - name: Compare PR against baseline
+        if: steps.base.outputs.has_base == 'true'
+        run: |
+          cd "$GITHUB_WORKSPACE/benchmarks"
+          BOTO_ROOT="$GITHUB_WORKSPACE" bundle install
+          BOTO_ROOT="$GITHUB_WORKSPACE" bundle exec ruby run.rb --compare
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmarks/results/*.json
