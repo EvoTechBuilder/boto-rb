@@ -20,6 +20,9 @@ module Boto
     ROOT_PATH = "/"
     DEVELOPMENT = "development"
     BODY_PARAM = "body"
+    GET = "GET"
+    OPENAPI_PATH = "/openapi.json"
+    OPENAPI_VERSION = "development"
 
     attr_reader :endpoints, :title
 
@@ -30,6 +33,7 @@ module Boto
       @router = Router.new
       @endpoints = discover(namespace).each { |endpoint| register(endpoint) }.freeze
       @router.compile
+      @openapi_json = build_openapi_json
     end
 
     def call(env)
@@ -96,7 +100,7 @@ module Boto
       verb = env["REQUEST_METHOD"]
       path = request_path(env)
       match = @router.match(verb, path)
-      return unmatched_response(path) unless match
+      return unmatched_response(verb, path) unless match
 
       run(match.target, match.params, env)
     rescue Boto::Error => e
@@ -105,12 +109,29 @@ module Boto
       internal_error_response(e)
     end
 
+    def build_openapi_json
+      return nil unless @env_name == DEVELOPMENT
+
+      JSON.generate(Boto::OpenAPI.generate(self, title: title, version: OPENAPI_VERSION)).freeze
+    end
+
+    def openapi_request?(verb, path)
+      !@openapi_json.nil? && (verb == GET || verb == HEAD) && path == OPENAPI_PATH
+    end
+
+    def openapi_response
+      [200, { "content-type" => JSON_HEADERS_TYPE }, [@openapi_json]]
+    end
+
     def request_path(env)
       path = env["PATH_INFO"].to_s
       path.empty? ? ROOT_PATH : path
     end
 
-    def unmatched_response(path)
+    # Runs only when no route matched, so a user endpoint on OPENAPI_PATH wins and matched requests pay nothing.
+    def unmatched_response(verb, path)
+      return openapi_response if openapi_request?(verb, path)
+
       allowed = @router.allowed_verbs(path)
       return Boto::Error::NotFound.new.to_response if allowed.empty?
 

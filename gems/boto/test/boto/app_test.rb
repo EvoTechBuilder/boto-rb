@@ -110,6 +110,13 @@ module AppTestBodyConflict
   end
 end
 
+module AppTestCustomDoc
+  class Doc < Boto::Endpoint
+    get "/openapi.json"
+    def call = { custom: true }
+  end
+end
+
 module Boto
   class AppTest < Minitest::Test
     JSON_TYPE = "application/json"
@@ -294,6 +301,49 @@ module Boto
       assert_equal 500, res.status
       refute_includes res.body, "OutputError"
       assert_includes @error_output.string, "OutputError"
+    end
+
+    def test_development_serves_openapi_document
+      res = request_for(env_name: "development").get("/openapi.json")
+      assert_equal 200, res.status
+      assert_equal JSON_TYPE, res.headers["content-type"]
+      document = json(res.body)
+      assert_equal "3.1.0", document["openapi"]
+      assert_includes document["paths"].keys, "/users/{id}"
+    end
+
+    def test_development_head_openapi_has_empty_body
+      res = request_for(env_name: "development").request("HEAD", "/openapi.json")
+      assert_equal 200, res.status
+      assert_equal JSON_TYPE, res.headers["content-type"]
+      assert_equal "", res.body
+    end
+
+    # Not a route, so it falls through to the normal unmatched handling.
+    def test_development_post_openapi_is_404
+      res = request_for(env_name: "development").post("/openapi.json")
+      assert_equal 404, res.status
+      assert_equal PROBLEM_TYPE, res.headers["content-type"]
+    end
+
+    def test_production_openapi_is_404
+      res = request_for(env_name: "production").get("/openapi.json")
+      assert_equal 404, res.status
+      assert_equal PROBLEM_TYPE, res.headers["content-type"]
+    end
+
+    def test_user_endpoint_on_openapi_path_wins_over_generated_document
+      res = request_for(namespace: AppTestCustomDoc, env_name: "development").get("/openapi.json")
+      assert_equal 200, res.status
+      assert_equal({ "custom" => true }, json(res.body))
+    end
+
+    def test_openapi_document_is_generated_once
+      application = app(env_name: "development")
+      env = Rack::MockRequest.env_for("/openapi.json")
+      first_body = application.call(env)[2]
+      second_body = application.call(env)[2]
+      assert_same first_body[0], second_body[0]
     end
 
     private
