@@ -22,12 +22,20 @@ module Boto
 
       private
 
-      def configure(limit:, period:, key: nil, trusted_proxies: [], store: nil, clock: nil)
+      def configure(limit:, period:, key: nil, trusted_proxies: [], store: nil, clock: nil, max_keys: nil)
         @limit = positive_integer!(limit, :limit)
         @period = positive_integer!(period, :period)
         @key = callable_key!(key)
         @trusted_proxies = parse_proxies(trusted_proxies)
-        @store = store || MemoryStore.new(clock: clock || DEFAULT_CLOCK)
+        @store = build_store(store, clock, max_keys)
+      end
+
+      def build_store(store, clock, max_keys)
+        return MemoryStore.new(clock: clock || DEFAULT_CLOCK, max_keys: max_keys || MemoryStore::DEFAULT_MAX_KEYS) unless store
+
+        raise ArgumentError, "max_keys only applies to the default store" unless max_keys.nil?
+
+        store
       end
 
       def positive_integer!(value, name)

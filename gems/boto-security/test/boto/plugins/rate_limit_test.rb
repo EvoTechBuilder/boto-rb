@@ -110,6 +110,32 @@ class Boto::Plugins::RateLimitTest < Minitest::Test
     assert_rate_headers(response, limit: LIMIT, remaining: 1, reset: PERIOD)
   end
 
+  def test_passes_max_keys_to_the_default_store
+    plugin = build_plugin(max_keys: 2)
+    2.times { get(plugin, "REMOTE_ADDR" => "203.0.113.1") }
+    get(plugin, "REMOTE_ADDR" => "203.0.113.2")
+    get(plugin, "REMOTE_ADDR" => "203.0.113.3")
+
+    response = get(plugin, "REMOTE_ADDR" => "203.0.113.1")
+    assert_equal 200, response.status
+    assert_rate_headers(response, limit: LIMIT, remaining: 1, reset: PERIOD)
+  end
+
+  def test_max_keys_keeps_keys_that_were_not_evicted
+    plugin = build_plugin(max_keys: 3)
+    2.times { get(plugin, "REMOTE_ADDR" => "203.0.113.1") }
+    get(plugin, "REMOTE_ADDR" => "203.0.113.2")
+    get(plugin, "REMOTE_ADDR" => "203.0.113.3")
+
+    assert_equal 429, get(plugin, "REMOTE_ADDR" => "203.0.113.1").status
+  end
+
+  def test_rejects_max_keys_together_with_a_custom_store
+    store = Boto::Plugins::RateLimit::MemoryStore.new(clock: @clock)
+
+    assert_raises(ArgumentError) { build_plugin(store: store, max_keys: 2) }
+  end
+
   def test_rejects_invalid_options
     assert_invalid(limit: 0)
     assert_invalid(limit: "2")
@@ -118,6 +144,7 @@ class Boto::Plugins::RateLimitTest < Minitest::Test
     assert_invalid(key: "not callable")
     assert_invalid(trusted_proxies: ["not-an-ip"])
     assert_invalid(trusted_proxies: "10.0.0.0/8")
+    assert_invalid(max_keys: 0)
   end
 
   private

@@ -4,6 +4,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- The rate limit memory store keeps at most `max_keys` keys per window (100,000 by default, configurable with `app.use :rate_limit, max_keys:`) and evicts the oldest keys first, so memory stays bounded under a flood of distinct clients.
+
 ## [0.4.0] - 2026-11-26
 
 ### Added
