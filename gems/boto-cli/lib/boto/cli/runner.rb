@@ -21,7 +21,7 @@ module Boto
         return report_unknown(name) unless command_class
 
         command_class.new(rest, out: @out, err: @err, cwd: @cwd).call
-      rescue Error, Botofile::InvalidError => error
+      rescue Error, Botofile::InvalidError, IsolationError => error
         @err.puts "boto: #{error.message}"
         Command::FAILURE
       end

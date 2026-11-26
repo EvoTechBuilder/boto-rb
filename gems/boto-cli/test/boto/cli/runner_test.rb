@@ -52,4 +52,20 @@ class Boto::CLI::RunnerTest < Minitest::Test
   def runner
     Boto::CLI::Runner.new(out: @out, err: @err, cwd: @cwd)
   end
+
+  def test_isolation_error_is_reported_without_backtrace
+    File.write(File.join(@cwd, "Botofile"), <<~BOTO)
+      solution "shop"
+      project "billing", template: :library
+      project "orders", template: :webapi
+    BOTO
+    FileUtils.mkdir_p(File.join(@cwd, "services/orders/endpoints"))
+    File.write(File.join(@cwd, "services/orders/endpoints/receipt.rb"), "Billing::Invoice\n")
+
+    status = Boto::CLI::Runner.new(out: @out, err: @err, cwd: @cwd).run(%w[run --port 0])
+
+    assert_equal 1, status
+    assert_includes @err.string, "boto: project \"orders\" uses projects it does not reference"
+    assert_includes @err.string, "Fix: boto ref orders billing"
+  end
 end
