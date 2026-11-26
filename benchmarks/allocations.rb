@@ -12,9 +12,7 @@ module BenchAllocations
   HEADERS = ["framework", "scenario", "allocations/request"].freeze
 
   def self.measure_all
-    BenchScenarios::FRAMEWORKS.to_h do |framework|
-      [framework, BenchScenarios::NAMES.to_h { |scenario| [scenario, measure(framework, scenario)] }]
-    end
+    BenchScenarios.matrix { |framework, scenario| measure(framework, scenario) }
   end
 
   def self.measure(framework, scenario)

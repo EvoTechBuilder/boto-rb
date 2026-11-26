@@ -13,7 +13,7 @@ module BenchComparison
   Row = Struct.new(:scenario, :metric, :baseline, :current, :change, :regressed, keyword_init: true)
 
   def self.compare(current, baseline)
-    BenchScenarios::NAMES.flat_map do |scenario|
+    BenchScenarios.scenarios_for(FRAMEWORK).flat_map do |scenario|
       compare_scenario(scenario, current.dig(FRAMEWORK, scenario), baseline.dig(FRAMEWORK, scenario))
     end
   end

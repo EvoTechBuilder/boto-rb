@@ -16,9 +16,7 @@ class BenchRunner
   end
 
   def run
-    BenchScenarios::FRAMEWORKS.to_h do |framework|
-      [framework, BenchScenarios::NAMES.to_h { |scenario| [scenario, measure(framework, scenario)] }]
-    end
+    BenchScenarios.matrix { |framework, scenario| measure(framework, scenario) }
   end
 
   def measure(framework, scenario)

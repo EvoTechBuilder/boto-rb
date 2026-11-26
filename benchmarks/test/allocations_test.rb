@@ -15,4 +15,9 @@ class BenchAllocationsTest < Minitest::Test
     envs = BenchAllocations.build_envs("db", 3, offset: 0)
     assert_equal ["/users/1", "/users/2", "/users/3"], envs.map { _1["PATH_INFO"] }
   end
+
+  def test_build_envs_spreads_db_schema_paths
+    envs = BenchAllocations.build_envs("db_schema", 2, offset: 0)
+    assert_equal ["/users/1", "/users/2"], envs.map { _1["PATH_INFO"] }
+  end
 end

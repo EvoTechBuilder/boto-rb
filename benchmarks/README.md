@@ -2,6 +2,8 @@
 
 Compara o Boto com Roda e Sinatra em dois cenários: `hello` (`GET /` com JSON fixo) e `db` (`GET /users/:id` lendo um SQLite em memória via Sequel). Cada app roda num falcon próprio, com 50 conexões. Também mede alocações por request.
 
+`db_schema` é o `db` com `returns` de um schema (`id` e `name`), e mede o custo do `returns`. Só existe para o Boto: Roda e Sinatra não têm equivalente, então não serve para comparar frameworks.
+
 ## Instalação
 
 ```sh

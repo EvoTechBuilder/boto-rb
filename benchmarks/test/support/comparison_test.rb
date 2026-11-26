@@ -8,8 +8,8 @@ class BenchComparisonTest < Minitest::Test
     { "rps" => rps, "p99_ms" => p99_ms, "allocations" => allocations }
   end
 
-  def document(hello:, db: numbers)
-    { "boto" => { "hello" => hello, "db" => db } }
+  def document(hello:, db: numbers, db_schema: nil)
+    { "boto" => { "hello" => hello, "db" => db, "db_schema" => db_schema }.compact }
   end
 
   def rows_for(current, baseline)
@@ -57,6 +57,20 @@ class BenchComparisonTest < Minitest::Test
     current = document(hello: numbers, db: numbers(rps: 1.0))
     baseline = { "boto" => { "hello" => numbers } }
     assert rows_for(current, baseline).all? { |row| row.scenario == "hello" }
+  end
+
+  def test_db_schema_missing_in_baseline_is_skipped
+    current = document(hello: numbers, db_schema: numbers(rps: 1.0))
+    baseline = document(hello: numbers)
+    assert_empty rows_for(current, baseline).select { _1.scenario == "db_schema" }
+    assert_empty regressed_metrics(current, baseline)
+  end
+
+  def test_db_schema_regression_is_compared_when_both_have_it
+    current = document(hello: numbers, db_schema: numbers(rps: 940.0))
+    baseline = document(hello: numbers, db_schema: numbers)
+    assert_equal ["rps"], regressed_metrics(current, baseline)
+    assert_equal ["db_schema"], rows_for(current, baseline).select(&:regressed).map(&:scenario)
   end
 
   def test_change_is_relative_to_baseline
