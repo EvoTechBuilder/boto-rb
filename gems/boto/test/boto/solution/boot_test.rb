@@ -2,6 +2,7 @@
 
 require "test_helper"
 require "rack/mock"
+require_relative "../../fixtures/boot_test_plugins"
 
 class Boto::BootTest < Minitest::Test
   FIXTURE = File.expand_path("../../fixtures/shop", __dir__)
@@ -54,5 +55,24 @@ class Boto::BootTest < Minitest::Test
 
   def test_load_unknown_project_raises_key_error
     assert_raises(KeyError) { @boot.load("missing") }
+  end
+end
+
+class Boto::BootConfigTest < Minitest::Test
+  FIXTURE = File.expand_path("../../fixtures/stamped", __dir__)
+
+  def setup
+    @boot = Boto::Boot.new(Boto::Botofile.load(File.join(FIXTURE, "Botofile")), root: FIXTURE)
+  end
+
+  def teardown
+    @boot.shutdown
+  end
+
+  def test_app_applies_plugins_declared_in_config_app_rb
+    res = Rack::MockRequest.new(@boot.app("stamp_shop", env_name: "production")).get("/ping")
+
+    assert_equal "1", res.headers["x-stamp"]
+    assert_equal '{"pong":true}', res.body
   end
 end

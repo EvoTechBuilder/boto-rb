@@ -9,7 +9,9 @@ module Boto
   class App
     class BootError < StandardError; end
 
-    Entry = Data.define(:endpoint, :status, :needs_input, :needs_query, :body_schema, :return_schema, :returns_list)
+    Entry = Data.define(
+      :endpoint, :status, :needs_input, :needs_query, :body_schema, :return_schema, :returns_list, :handler
+    )
 
     JSON_HEADERS_TYPE = "application/json"
     NO_CONTENT = 204
@@ -23,25 +25,44 @@ module Boto
     GET = "GET"
     OPENAPI_PATH = "/openapi.json"
     OPENAPI_VERSION = "development"
+    PATH_PARAMS_KEY = "boto.path_params"
+    GLOBAL_SCOPE = :global
+    AUTH_PLUGIN = :auth
 
     attr_reader :endpoints, :title
 
-    def initialize(namespace:, env_name: ENV.fetch("BOTO_ENV", "production"), error_output: $stderr)
+    def initialize(namespace:, plugins: [], env_name: ENV.fetch("BOTO_ENV", "production"), error_output: $stderr)
       @env_name = env_name
       @error_output = error_output
       @title = namespace.name.freeze
+      @global_plugins, @endpoint_plugins = ordered(plugins).partition { |plugin| plugin.class.scope == GLOBAL_SCOPE }
+      @auth_by_endpoint = {}
       @router = Router.new
       @endpoints = discover(namespace).each { |endpoint| register(endpoint) }.freeze
       @router.compile
+      @handler = Boto::Plugin::Stack.build(@global_plugins, method(:dispatch))
       @openapi_json = build_openapi_json
     end
 
     def call(env)
-      response = dispatch(env)
+      response = handle(env)
       env["REQUEST_METHOD"] == HEAD ? [response[0], response[1], []] : response
     end
 
+    # The instance of :auth that guards the endpoint, or nil when the endpoint is not authenticated.
+    def auth_for(endpoint)
+      @auth_by_endpoint[endpoint]
+    end
+
     private
+
+    def handle(env)
+      @handler.call(env)
+    rescue Boto::Error => e
+      e.to_response
+    rescue StandardError => e
+      internal_error_response(e)
+    end
 
     def discover(namespace)
       found = []
@@ -70,7 +91,10 @@ module Boto
     def register(endpoint)
       check_path_params!(endpoint)
       endpoint.compile!
-      @router.add(*endpoint.route, entry_for(endpoint))
+      check_skips!(endpoint)
+      plugins = endpoint_plugins_for(endpoint)
+      @auth_by_endpoint[endpoint] = plugins.find { |plugin| plugin.class.plugin_name == AUTH_PLUGIN }
+      @router.add(*endpoint.route, entry_for(endpoint, plugins))
     rescue Router::DuplicateRouteError, ArgumentError => e
       raise BootError, "#{endpoint.name}: #{e.message}"
     end
@@ -82,14 +106,53 @@ module Boto
       raise BootError, "#{endpoint.name}: path param :#{missing.first} is not declared"
     end
 
-    def entry_for(endpoint)
+    def check_skips!(endpoint)
+      endpoint.skipped_plugins.each { |name| check_skip!(endpoint, name) }
+    end
+
+    def check_skip!(endpoint, name)
+      raise BootError, "#{endpoint.name}: cannot skip global plugin :#{name}" if plugin_named?(@global_plugins, name)
+      return if plugin_named?(@endpoint_plugins, name)
+
+      raise BootError, "#{endpoint.name}: skip :#{name} but plugin :#{name} is not enabled"
+    end
+
+    def plugin_named?(plugins, name)
+      plugins.any? { |plugin| plugin.class.plugin_name == name }
+    end
+
+    def endpoint_plugins_for(endpoint)
+      plugins = @endpoint_plugins.reject { |plugin| endpoint.skipped_plugins.include?(plugin.class.plugin_name) }
+      return plugins unless endpoint.authentication
+
+      kept = plugins.reject { |plugin| plugin.class.plugin_name == AUTH_PLUGIN }
+      ordered(kept << endpoint_auth(endpoint))
+    end
+
+    def endpoint_auth(endpoint)
+      strategy, options = endpoint.authentication
+      Configuration.new(env_name: @env_name).use(AUTH_PLUGIN, strategy: strategy, **options).plugin(AUTH_PLUGIN)
+    end
+
+    def ordered(plugins)
+      plugins.sort_by.with_index { |plugin, index| [plugin.class.order_index, index] }
+    end
+
+    def entry_for(endpoint, plugins)
       needs_query = needs_query?(endpoint)
-      Entry.new(
+      base = Entry.new(
         endpoint: endpoint, status: endpoint.default_status,
         needs_input: needs_query || !endpoint.body_schema.nil?, needs_query: needs_query,
         body_schema: endpoint.body_schema, return_schema: endpoint.return_schema,
-        returns_list: endpoint.returns_list?
+        returns_list: endpoint.returns_list?, handler: nil
       )
+      return base if plugins.empty?
+
+      base.with(handler: Boto::Plugin::Stack.build(plugins, endpoint_handler(base)))
+    end
+
+    def endpoint_handler(entry)
+      ->(env) { run(entry, env[PATH_PARAMS_KEY], env) }
     end
 
     def needs_query?(endpoint)
@@ -102,11 +165,19 @@ module Boto
       match = @router.match(verb, path)
       return unmatched_response(verb, path) unless match
 
-      run(match.target, match.params, env)
+      respond(match, env)
     rescue Boto::Error => e
       e.to_response
     rescue StandardError => e
       internal_error_response(e)
+    end
+
+    def respond(match, env)
+      entry = match.target
+      return run(entry, match.params, env) unless entry.handler
+
+      env[PATH_PARAMS_KEY] = match.params
+      entry.handler.call(env)
     end
 
     def build_openapi_json
