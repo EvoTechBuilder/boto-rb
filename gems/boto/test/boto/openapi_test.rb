@@ -100,6 +100,15 @@ module OpenAPITestCycle
   end
 end
 
+# Defined without the DSL's `query` so the test only depends on define_route's existing contract.
+module OpenAPITestQuery
+  Search = Class.new(Boto::Endpoint) do
+    query "/users/search"
+    body OpenAPITestShop::UserInputSchema
+    returns [OpenAPITestShop::UserSchema]
+  end
+end
+
 class OpenAPITest < Minitest::Test
   REF_PREFIX = "#/components/schemas/"
   FIXTURE = File.expand_path("../fixtures/openapi/shop.json", __dir__)
@@ -235,10 +244,48 @@ class OpenAPITest < Minitest::Test
     assert_equal File.read(FIXTURE), "#{JSON.pretty_generate(@doc)}\n"
   end
 
+  def test_app_without_query_keeps_3_1_0
+    assert_equal "3.1.0", @doc["openapi"]
+  end
+
+  def test_query_endpoint_switches_document_to_3_2_0
+    assert_equal "3.2.0", query_doc["openapi"]
+  end
+
+  def test_query_operation_lives_under_query_key_with_same_fields
+    path = query_doc["paths"].fetch("/users/search")
+    query = path.fetch("query")
+
+    assert_equal %w[query], path.keys
+    assert_equal "Search", query["operationId"]
+    assert_equal(
+      { "required" => true, "content" => { JSON_CONTENT => { "schema" => { "$ref" => "#{REF_PREFIX}UserInputSchema" } } } },
+      query["requestBody"]
+    )
+    assert_equal(
+      { "type" => "array", "items" => { "$ref" => "#{REF_PREFIX}UserSchema" } },
+      query["responses"]["200"]["content"][JSON_CONTENT]["schema"]
+    )
+  end
+
+  def test_every_ref_in_query_document_resolves
+    refs = collect_refs(query_doc)
+    schemas = query_doc["components"]["schemas"]
+
+    refute_empty refs
+    refs.each do |ref|
+      assert_includes schemas, ref.delete_prefix(REF_PREFIX)
+    end
+  end
+
   private
 
   def generate(app)
     Boto::OpenAPI.generate(app, title: "Shop API", version: "1.0.0")
+  end
+
+  def query_doc
+    @query_doc ||= generate(Boto::App.new(namespace: OpenAPITestQuery, error_output: StringIO.new))
   end
 
   def operation(path, verb)

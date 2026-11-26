@@ -7,6 +7,9 @@ module Boto
   # declarations and returns a Hash, without IO, so it runs at boot or from a CLI command.
   module OpenAPI
     SPEC_VERSION = "3.1.0"
+    # OpenAPI 3.1 has no QUERY operation; 3.2.0 adds the Path Item `query` field.
+    QUERY_SPEC_VERSION = "3.2.0"
+    QUERY_VERB = "QUERY"
     JSON_CONTENT = "application/json"
     PROBLEM_CONTENT = "application/problem+json"
     PROBLEM_SCHEMA_NAME = "Problem"
@@ -43,7 +46,7 @@ module Boto
     def self.generate(app, title:, version:)
       endpoints = app.endpoints
       {
-        "openapi" => SPEC_VERSION,
+        "openapi" => spec_version(endpoints),
         "info" => { "title" => title, "version" => version },
         "paths" => paths(endpoints),
         "components" => { "schemas" => schemas(endpoints) }
@@ -69,5 +72,11 @@ module Boto
 
       named.merge(PROBLEM_SCHEMA_NAME => PROBLEM_SCHEMA).sort_by(&:first).to_h
     end
+
+    def self.spec_version(endpoints)
+      endpoints.any? { |endpoint| endpoint.route.first == QUERY_VERB } ? QUERY_SPEC_VERSION : SPEC_VERSION
+    end
+
+    private_class_method :spec_version
   end
 end
