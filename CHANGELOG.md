@@ -4,6 +4,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- The isolation check (`boto check` and boot) also reports constants declared at the top level of a project file outside the project's namespace, such as `TOKENS = ...` or `class Helpers` in `config/app.rb`. In dev every project shares one process, so these constants would leak into `Object` and clash between projects. Files under `test/` are not checked for this rule, since each project runs its tests in its own process.
+
 ## [0.6.0] - 2026-11-26
 
 ### Added

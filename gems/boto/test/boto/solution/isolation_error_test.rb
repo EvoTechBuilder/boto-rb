@@ -32,6 +32,40 @@ class Boto::IsolationErrorTest < Minitest::Test
     assert_equal expected, Boto::IsolationError.new(violations).message
   end
 
+  def namespace_violation(project, path, line, constant, namespace)
+    Boto::Isolation::NamespaceViolation.new(project: project, path: path, line: line, constant: constant, namespace: namespace)
+  end
+
+  def test_message_lists_namespace_violations_in_their_own_block
+    violations = [namespace_violation("orders", "services/orders/config/app.rb", 3, "Tokens", "Orders")]
+
+    expected = <<~MESSAGE.chomp
+      project "orders" declares constants outside its namespace Orders:
+        services/orders/config/app.rb:3  Tokens
+      Fix: move them under Orders::
+    MESSAGE
+
+    assert_equal expected, Boto::IsolationError.new(violations).message
+  end
+
+  def test_message_has_reference_block_then_namespace_block_for_the_same_project
+    violations = [
+      namespace_violation("orders", "services/orders/config/app.rb", 3, "Tokens", "Orders"),
+      violation("orders", "services/orders/operations/a.rb", 1, "Domain::A", "domain")
+    ]
+
+    expected = <<~MESSAGE.chomp
+      project "orders" uses projects it does not reference:
+        services/orders/operations/a.rb:1  Domain::A  (domain is not in refs)
+      Fix: boto ref orders domain
+      project "orders" declares constants outside its namespace Orders:
+        services/orders/config/app.rb:3  Tokens
+      Fix: move them under Orders::
+    MESSAGE
+
+    assert_equal expected, Boto::IsolationError.new(violations).message
+  end
+
   def test_exposes_violations
     violations = [violation("orders", "services/orders/operations/a.rb", 1, "Domain::A", "domain")]
 

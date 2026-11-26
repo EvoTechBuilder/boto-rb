@@ -6,6 +6,7 @@ require "tmpdir"
 
 class Boto::IsolationTest < Minitest::Test
   Violation = Boto::Isolation::Violation
+  NamespaceViolation = Boto::Isolation::NamespaceViolation
   CHECKOUT = "services/orders/operations/checkout.rb"
 
   SOURCE = <<~BOTO
@@ -71,9 +72,49 @@ class Boto::IsolationTest < Minitest::Test
     violations = check({ "services/orders/models/invoice_patch.rb" => source }, projects: ["domain"])
 
     assert_empty violations
-    domain_violations = check({ "libs/domain/models/invoice_patch.rb" => source })
+    domain_violations = check({ "libs/domain/models/invoice_patch.rb" => source }).grep(Violation)
 
     assert_equal [%w[Billing billing], %w[Billing::Report billing]], domain_violations.map { [_1.constant, _1.missing_ref] }
+  end
+
+  def test_top_level_class_in_config_is_a_namespace_violation
+    violations = check({ "services/orders/config/app.rb" => "\nclass Tokens; end\n" })
+
+    assert_equal [NamespaceViolation.new(project: "orders", path: "services/orders/config/app.rb", line: 2,
+                                         constant: "Tokens", namespace: "Orders")],
+                 violations
+  end
+
+  def test_top_level_constant_in_operations_is_a_namespace_violation
+    violations = check({ CHECKOUT => "TOKENS = 1\n" })
+
+    assert_equal %w[TOKENS], violations.map(&:constant)
+    assert_kind_of NamespaceViolation, violations.first
+  end
+
+  def test_declarations_under_own_namespace_are_not_namespace_violations
+    source = "module Orders\n  LIMIT = 1\nend\n\nclass Orders::X; end\n"
+
+    assert_empty check({ CHECKOUT => source })
+  end
+
+  def test_test_files_may_declare_prefixed_top_level_constants
+    source = "class OrdersHealthTest < Minitest::Test; end\n"
+
+    assert_empty check({ "services/orders/test/x_test.rb" => source })
+  end
+
+  def test_reference_and_namespace_violations_are_sorted_together
+    files = {
+      CHECKOUT => "Domain::Customer\nTOKENS = 1\n",
+      "services/orders/config/app.rb" => "class Tokens; end\n"
+    }
+
+    assert_equal [
+      ["services/orders/config/app.rb", 1],
+      [CHECKOUT, 1],
+      [CHECKOUT, 2]
+    ], check(files).map { [_1.path, _1.line] }
   end
 
   def test_files_under_test_are_read

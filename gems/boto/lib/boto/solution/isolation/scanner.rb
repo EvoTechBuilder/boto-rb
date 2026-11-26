@@ -20,14 +20,15 @@ module Boto
       end
 
       Use = Data.define(:constant, :root, :line)
-      Scan = Data.define(:used, :declared)
+      Declaration = Data.define(:constant, :root, :line)
+      Scan = Data.define(:used, :declared, :top_level)
 
       def self.scan(source, path:)
         result = Prism.parse(source)
         raise_on_syntax_error(result, path)
         collector = Collector.new
         collector.visit(result.value)
-        Scan.new(used: collector.used.freeze, declared: collector.declared.freeze)
+        Scan.new(used: collector.used.freeze, declared: collector.declared.freeze, top_level: collector.top_level.freeze)
       end
 
       # Names of a constant reference such as `A::B`, or nil when the parent is an expression.
@@ -56,12 +57,13 @@ module Boto
       private_class_method :path_segments, :raise_on_syntax_error
 
       class Collector < Prism::Visitor
-        attr_reader :used, :declared
+        attr_reader :used, :declared, :top_level
 
         def initialize
           super
           @used = []
           @declared = Set.new
+          @top_level = []
           @depth = 0
         end
 
@@ -90,6 +92,7 @@ module Boto
 
         def visit_constant_write_node(node)
           @declared << node.name.to_s
+          record_top_level([node.name.to_s], node.location.start_line)
           visit(node.value)
         end
 
@@ -97,6 +100,7 @@ module Boto
         def visit_constant_path_write_node(node)
           @declared << node.target.name.to_s
           visit(node.target.parent)
+          record_top_level(Scanner.segments(node.target), node.location.start_line)
           visit(node.value)
         end
 
@@ -109,12 +113,25 @@ module Boto
           segments = Scanner.segments(path_node)
           return visit(path_node) unless segments
 
-          if @depth.zero?
-            record_use([segments.first], path_node.location.start_line)
+          line = path_node.location.start_line
+          if top_level?
+            record_use([segments.first], line)
             @declared.merge(segments.drop(1))
+            record_top_level(segments, line)
           else
             @declared.merge(segments)
           end
+        end
+
+        def top_level?
+          @depth.zero?
+        end
+
+        # Constants that land on Object at the top level; dynamic paths (nil segments) are not recorded.
+        def record_top_level(segments, line)
+          return unless segments && top_level?
+
+          @top_level << Declaration.new(constant: segments.join(NAMESPACE_SEPARATOR), root: segments.first, line: line)
         end
 
         def nested
