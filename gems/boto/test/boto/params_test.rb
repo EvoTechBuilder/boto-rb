@@ -122,7 +122,7 @@ module Boto
 
     def test_unsupported_type_raises_argument_error
       error = assert_raises(ArgumentError) { Params.new.declare(:tags, Array) }
-      assert_match "unsupported param type", error.message
+      assert_match "unsupported type", error.message
     end
 
     def test_duplicate_name_raises_argument_error
@@ -163,6 +163,56 @@ module Boto
       allocations_during { params.call(path: path, query: query, body: body) }
 
       assert_operator allocations_during { params.call(path: path, query: query, body: body) }, :<=, 1
+    end
+
+    def test_integer_min_restriction_is_unprocessable
+      params = Params.new.declare(:page, Integer, min: 1)
+      assert_equal [{ param: "page", message: "must be greater than or equal to 1" }],
+                   unprocessable_errors(params, query: { "page" => "0" })
+    end
+
+    def test_string_enum_restriction
+      params = Params.new.declare(:role, String, enum: %w[admin member])
+      assert_equal({ role: "admin" }, call(params, query: { "role" => "admin" }))
+      assert_equal 1, unprocessable_errors(params, query: { "role" => "owner" }).size
+    end
+
+    def test_date_param
+      params = Params.new.declare(:day, Date)
+      assert_equal({ day: Date.new(2026, 11, 26) }, call(params, query: { "day" => "2026-11-26" }))
+    end
+
+    def test_time_param
+      params = Params.new.declare(:at, Time)
+      result = call(params, query: { "at" => "2026-11-26T10:00:00Z" })
+      assert_equal Time.utc(2026, 11, 26, 10), result[:at]
+    end
+
+    def test_list_param_accepts_array_and_wraps_single_value
+      params = Params.new.declare(:ids, [Integer])
+      assert_equal({ ids: [1, 2] }, call(params, query: { "ids" => ["1", "2"] }))
+      assert_equal({ ids: [3] }, call(params, query: { "ids" => "3" }))
+    end
+
+    def test_list_item_errors_are_reported_with_index_path
+      params = Params.new.declare(:ids, [Integer])
+      assert_equal [{ param: "ids[1]", message: "must be an Integer" }],
+                   unprocessable_errors(params, query: { "ids" => ["1", "x"] })
+    end
+
+    def test_definitions_expose_name_type_and_required
+      params = Params.new.declare(:name, String).declare(:page, Integer, default: 1).freeze
+      name, page = params.definitions
+      assert_equal "name", name.key
+      assert_equal({ "type" => "string" }, name.type.json_schema)
+      assert name.required
+      refute page.required
+      assert_predicate params.definitions, :frozen?
+    end
+
+    def test_invalid_restriction_raises_argument_error_on_declare
+      error = assert_raises(ArgumentError) { Params.new.declare(:code, String, pattern: /abc/) }
+      assert_match "anchored", error.message
     end
 
     private

@@ -3,56 +3,32 @@
 module Boto
   # Declares typed request params and extracts them from path, query and body.
   class Params
-    Definition = Data.define(:name, :key, :coercer, :default, :required)
+    Definition = Data.define(:name, :key, :type, :default, :required, :list)
 
     MISSING = Object.new.freeze
     EMPTY = {}.freeze
-    INTEGER_PATTERN = /\A-?\d+\z/
+    ABSENT_MESSAGE = "is required"
 
-    # Branches instead of `return`: the early-return version allocated once per call on Ruby 4.0.
-    COERCE_INTEGER = lambda do |value|
-      if value.is_a?(Integer) then value
-      elsif value.is_a?(String) && INTEGER_PATTERN.match?(value) then Integer(value, 10)
-      else raise ArgumentError, "must be an Integer"
-      end
-    end
-
-    COERCE_FLOAT = lambda do |value|
-      case value
-      when Integer, Float then value.to_f
-      when String then Float(value, exception: false)
-      end || raise(ArgumentError, "must be a Float")
-    end
-
-    COERCERS = {
-      String => lambda do |value|
-        raise ArgumentError, "must be a String" unless value.is_a?(String)
-
-        value
-      end,
-      Integer => COERCE_INTEGER,
-      Float => COERCE_FLOAT,
-      Boto::Boolean => ->(value) { Boto::Boolean.coerce(value) }
-    }.freeze
-
-    private_constant :INTEGER_PATTERN, :COERCE_INTEGER, :COERCE_FLOAT
+    private_constant :ABSENT_MESSAGE
 
     def initialize
       @definitions = []
     end
 
-    def declare(name, type, default: MISSING, required: true)
+    def declare(name, type, default: MISSING, required: true, **constraints)
       name = name.to_sym
-      coercer = COERCERS.fetch(type) { raise ArgumentError, "unsupported param type #{type.inspect}" }
+      definition = build_definition(name, type, default, required, constraints)
       raise ArgumentError, "duplicate param #{name}" if names.include?(name)
 
-      @definitions << build_definition(name, coercer, default, required)
+      @definitions << definition
       self
     end
 
     def names
       @definitions.map(&:name)
     end
+
+    attr_reader :definitions
 
     def freeze
       @definitions.freeze
@@ -66,8 +42,9 @@ module Boto
       errors = nil
       @definitions.each do |definition|
         values[definition.name] = resolve(definition, path, query, body)
-      rescue ArgumentError => e
-        (errors ||= []) << { param: definition.key, message: e.message }
+      rescue Types::Invalid => e
+        errors ||= []
+        e.errors.each { |error| errors << error_entry(definition, error) }
       end
       raise Boto::Error::Unprocessable.new(errors) if errors
 
@@ -76,22 +53,30 @@ module Boto
 
     private
 
-    def build_definition(name, coercer, default, required)
+    def build_definition(name, type, default, required, constraints)
       Definition.new(
         name: name,
         key: name.name,
-        coercer: coercer,
+        type: Types.build(type, **constraints),
         default: default,
-        required: required && default.equal?(MISSING)
+        required: required && default.equal?(MISSING),
+        list: type.is_a?(Array)
       )
     end
 
-    # ArgumentError is the error channel, rescued in #call, so the happy path builds no error objects.
+    # Types::Invalid is the error channel, rescued in #call, so the happy path builds no error objects.
     def resolve(definition, path, query, body)
       raw = raw_value(definition, path, query, body)
       return missing_value(definition) if raw.nil?
 
-      definition.coercer.call(raw)
+      definition.type.coerce(wrap_list(definition, raw))
+    end
+
+    # Query strings give a single value for a list param (`?ids=1`), so it is wrapped before coercion.
+    def wrap_list(definition, raw)
+      return raw if !definition.list || raw.is_a?(Array)
+
+      [raw]
     end
 
     # Precedence: path > query > body. Only nil counts as absent, so false is kept.
@@ -103,9 +88,13 @@ module Boto
 
     def missing_value(definition)
       return definition.default unless definition.default.equal?(MISSING)
-      raise ArgumentError, "is required" if definition.required
+      raise Types::Invalid.single(ABSENT_MESSAGE) if definition.required
 
       nil
+    end
+
+    def error_entry(definition, error)
+      { param: Types.join_path(definition.key, error[:path]), message: error[:message] }
     end
   end
 end
