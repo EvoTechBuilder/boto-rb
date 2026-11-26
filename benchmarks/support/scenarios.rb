@@ -2,8 +2,8 @@
 
 require_relative "database"
 
-# Which frameworks run each scenario. db_schema only exists for boto: the returns DSL has no
-# equivalent in roda or sinatra, so it measures boto alone and is not a framework comparison.
+# Which frameworks run each scenario. db_schema and db_auth only exist for boto: the returns DSL and
+# the boto security plugins have no equivalent in roda or sinatra, so they measure boto alone.
 module BenchScenarios
   ROOT = File.expand_path("..", __dir__)
   FRAMEWORKS = %w[boto roda sinatra].freeze
@@ -11,16 +11,30 @@ module BenchScenarios
   FRAMEWORKS_BY_SCENARIO = {
     "hello" => FRAMEWORKS,
     "db" => FRAMEWORKS,
-    "db_schema" => BOTO_ONLY
+    "db_schema" => BOTO_ONLY,
+    "db_auth" => BOTO_ONLY
   }.freeze
   NAMES = FRAMEWORKS_BY_SCENARIO.keys.freeze
-  DB_SCENARIOS = %w[db db_schema].freeze
+  DB_SCENARIOS = %w[db db_schema db_auth].freeze
   HELLO_PATH = "/"
   DB_LOAD_PATH = "/users/500"
   DB_PATH_PREFIX = "/users/"
+  AUTH_TOKEN = "bench-token"
+  # Requests of these scenarios must carry the headers. The token matches apps/boto/db_auth.ru.
+  HEADERS_BY_SCENARIO = {
+    "db_auth" => { "Authorization" => "Bearer #{AUTH_TOKEN}" }.freeze
+  }.freeze
+  NO_HEADERS = {}.freeze
 
   def self.app_path(framework, scenario)
     File.join(ROOT, "apps", framework, "#{scenario}.ru")
+  end
+
+  def self.headers_for(scenario) = HEADERS_BY_SCENARIO.fetch(scenario, NO_HEADERS)
+
+  # Rack env keys for the same headers: "Authorization" becomes "HTTP_AUTHORIZATION".
+  def self.rack_env_for(scenario)
+    headers_for(scenario).to_h { |name, value| ["HTTP_#{name.upcase.tr("-", "_")}", value] }
   end
 
   def self.frameworks_for(scenario) = FRAMEWORKS_BY_SCENARIO.fetch(scenario)

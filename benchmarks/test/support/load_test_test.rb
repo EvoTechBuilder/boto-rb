@@ -61,6 +61,22 @@ class BenchLoadTestTest < Minitest::Test
     assert_includes ab.command("http://x/", 2_000), "2000"
   end
 
+  def test_commands_send_headers_only_when_given
+    auth = { "Authorization" => "Bearer bench-token" }
+    ab = BenchLoadTest::Ab.new(quick: true)
+    wrk = BenchLoadTest::Wrk.new(quick: true)
+
+    assert_includes ab.command("http://x/", 2_000, headers: auth), "Authorization: Bearer bench-token"
+    assert_includes wrk.command("http://x/", "3s", headers: auth), "Authorization: Bearer bench-token"
+    refute_includes ab.command("http://x/", 2_000), "-H"
+    refute_includes wrk.command("http://x/", "3s"), "-H"
+  end
+
+  def test_header_flags_pair_each_header_with_dash_h
+    flags = BenchLoadTest.header_flags("Authorization" => "Bearer t", "X-Id" => "1")
+    assert_equal ["-H", "Authorization: Bearer t", "-H", "X-Id: 1"], flags
+  end
+
   def test_ab_sets_per_request_timeout
     command = BenchLoadTest::Ab.new(quick: true).command("http://x/", 2_000)
     assert_equal ["-s", "10"], command.each_cons(2).find { |flag, _| flag == "-s" }

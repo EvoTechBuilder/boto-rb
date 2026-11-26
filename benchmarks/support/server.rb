@@ -73,9 +73,9 @@ class BenchServer
     @pid = nil
   end
 
-  def ensure_ok!(path)
+  def ensure_ok!(path, headers: {})
     code = Net::HTTP.start(HOST, port, open_timeout: HTTP_TIMEOUT, read_timeout: HTTP_TIMEOUT) do |http|
-      http.get(path)
+      http.get(path, headers)
     end.code
     raise failure("#{url}#{path} respondeu #{code}, esperado #{OK_STATUS}") unless code == OK_STATUS
   rescue Net::OpenTimeout, Net::ReadTimeout, SystemCallError => e

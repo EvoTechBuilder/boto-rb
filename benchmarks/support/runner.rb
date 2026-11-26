@@ -49,18 +49,18 @@ class BenchRunner
 
   def measure_round(framework, scenario)
     @server_factory.call(BenchScenarios.app_path(framework, scenario)) do |server|
-      measure_against(server, BenchScenarios.load_path(scenario))
+      measure_against(server, BenchScenarios.load_path(scenario), BenchScenarios.headers_for(scenario))
     end
   rescue StandardError => error
     write(" #{FAILED_LABEL}: #{error.message}\n")
     raise
   end
 
-  def measure_against(server, path)
-    server.ensure_ok!(path)
+  def measure_against(server, path, headers)
+    server.ensure_ok!(path, headers: headers)
     url = "#{server.url}#{path}"
-    @load_test.warm_up(url)
-    @load_test.measure(url)
+    @load_test.warm_up(url, headers: headers)
+    @load_test.measure(url, headers: headers)
   end
 
   def format_result(result)

@@ -7,28 +7,29 @@ require_relative "../../support/runner"
 class BenchRunnerTest < Minitest::Test
   FAKE_RESULT = { rps: 1000.0, p99_ms: 12.5 }.freeze
   FAKE_ALLOCATIONS = {
-    "boto" => { "hello" => 1.0, "db" => 2.0, "db_schema" => 3.0 },
+    "boto" => { "hello" => 1.0, "db" => 2.0, "db_schema" => 3.0, "db_auth" => 8.0 },
     "roda" => { "hello" => 4.0, "db" => 5.0 },
     "sinatra" => { "hello" => 6.0, "db" => 7.0 }
   }.freeze
-  # boto: hello, db, db_schema; roda: hello, db; sinatra: hello, db
-  COMBINATIONS = 7
+  # boto: hello, db, db_schema, db_auth; roda: hello, db; sinatra: hello, db
+  COMBINATIONS = 8
   ROUNDS = BenchRunner::ROUNDS
   TOTAL = COMBINATIONS * ROUNDS
   HEADER = "Benchmark: boto, roda, sinatra (fake-tool), #{TOTAL} medições " \
            "(#{COMBINATIONS} combinações x #{ROUNDS} rodadas)\n"
 
   class FakeLoadTest
-    attr_reader :name
+    attr_reader :name, :headers_seen
 
     def initialize(failure: nil)
       @name = "fake-tool"
       @failure = failure
+      @headers_seen = []
     end
 
-    def warm_up(_url) = nil
+    def warm_up(_url, headers: {}) = @headers_seen << headers
 
-    def measure(_url)
+    def measure(_url, headers: {})
       raise @failure if @failure
 
       FAKE_RESULT
@@ -36,7 +37,7 @@ class BenchRunnerTest < Minitest::Test
   end
 
   FakeServer = Struct.new(:url) do
-    def ensure_ok!(_path) = nil
+    def ensure_ok!(_path, headers: {}) = nil
   end
 
   FAKE_SERVER_FACTORY = ->(_app_path, &block) { block.call(FakeServer.new("http://fake")) }
@@ -82,7 +83,17 @@ class BenchRunnerTest < Minitest::Test
     result = build_runner(out: StringIO.new).run
 
     assert_equal({ "rps" => 1000.0, "p99_ms" => 12.5, "allocations" => 1.0 }, result["boto"]["hello"])
-    assert_equal %w[hello db db_schema], result["boto"].keys
+    assert_equal %w[hello db db_schema db_auth], result["boto"].keys
     assert_equal %w[hello db], result["sinatra"].keys
+  end
+
+  def test_only_db_auth_rounds_send_authorization_header
+    load_test = FakeLoadTest.new
+    build_runner(out: StringIO.new, load_test: load_test).run
+
+    auth = { "Authorization" => "Bearer bench-token" }
+    assert_includes load_test.headers_seen, auth
+    assert_includes load_test.headers_seen, {}
+    assert_equal ROUNDS, load_test.headers_seen.count(auth)
   end
 end

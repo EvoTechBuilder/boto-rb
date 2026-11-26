@@ -30,16 +30,22 @@ class BenchScenariosTest < Minitest::Test
 
   def test_db_schema_runs_only_on_boto
     assert_equal ["boto"], BenchScenarios.frameworks_for("db_schema")
-    assert_equal ["db_schema"], BenchScenarios.scenarios_for("boto") - %w[hello db]
+    assert_equal %w[db_schema db_auth], BenchScenarios.scenarios_for("boto") - %w[hello db]
+    assert_equal %w[hello db], BenchScenarios.scenarios_for("roda")
+  end
+
+  def test_db_auth_runs_only_on_boto
+    assert_equal ["boto"], BenchScenarios.frameworks_for("db_auth")
     assert_equal %w[hello db], BenchScenarios.scenarios_for("roda")
   end
 
   def test_combinations_skip_unsupported_pairs
     combinations = BenchScenarios.combinations
     assert_includes combinations, ["boto", "db_schema"]
+    assert_includes combinations, ["boto", "db_auth"]
     refute_includes combinations, ["roda", "db_schema"]
-    refute_includes combinations, ["sinatra", "db_schema"]
-    assert_equal 7, combinations.size
+    refute_includes combinations, ["sinatra", "db_auth"]
+    assert_equal 8, combinations.size
   end
 
   def test_db_schema_is_a_db_scenario_with_the_same_paths
@@ -49,9 +55,25 @@ class BenchScenariosTest < Minitest::Test
     assert File.exist?(BenchScenarios.app_path("boto", "db_schema"))
   end
 
+  def test_db_auth_is_a_db_scenario_with_the_same_paths
+    assert BenchScenarios.db_scenario?("db_auth")
+    assert_equal "/users/500", BenchScenarios.load_path("db_auth")
+    assert_equal "/users/1", BenchScenarios.path_for("db_auth", 0)
+    assert File.exist?(BenchScenarios.app_path("boto", "db_auth"))
+  end
+
+  def test_only_db_auth_sends_authorization_header
+    assert_equal({ "Authorization" => "Bearer bench-token" }, BenchScenarios.headers_for("db_auth"))
+    assert_equal({ "HTTP_AUTHORIZATION" => "Bearer bench-token" }, BenchScenarios.rack_env_for("db_auth"))
+    assert_empty BenchScenarios.headers_for("db")
+    assert_empty BenchScenarios.headers_for("hello")
+    assert_empty BenchScenarios.rack_env_for("db_schema")
+  end
+
   def test_matrix_holds_only_supported_combinations
     matrix = BenchScenarios.matrix { |framework, scenario| "#{framework}/#{scenario}" }
-    assert_equal({ "hello" => "boto/hello", "db" => "boto/db", "db_schema" => "boto/db_schema" }, matrix["boto"])
+    assert_equal({ "hello" => "boto/hello", "db" => "boto/db", "db_schema" => "boto/db_schema",
+                   "db_auth" => "boto/db_auth" }, matrix["boto"])
     assert_equal({ "hello" => "roda/hello", "db" => "roda/db" }, matrix["roda"])
     assert_equal BenchScenarios::FRAMEWORKS, matrix.keys
   end

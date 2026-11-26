@@ -33,7 +33,7 @@ module BenchAllocations
 
   def self.build_envs(scenario, count, offset:)
     Array.new(count) do |index|
-      Rack::MockRequest.env_for(BenchScenarios.path_for(scenario, offset + index))
+      Rack::MockRequest.env_for(BenchScenarios.path_for(scenario, offset + index), BenchScenarios.rack_env_for(scenario))
     end
   end
 

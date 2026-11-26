@@ -47,6 +47,9 @@ module BenchLoadTest
     reader.kill
   end
 
+  # Both wrk and ab take each header as its own -H "Name: value" argument.
+  def self.header_flags(headers) = headers.flat_map { |name, value| ["-H", "#{name}: #{value}"] }
+
   def self.metric(output, pattern)
     match = output.match(pattern)
     raise Error, "métrica #{pattern.source} não encontrada na saída da ferramenta" unless match
@@ -70,17 +73,18 @@ module BenchLoadTest
 
     def name = NAME
 
-    def warm_up(url)
-      BenchLoadTest.capture(command(url, @profile[:warmup]), timeout: CAPTURE_TIMEOUT)
+    def warm_up(url, headers: {})
+      BenchLoadTest.capture(command(url, @profile[:warmup], headers: headers), timeout: CAPTURE_TIMEOUT)
       nil
     end
 
-    def measure(url)
-      parse(BenchLoadTest.capture(command(url, @profile[:requests]), timeout: CAPTURE_TIMEOUT))
+    def measure(url, headers: {})
+      parse(BenchLoadTest.capture(command(url, @profile[:requests], headers: headers), timeout: CAPTURE_TIMEOUT))
     end
 
-    def command(url, requests)
-      ["ab", "-k", "-n", requests.to_s, "-c", CONCURRENCY.to_s, "-s", REQUEST_TIMEOUT.to_s, url]
+    def command(url, requests, headers: {})
+      ["ab", "-k", "-n", requests.to_s, "-c", CONCURRENCY.to_s, "-s", REQUEST_TIMEOUT.to_s,
+       *BenchLoadTest.header_flags(headers), url]
     end
 
     def parse(output)
@@ -108,18 +112,19 @@ module BenchLoadTest
 
     def name = NAME
 
-    def warm_up(url)
-      BenchLoadTest.capture(command(url, @profile[:warmup]), timeout: timeout_for(@profile[:warmup]))
+    def warm_up(url, headers: {})
+      BenchLoadTest.capture(command(url, @profile[:warmup], headers: headers), timeout: timeout_for(@profile[:warmup]))
       nil
     end
 
-    def measure(url)
+    def measure(url, headers: {})
       duration = @profile[:duration]
-      parse(BenchLoadTest.capture(command(url, duration), timeout: timeout_for(duration)))
+      parse(BenchLoadTest.capture(command(url, duration, headers: headers), timeout: timeout_for(duration)))
     end
 
-    def command(url, duration)
-      ["wrk", "-t#{THREADS}", "-c#{CONNECTIONS}", "-d#{duration}", "--latency", url]
+    def command(url, duration, headers: {})
+      ["wrk", "-t#{THREADS}", "-c#{CONNECTIONS}", "-d#{duration}", "--latency",
+       *BenchLoadTest.header_flags(headers), url]
     end
 
     # Duration in seconds plus a margin for wrk's start and stop.
