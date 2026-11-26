@@ -6,16 +6,30 @@ description: Use ao criar ou alterar um plugin do Boto (auth, cors, rate_limit, 
 # Criar ou alterar um plugin
 
 1. Para um plugin novo, use antes a skill `propose-api`.
-2. Implemente o plugin como middleware Rack em
-   `gems/boto/lib/boto/plugins/<nome>.rb`, sob `Boto::Plugins::<Nome>`.
-3. Registre o plugin para que `app.use :<nome>, **opcoes` funcione no
-   `config/app.rb`.
-4. Valide as opções no boot e falhe com mensagem clara se estiverem erradas.
+2. Implemente o plugin na gem certa:
+   - de segurança vai em `gems/boto-security/lib/boto/plugins/<nome>.rb`;
+   - os outros vão na gem da área dele.
+   
+   Em ambos os casos, a classe é `Boto::Plugins::<Nome> < Boto::Plugin`, com:
+   - `scope :global`, se roda antes do roteamento e vale também para
+     404/405/preflight;
+   - `scope :endpoint` (o padrão), se roda depois do roteamento e aceita
+     `skip`;
+   - um `configure(**opcoes)` privado;
+   - `call(env, app)`, que chama `app.call(env)` para seguir ou devolve a
+     tripla Rack.
+3. Não há registro manual. `app.use :<nome>` resolve `Boto::Plugins::<Nome>`
+   pelo nome da constante, e uma classe de terceiros também pode ser passada
+   direto (`app.use MeuPlugin`).
+4. Valide as opções no `configure` e lance `ArgumentError` com mensagem
+   clara, para falhar no boot. Leia os segredos uma vez, com
+   `Boto::Security::Secrets.resolve`.
 5. Se for um plugin de segurança, coloque-o na posição certa da ordem fixa
-   (hosts -> secure_headers -> sessions -> csrf -> auth -> rate_limit) e
-   atualize essa lista no CLAUDE.md.
-6. Dê suporte a `skip :<nome>` no `Boto::Endpoint`. A exceção vale só para
-   aquele endpoint.
+   (hosts -> cors -> secure_headers -> sessions -> csrf -> auth -> rate_limit).
+   A posição precisa ser atualizada em `Boto::Plugin::ORDER`, no CLAUDE.md e
+   em `.claude/rules/security.md`.
+6. Com `scope :endpoint`, o `skip :<nome>` no `Boto::Endpoint` já funciona e
+   vale só para aquele endpoint. Um plugin global não aceita `skip`.
 7. Se o plugin fizer parte do default de algum template, ligue-o no
    `config/app.rb` desse template.
 8. Testes com `Rack::MockRequest`:
