@@ -4,11 +4,26 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-26
+
+### Added
+
+- `Boto::Schema`: declare fields once to validate input into frozen instances and to serialize output through an allowlist of fields. Nested schemas, lists and self-referencing schemas are supported.
+- Shared types for params and schema fields: `Date`, `Time` (ISO 8601 with time zone) and lists such as `[Integer]`, besides String, Integer, Float and `Boto::Boolean`, with `min`, `max`, `enum` and anchored `pattern` constraints.
+- Endpoint DSL `body`, `returns` (schema or `[schema]`), `summary` and `errors`. Validation errors report the full field path, such as `address.zip` and `tags[2]`.
+- `Boto::OpenAPI.generate` builds OpenAPI 3.1 documents; `GET /openapi.json` is served in development only, and `boto openapi <project> [-o FILE]` prints or writes the document.
+- Projects load `schemas/`, and the `webapi` template returns a `HealthSchema`.
+- Boto-only `db_schema` benchmark scenario that measures the cost of `returns`.
+
 ### Changed
 
 - Fewer allocations per request: 76 instead of 88 in the database benchmark scenario and 9 instead of 12 in hello world, with no change to the public API.
+- Params are built on the shared types, and the internal `Boto::Params::COERCERS` constant was removed.
+
+## [0.1.0] - 2026-11-26
 
 ### Added
+
 
 - Monorepo with the boto and boto-cli gems.
 - Botofile DSL (`solution`, `project`) with validation of names, templates and references, and cycle detection with the full path.
