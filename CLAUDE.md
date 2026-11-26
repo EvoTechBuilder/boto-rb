@@ -67,6 +67,8 @@ no `dotnet new install`.
 - `boto graph`
 - `boto run [projeto]` (sem argumento, sobe a solution inteira)
 - `boto test [--all | --affected]`
+- `boto openapi <projeto> [-o arquivo]`
+- `boto check [projeto]` (isolamento: só usa projetos referenciados)
 - `boto templates list | install <gem>`
 
 ## Estrutura de pastas

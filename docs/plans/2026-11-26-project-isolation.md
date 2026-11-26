@@ -1,6 +1,6 @@
 # Plano — Isolamento entre projetos
 
-Status: **aprovado, em execução**
+Status: **concluído**
 Proposta: `docs/proposals/0006-project-isolation.md`
 
 ## Objetivo

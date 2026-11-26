@@ -4,6 +4,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-26
+
+### Added
+
+- Project isolation check: a project may only use the namespaces of the projects it references directly. `Boto::Boot` checks each project before loading it and raises `Boto::IsolationError` listing file, line, constant and the `boto ref` command that fixes it. `BOTO_SKIP_ISOLATION=1` skips the boot check with a warning.
+- `boto check [project]` reports isolation violations and exits 1 when any is found.
+
 ### Changed
 
 - `Boto::Redis::RateLimitStore` uses a pool of 20 connections by default (was 5; connections open on demand) and reuses the fixed part of the counter key, cutting two allocations per request.
