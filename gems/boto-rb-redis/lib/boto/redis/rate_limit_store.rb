@@ -34,6 +34,8 @@ module Boto
         @outage_mutex = Mutex.new
         @outage_window = nil
         @key_prefixes = {}
+        @owns_client = !url.nil?
+        @closed = false
         @client, @endpoint = url ? connect(url, timeout, pool_size) : [client, CUSTOM_CLIENT]
       end
 
@@ -49,6 +51,14 @@ module Boto
 
       def inspect
         "#<#{self.class.name} endpoint=#{@endpoint} prefix=#{@prefix} on_error=#{@on_error}>"
+      end
+
+      # An injected client belongs to the caller, so only the pool built from url: is closed here.
+      def close
+        return if @closed
+
+        @closed = true
+        @client.close if @owns_client
       end
 
       private

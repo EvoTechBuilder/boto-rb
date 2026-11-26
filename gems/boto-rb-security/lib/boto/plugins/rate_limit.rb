@@ -25,6 +25,10 @@ module Boto
         [status, with_rate_headers(headers, count, reset_in), body]
       end
 
+      def stop
+        @store.close if @store.respond_to?(:close)
+      end
+
       private
 
       def configure(limit:, period:, key: nil, trusted_proxies: [], store: nil, clock: nil, max_keys: nil)

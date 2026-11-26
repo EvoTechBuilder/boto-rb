@@ -113,6 +113,19 @@ class Boto::Redis::RateLimitStoreTest < Minitest::Test
     assert_operator count, :<=, 1
   end
 
+  # redis-client drops its pool reference on close (and only recreates it on the next use), so the
+  # check reads that reference: it is the only observable state of the pool that the gem exposes.
+  def test_close_shuts_down_the_pool_it_created_and_tolerates_a_second_call
+    store = build_store
+    pool = store.instance_variable_get(:@client)
+    refute_nil pool.instance_variable_get(:@pool)
+
+    store.close
+    store.close
+
+    assert_nil pool.instance_variable_get(:@pool)
+  end
+
   private
 
   def measure_allocations(&block)

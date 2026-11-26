@@ -19,6 +19,18 @@ class Boto::Plugins::RateLimitTest < Minitest::Test
     end
   end
 
+  class ClosableStore
+    attr_reader :close_calls
+
+    def initialize
+      @close_calls = 0
+    end
+
+    def close
+      @close_calls += 1
+    end
+  end
+
   def setup
     @now = 0.0
     @clock = -> { @now }
@@ -163,6 +175,21 @@ class Boto::Plugins::RateLimitTest < Minitest::Test
     store = FailingStore.new(RuntimeError.new("boom"))
 
     assert_raises(RuntimeError) { get(build_plugin(store: store)) }
+  end
+
+  def test_stop_closes_a_store_that_responds_to_close
+    store = ClosableStore.new
+    build_plugin(store: store).stop
+
+    assert_equal 1, store.close_calls
+  end
+
+  def test_stop_skips_a_store_without_close
+    build_plugin(store: FailingStore.new(RuntimeError.new("unused"))).stop
+  end
+
+  def test_stop_with_the_default_memory_store
+    build_plugin.stop
   end
 
   def test_rejects_invalid_options
