@@ -5,6 +5,36 @@ require "rack/mock"
 require "stringio"
 require "json"
 
+module AppTestQuery
+  class UserSchema < Boto::Schema
+    field :id, Integer
+    field :name, String
+  end
+
+  class SearchSchema < Boto::Schema
+    field :name, String, min: 1
+  end
+
+  class Search < Boto::Endpoint
+    query "/users/search"
+    body SearchSchema
+    returns [UserSchema]
+    def call(body:) = [{ id: 1, name: body.name }]
+  end
+
+  module Items
+    class Index < Boto::Endpoint
+      get "/items"
+      def call = { source: "get" }
+    end
+
+    class Lookup < Boto::Endpoint
+      query "/items"
+      def call = { source: "query" }
+    end
+  end
+end
+
 module AppTestShop
   module Users
     class Show < Boto::Endpoint
@@ -346,7 +376,38 @@ module Boto
       assert_same first_body[0], second_body[0]
     end
 
+    def test_query_with_json_body_returns_serialized_list
+      res = query_json("/users/search", { name: "ana" })
+      assert_equal 200, res.status
+      assert_equal [{ "id" => 1, "name" => "ana" }], json(res.body)
+    end
+
+    def test_query_with_invalid_body_returns_422_with_name_param
+      res = query_json("/users/search", { name: "" })
+      assert_equal 422, res.status
+      assert_equal "name", json(res.body)["errors"].first["param"]
+    end
+
+    def test_head_on_query_only_path_returns_405_listing_query
+      res = request_for(namespace: AppTestQuery).request("HEAD", "/users/search")
+      assert_equal 405, res.status
+      allowed = res.headers["allow"].split(", ")
+      assert_includes allowed, "QUERY"
+      refute_includes allowed, "HEAD"
+    end
+
+    def test_get_and_query_on_same_path_dispatch_to_their_own_endpoint
+      get_res = request_for(namespace: AppTestQuery).get("/items")
+      query_res = request_for(namespace: AppTestQuery).request("QUERY", "/items", input: "", "CONTENT_TYPE" => JSON_TYPE)
+      assert_equal({ "source" => "get" }, json(get_res.body))
+      assert_equal({ "source" => "query" }, json(query_res.body))
+    end
+
     private
+
+    def query_json(path, body, namespace: AppTestQuery)
+      request_for(namespace: namespace).request("QUERY", path, input: JSON.generate(body), "CONTENT_TYPE" => JSON_TYPE)
+    end
 
     def post_json(path, body, namespace: AppTestShop)
       request_for(namespace: namespace).post(path, input: JSON.generate(body), "CONTENT_TYPE" => JSON_TYPE)

@@ -8,7 +8,7 @@ module Boto
   class Endpoint
     class RouteError < StandardError; end
 
-    VERBS = %w[GET POST PUT PATCH DELETE].freeze
+    VERBS = %w[GET POST PUT PATCH DELETE QUERY].freeze
     DEFAULT_STATUS = 200
     STATUS_RANGE = (100..599)
     DYNAMIC_PREFIX = ":"
@@ -37,6 +37,10 @@ module Boto
 
       def delete(path)
         define_route("DELETE", path)
+      end
+
+      def query(path)
+        define_route("QUERY", path)
       end
 
       def route

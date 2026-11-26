@@ -24,6 +24,20 @@ module Boto
       assert_equal ["DELETE", "/x"], Class.new(Boto::Endpoint) { delete "/x" }.route
     end
 
+    def test_query_defines_query_route
+      assert_equal ["QUERY", "/x"], Class.new(Boto::Endpoint) { query "/x" }.route
+    end
+
+    def test_query_after_another_verb_raises_route_error
+      error = assert_raises(Boto::Endpoint::RouteError) do
+        Class.new(Boto::Endpoint) do
+          get "/x"
+          query "/y"
+        end
+      end
+      assert_equal "route already defined: GET /x", error.message
+    end
+
     def test_route_is_nil_without_declaration
       assert_nil Class.new(Boto::Endpoint).route
     end
