@@ -1,0 +1,6 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "boto/cli"
+warn "boto #{Boto::CLI::VERSION}: no commands yet"
+exit 1

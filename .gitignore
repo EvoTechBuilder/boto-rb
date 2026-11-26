@@ -1,0 +1,9 @@
+/.bundle/
+/vendor/
+*.gem
+/tmp/
+/benchmarks/results/latest.json
+.DS_Store
+/config/master.key
+*.key
+.env
