@@ -11,4 +11,4 @@
 /benchmarks/results/logs/
 
 # graphify: grafo local gerado pelo /graphify
-/graphify-out/
+graphify-out/
