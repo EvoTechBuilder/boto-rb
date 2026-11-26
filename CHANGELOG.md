@@ -4,6 +4,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- Fewer allocations per request: 76 instead of 88 in the database benchmark scenario and 9 instead of 12 in hello world, with no change to the public API.
+
 ### Added
 
 - Monorepo with the boto and boto-cli gems.
