@@ -4,6 +4,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- `app.use :health` (core): `GET /health/live` answers 200 while the process serves, and `GET /health/ready` answers 200 or 503 after running the project checks (`checks:`, with `timeout:`) and the checks plugins expose. It runs before every other plugin, so probes need no credentials and pass `:hosts`. Failures are logged and never exposed in the response, and readiness answers 503 once the app drains.
+- Plugin hooks `attach(app)`, `drain` and `health_checks`, and `Boto::App#drain!` and `#plugins`.
+- `Boto::Redis::RateLimitStore#healthy?` pings Redis, and the `:rate_limit` plugin exposes it as the `rate_limit_store` check.
+- `boto run --shutdown-timeout N` (default 25) and `--drain-delay N` (default 0).
+
+### Changed
+
+- `boto run` shuts down gracefully: the first TERM or INT drains the apps (readiness answers 503), keeps serving for the drain delay, stops accepting connections and waits for the requests in flight up to the shutdown timeout, then stops the plugins. A second signal stops at once with exit status 1.
+- New `webapi` projects use `app.use :health` instead of a generated `Health` endpoint and schema. Existing projects keep their `/health` endpoint.
+
+### Fixed
+
+- `boto test` says "1 project tested" instead of "1 projects tested".
+
 ## [0.8.0] - 2026-11-26
 
 ### Added
