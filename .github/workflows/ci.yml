@@ -36,14 +36,18 @@ jobs:
         run: bundle exec rake test
 
   benchmark:
-    name: benchmark (PR vs base)
-    if: github.event_name == 'pull_request'
+    name: benchmark (vs base)
+    # Pull requests compare with their base branch; pushes to main compare with the commit before the push.
+    # A push that creates the branch has no previous commit (all zeros), so it is skipped.
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000')
     needs: test
     runs-on: ubuntu-latest
     env:
       RUBY_YJIT_ENABLE: "1"
     steps:
-      - name: Checkout PR
+      - name: Checkout current
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -51,7 +55,7 @@ jobs:
       - name: Checkout base
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.base_ref }}
+          ref: ${{ github.event_name == 'pull_request' && github.base_ref || github.event.before }}
           path: base
 
       - name: Install wrk
@@ -82,7 +86,7 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/benchmarks/results"
           cp results/baseline.json "$GITHUB_WORKSPACE/benchmarks/results/baseline.json"
 
-      - name: Compare PR against baseline
+      - name: Compare current against baseline
         if: steps.base.outputs.has_base == 'true'
         run: |
           cd "$GITHUB_WORKSPACE/benchmarks"
