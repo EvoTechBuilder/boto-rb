@@ -8,7 +8,6 @@ module Boto
     class Generator
       TEMPLATES_ROOT = File.expand_path("../../../templates", __dir__)
       ERB_EXTENSION = ".erb"
-      DOT_PREFIX = "dot_"
       ERB_TRIM_MODE = "-"
 
       def initialize(template_name)
@@ -28,7 +27,7 @@ module Boto
       end
 
       def materialize(relative, target_dir, locals)
-        output = output_path(relative)
+        output = relative.delete_suffix(ERB_EXTENSION)
         target = File.join(target_dir, output)
         FileUtils.mkdir_p(File.dirname(target))
         source = File.join(@dir, relative)
@@ -38,14 +37,6 @@ module Boto
           FileUtils.cp(source, target)
         end
         output
-      end
-
-      def output_path(relative)
-        relative.split("/").map { |part| dot_part(part) }.join("/").delete_suffix(ERB_EXTENSION)
-      end
-
-      def dot_part(part)
-        part.start_with?(DOT_PREFIX) ? ".#{part.delete_prefix(DOT_PREFIX)}" : part
       end
 
       def render(content, locals)

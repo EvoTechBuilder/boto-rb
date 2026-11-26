@@ -11,7 +11,7 @@ Gem::Specification.new do |spec|
   spec.required_ruby_version = ">= 3.4"
   spec.metadata["rubygems_mfa_required"] = "true"
 
-  spec.files = Dir["lib/**/*.rb"] + Dir["exe/*"] + Dir["templates/**/*", "templates/**/.*"]
+  spec.files = Dir["lib/**/*.rb"] + Dir["exe/*"] + Dir.glob("templates/**/*", File::FNM_DOTMATCH).select { |path| File.file?(path) }
   spec.bindir = "exe"
   spec.executables = ["boto"]
   spec.require_paths = ["lib"]

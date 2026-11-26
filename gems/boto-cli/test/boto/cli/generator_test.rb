@@ -24,14 +24,19 @@ class Boto::CLI::GeneratorTest < Minitest::Test
     end
   end
 
-  def test_leaves_no_erb_or_dot_prefixed_files_behind
+  def test_gemspec_packages_dotfile_templates
+    spec = Gem::Specification.load(File.expand_path("../../../boto-cli.gemspec", __dir__))
+    assert_includes spec.files, "templates/solution/.gitignore"
+    assert_includes spec.files, "templates/webapi/models/.keep"
+  end
+
+  def test_leaves_no_erb_files_behind
     Dir.mktmpdir do |target|
       Boto::CLI::Generator.new("solution").generate(target, LOCALS)
       generated = Dir.glob("**/*", File::FNM_DOTMATCH, base: target)
                      .select { |path| File.file?(File.join(target, path)) }
 
       refute(generated.any? { |path| path.end_with?(".erb") })
-      refute(generated.any? { |path| path.split("/").any? { |part| part.start_with?("dot_") } })
     end
   end
 end

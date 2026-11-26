@@ -138,7 +138,7 @@ class Boto::CLI::AddCommandTest < Minitest::Test
 
   def assert_no_template_leftovers(project_dir)
     leftovers = Dir.glob("**/*", base: project_dir).select do |path|
-      path.end_with?(".erb") || path.split("/").any? { |part| part.start_with?("dot_") }
+      path.end_with?(".erb")
     end
     assert_empty leftovers
   end
