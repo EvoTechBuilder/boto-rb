@@ -1,6 +1,6 @@
 # 0007 — Lifecycle de plugins
 
-Status: **em revisão**
+Status: **implementada**
 
 ## Problema
 

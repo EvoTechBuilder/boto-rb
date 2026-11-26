@@ -6,7 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- Plugin lifecycle: `Boto::Plugin#start` and `#stop` (no-ops by default). `Boto::App#start` starts every plugin of the app in the fixed order, including the `:auth` instances built by `authenticate`; a failing start stops the plugins already started and raises `Boto::App::BootError`. `Boto::App#stop` stops them in reverse order and logs failures. Both are idempotent.
+- `Boto::Redis::RateLimitStore#close` shuts down the pool built from `url:` (an injected `client:` stays open), and the `:rate_limit` plugin closes its store on stop.
 - `Boto::RequestBody.read(env, limit:)` returns the raw request body under the same size limit as JSON parsing (1 MB by default) and raises `Boto::Error::PayloadTooLarge` (413) above it.
+
+### Changed
+
+- `Boto::Boot#app` returns a started app, and `Boto::Boot#shutdown` stops the apps it built before unloading the project code. Code that builds `Boto::App.new` directly calls `start` and `stop` itself.
 
 ### Fixed
 
