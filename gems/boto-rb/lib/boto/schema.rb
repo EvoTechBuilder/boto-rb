@@ -8,7 +8,9 @@ module Boto
 
     FIELD_NAME = /\A[a-z_][a-z0-9_]*\z/
     # Methods the schema calls on its instances; a field with one of these names would replace them.
-    RESERVED_NAMES = %i[class freeze hash inspect to_h].freeze
+    RESERVED_NAMES = %i[class freeze hash inspect to_h initialize].freeze
+    # Prefix of the methods the Compiler generates; a field with it would collide with them.
+    GENERATED_PREFIX = "__boto"
     MUST_BE_OBJECT = "must be an object"
     REQUIRED_MESSAGE = "is required"
     REF_PREFIX = "#/components/schemas/"
@@ -41,12 +43,19 @@ module Boto
       # @compiling guards schemas that reference each other (A -> B -> A).
       return self if compiled? || @compiling
 
+      guarded_compile
+      self
+    end
+
+    # ensure resets the flag so a failed compile can be retried; fields freeze only once the code exists.
+    def self.guarded_compile
       @compiling = true
       nested_schemas.each(&:compile!)
-      fields.freeze
       Compiler.new(self).compile
+      fields.freeze
       @compiled = true
-      self
+    ensure
+      @compiling = false
     end
 
     # Before compile! these call compile!, which defines the generated versions that replace them.
@@ -98,10 +107,17 @@ module Boto
       raise ArgumentError, "invalid field name #{name.inspect}" unless FIELD_NAME.match?(name.to_s)
 
       symbol = name.to_sym
-      raise ArgumentError, "reserved field name #{name}" if RESERVED_NAMES.include?(symbol)
+      raise ArgumentError, "reserved field name #{name}" if reserved_name?(symbol)
       raise ArgumentError, "duplicate field #{name}" if fields.any? { |field| field.name == symbol }
 
       symbol
+    end
+
+    # Ruby keywords stay allowed: `object.end` is valid Ruby and they are common JSON keys.
+    def self.reserved_name?(symbol)
+      RESERVED_NAMES.include?(symbol) ||
+        Boto::Schema.public_method_defined?(symbol) ||
+        symbol.start_with?(GENERATED_PREFIX)
     end
 
     # Helpers below are private class methods; the generated code calls them with an implicit receiver.
@@ -137,7 +153,8 @@ module Boto
       hash.key?(field.name) ? hash[field.name] : hash[field.key]
     end
 
-    private_class_method :validate_field_name!, :build_json_schema, :json_properties,
+    private_class_method :validate_field_name!, :reserved_name?, :guarded_compile,
+                         :build_json_schema, :json_properties,
                          :nested_schemas, :schemas_in,
                          :__boto_require_object, :__boto_coerce_field, :__boto_add_errors,
                          :__boto_dump, :__boto_read_input, :__boto_read_output

@@ -330,6 +330,68 @@ module Boto
 
       assert_operator count, :<=, 1
     end
+
+    # Replaces Compiler#compile for the block only, so every test sees the real compiler again.
+    def with_compiler_failure(message)
+      original = Schema::Compiler.instance_method(:compile)
+      Schema::Compiler.define_method(:compile) { raise RuntimeError, message }
+      yield
+    ensure
+      Schema::Compiler.define_method(:compile, original)
+    end
+
+    def test_failed_compile_leaves_schema_uncompiled_and_retries
+      klass = Class.new(Boto::Schema) { field :code, String }
+
+      with_compiler_failure("boom") do
+        assert_raises(RuntimeError) { klass.compile! }
+        refute_predicate klass, :compiled?
+        refute_predicate klass.fields, :frozen?
+        assert_equal "boom", assert_raises(RuntimeError) { klass.compile! }.message
+        assert_equal "boom", assert_raises(RuntimeError) { klass.serialize(code: "x") }.message
+      end
+    end
+
+    def test_failed_nested_compile_leaves_parent_uncompiled
+      inner = Class.new(Boto::Schema) { field :value, Integer }
+      outer = Class.new(Boto::Schema) { field :inner, inner }
+
+      with_compiler_failure("boom") do
+        assert_equal "boom", assert_raises(RuntimeError) { outer.compile! }.message
+        refute_predicate outer, :compiled?
+        refute_predicate inner, :compiled?
+        assert_equal "boom", assert_raises(RuntimeError) { outer.coerce("inner" => { "value" => 1 }) }.message
+      end
+    end
+
+    def test_schema_compiles_and_serializes_after_failure_is_removed
+      inner = Class.new(Boto::Schema) { field :value, Integer }
+      outer = Class.new(Boto::Schema) { field :inner, inner }
+      with_compiler_failure("boom") { assert_raises(RuntimeError) { outer.compile! } }
+
+      assert_equal({ inner: { value: 1 } }, outer.serialize(inner: { value: 1 }))
+      assert_predicate outer, :compiled?
+      assert_predicate inner, :compiled?
+    end
+
+    def test_names_shadowing_object_or_generated_methods_raise
+      %i[object_id send method initialize __boto_x].each do |bad|
+        error = assert_raises(ArgumentError) { Class.new(Boto::Schema) { field bad, String } }
+
+        assert_equal "reserved field name #{bad}", error.message
+      end
+    end
+
+    def test_ruby_keywords_are_accepted_as_field_names
+      klass = Class.new(Boto::Schema) do
+        field :end, String
+        field :if, String
+      end
+      object = Struct.new(:end, :if).new("a", "b")
+
+      assert_equal({ end: "a", if: "b" }, klass.serialize({ end: "a", if: "b" }))
+      assert_equal({ end: "a", if: "b" }, klass.serialize(object))
+    end
   end
 end
 
