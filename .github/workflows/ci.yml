@@ -3,6 +3,8 @@ name: CI
 on:
   push:
     branches: [main]
+    # A version tag runs the tests, then publishes to RubyGems in parallel with the benchmark.
+    tags: ["v*"]
   pull_request:
 
 permissions:
@@ -49,11 +51,8 @@ jobs:
 
   benchmark:
     name: benchmark (vs base)
-    # Pull requests compare with their base branch; pushes to main compare with the commit before the push.
-    # A push that creates the branch has no previous commit (all zeros), so it is skipped.
-    if: >-
-      github.event_name == 'pull_request' ||
-      (github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000')
+    # Pull requests compare with their base branch, pushes to main with the commit before the push and
+    # version tags with the previous version tag. Without a base (a new branch, the first tag) it is skipped.
     needs: test
     runs-on: ubuntu-latest
     # A stuck server or load tool must not hold the runner for GitHub's 6-hour default.
@@ -78,10 +77,27 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Resolve base
+        id: base_ref
+        env:
+          BEFORE: ${{ github.event.before }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            ref="$BASE_REF"
+          elif [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            ref=$(git describe --tags --abbrev=0 --match 'v*' HEAD^ 2>/dev/null || true)
+          elif [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            ref="$BEFORE"
+          fi
+          echo "ref=${ref:-}" >> "$GITHUB_OUTPUT"
+          [ -n "${ref:-}" ] || echo "::notice::No base to compare with; skipping the benchmark."
+
       - name: Checkout base
+        if: steps.base_ref.outputs.ref != ''
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.base_ref || github.event.before }}
+          ref: ${{ steps.base_ref.outputs.ref }}
           path: base
 
       - name: Install wrk
@@ -93,8 +109,10 @@ jobs:
 
       - name: Check base has benchmarks
         id: base
+        env:
+          BASE: ${{ steps.base_ref.outputs.ref }}
         run: |
-          if [ -f "$GITHUB_WORKSPACE/base/benchmarks/run.rb" ]; then
+          if [ -n "$BASE" ] && [ -f "$GITHUB_WORKSPACE/base/benchmarks/run.rb" ]; then
             echo "has_base=true" >> "$GITHUB_OUTPUT"
           else
             echo "has_base=false" >> "$GITHUB_OUTPUT"
@@ -132,3 +150,41 @@ jobs:
             benchmarks/results/logs/
             base/benchmarks/results/logs/
           if-no-files-found: ignore
+
+  publish:
+    name: publish to RubyGems
+    # Only version tags publish, and only after every test job passed. It runs next to the benchmark.
+    if: github.ref_type == 'tag'
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Protection rules on this environment (required reviewers) can gate every release.
+    environment: rubygems
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "4.0"
+
+      # Builds in dependency order. gem build names the file after the gemspec version,
+      # so a tag that does not match every gem's VERSION fails here, before anything is pushed.
+      - name: Build gems
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          for gem in boto-rb boto-rb-security boto-rb-redis boto-rb-cli; do
+            (cd "gems/$gem" && gem build "$gem.gemspec")
+            test -f "gems/$gem/$gem-$version.gem" || { echo "::error::$gem is not at version $version"; exit 1; }
+          done
+
+      - uses: rubygems/configure-rubygems-credentials@v1.0.0
+
+      - name: Push gems
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          for gem in boto-rb boto-rb-security boto-rb-redis boto-rb-cli; do
+            gem push "gems/$gem/$gem-$version.gem"
+          done
