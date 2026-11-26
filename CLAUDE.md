@@ -153,6 +153,19 @@ boto/
     end
   end
   ```
+- **Verbos**: `get`, `post`, `put`, `patch`, `delete` e `query`. O `query`
+  corresponde ao método HTTP QUERY, que é seguro e idempotente como o GET,
+  mas leva a consulta no corpo, com `body Schema`. Ele serve para buscas que
+  não cabem na query string. `HEAD` continua respondendo a partir do `get`.
+  ```ruby
+  class Pedidos::Users::Search < Boto::Endpoint
+    query "/users/search"
+    body UserFilterSchema
+    returns [UserSchema]
+
+    def call(body:) = Users.search(body)
+  end
+  ```
 - **Descoberta automática**: tudo em `endpoints/` é carregado via Zeitwerk e as
   rotas são registradas sozinhas, sem arquivo de rotas central. A pasta espelha
   o namespace, sempre sob o namespace do projeto
