@@ -159,6 +159,36 @@ class Boto::Plugins::Auth::SignatureTest < Minitest::Test
     assert_raises(ArgumentError) { strategy(tolerance: "300") }
   end
 
+  def test_mutating_secret_after_build_does_not_change_verification
+    secret = +SECRET
+    verifier = strategy(secret: secret)
+    secret.replace("changed")
+
+    assert_equal({ signed: true }, verifier.authenticate(env_for(headers: { "HTTP_X_SIGNATURE" => hmac(BODY) })))
+  end
+
+  def test_secret_from_lambda_is_copied_and_frozen
+    secret = +SECRET
+    verifier = strategy(secret: -> { secret })
+    secret.replace("changed")
+
+    assert_equal({ signed: true }, verifier.authenticate(env_for(headers: { "HTTP_X_SIGNATURE" => hmac(BODY) })))
+    assert_predicate verifier.instance_variable_get(:@secret), :frozen?
+  end
+
+  def test_mutating_header_and_prefix_after_build_does_not_change_verification
+    header = +"X-Hub-Signature"
+    prefix = +"sha256="
+    verifier = strategy(header: header, prefix: prefix)
+
+    header.replace("X-Other")
+    prefix.replace("sha512=")
+
+    env = env_for(headers: { "HTTP_X_HUB_SIGNATURE" => "sha256=#{hmac(BODY)}" })
+    assert_equal({ signed: true }, verifier.authenticate(env))
+    assert_equal 'Signature header="X-Hub-Signature"', verifier.challenge
+  end
+
   def test_challenge_uses_header_name
     assert_equal 'Signature header="X-Signature"', strategy.challenge
     assert_equal 'Signature header="X-Hub-Signature"', strategy(header: "X-Hub-Signature").challenge

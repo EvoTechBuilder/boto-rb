@@ -155,6 +155,53 @@ class Boto::Plugins::Auth::JwtTest < Minitest::Test
     assert_equal "user-1", principal[:sub]
   end
 
+  def test_algorithms_array_of_the_caller_is_not_frozen
+    algorithms = ["HS256"]
+
+    strategy(algorithms: algorithms)
+
+    refute_predicate algorithms, :frozen?
+  end
+
+  def test_mutating_algorithms_after_build_does_not_change_verification
+    algorithms = [+"HS256"]
+    verifier = strategy(algorithms: algorithms)
+
+    algorithms[0].replace("RS256")
+    algorithms << "ES256"
+
+    refute_nil verifier.authenticate(bearer(hs256(valid_claims)))
+  end
+
+  def test_mutating_secret_after_build_does_not_change_verification
+    secret = +SECRET
+    verifier = strategy(secret: secret)
+
+    secret.replace("changed")
+
+    refute_nil verifier.authenticate(bearer(hs256(valid_claims)))
+  end
+
+  def test_secret_from_lambda_is_copied_and_frozen
+    secret = +SECRET
+    verifier = strategy(secret: -> { secret })
+
+    secret.replace("changed")
+
+    refute_nil verifier.authenticate(bearer(hs256(valid_claims)))
+    assert_predicate verifier.instance_variable_get(:@key), :frozen?
+  end
+
+  def test_mutating_issuer_after_build_does_not_change_verification
+    issuer = +ISSUER
+    verifier = strategy(issuer: issuer)
+
+    issuer.replace("other")
+
+    refute_nil verifier.authenticate(bearer(hs256(valid_claims(iss: ISSUER))))
+    assert_nil verifier.authenticate(bearer(hs256(valid_claims(iss: "other"))))
+  end
+
   def test_challenge_uses_realm
     assert_equal 'Bearer realm="Boto"', strategy.challenge
     assert_equal 'Bearer realm="Api"', strategy(realm: "Api").challenge

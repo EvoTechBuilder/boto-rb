@@ -44,6 +44,29 @@ class Boto::Plugins::Auth::ApiKeyTest < Minitest::Test
     assert_raises(ArgumentError) { API_KEY.new(keys: KEYS, header: "") }
   end
 
+  def test_mutating_keys_after_build_does_not_change_authentication
+    keys = { "ci" => +"k1" }
+    strategy = API_KEY.new(keys: keys)
+
+    keys["ci"].replace("changed")
+    keys["web"] = +"k2"
+    keys.delete("ci")
+
+    assert_equal({ key_id: "ci" }, strategy.authenticate({ "HTTP_X_API_KEY" => "k1" }))
+    assert_nil strategy.authenticate({ "HTTP_X_API_KEY" => "changed" })
+    assert_nil strategy.authenticate({ "HTTP_X_API_KEY" => "k2" })
+  end
+
+  def test_keys_from_lambda_are_copied_and_frozen
+    keys = { "ci" => +"k1" }
+    strategy = API_KEY.new(keys: -> { keys })
+
+    keys["ci"].replace("changed")
+
+    assert_equal({ key_id: "ci" }, strategy.authenticate({ "HTTP_X_API_KEY" => "k1" }))
+    assert_predicate strategy.instance_variable_get(:@keys), :frozen?
+  end
+
   def test_challenge
     assert_equal 'API-Key header="X-API-Key"', strategy.challenge
   end

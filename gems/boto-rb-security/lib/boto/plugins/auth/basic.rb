@@ -41,7 +41,7 @@ module Boto
                   credentials.all? { |user, password| user.is_a?(String) && password.is_a?(String) && !password.empty? }
           raise ArgumentError, "credentials must be a non-empty Hash of user => password" unless valid
 
-          credentials.dup.freeze
+          Boto::Security::Secrets.frozen_copy(credentials)
         end
       end
     end

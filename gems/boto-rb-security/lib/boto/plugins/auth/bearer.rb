@@ -40,7 +40,7 @@ module Boto
           valid = tokens.is_a?(Array) && !tokens.empty? && tokens.all? { |token| token.is_a?(String) && !token.empty? }
           raise ArgumentError, "tokens must be a non-empty Array of Strings" unless valid
 
-          tokens.dup.freeze
+          Boto::Security::Secrets.frozen_copy(tokens)
         end
       end
     end

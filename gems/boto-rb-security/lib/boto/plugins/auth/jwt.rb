@@ -18,7 +18,7 @@ module Boto
           @algorithms = validate_algorithms(algorithms)
           @key = load_key(secret, public_key)
           @decode_options = build_decode_options(issuer, audience, validate_leeway(leeway))
-          @realm = realm
+          @realm = Boto::Security::Secrets.frozen_copy(realm)
         end
 
         def authenticate(env)
@@ -47,13 +47,17 @@ module Boto
           end
           raise ArgumentError, "o algoritmo 'none' não é aceito" if algorithms.any? { _1.casecmp?(NONE_ALGORITHM) }
 
-          algorithms.freeze
+          Boto::Security::Secrets.frozen_copy(algorithms)
         end
 
         def load_key(secret, public_key)
           raise ArgumentError, "informe secret ou public_key, exatamente um" if secret.nil? == public_key.nil?
 
-          secret ? Boto::Security::Secrets.resolve(secret) : parse_public_key(Boto::Security::Secrets.resolve(public_key))
+          secret ? frozen_secret(secret) : parse_public_key(Boto::Security::Secrets.resolve(public_key))
+        end
+
+        def frozen_secret(secret)
+          Boto::Security::Secrets.frozen_copy(Boto::Security::Secrets.resolve(secret))
         end
 
         def parse_public_key(key)
@@ -70,9 +74,9 @@ module Boto
           {
             algorithms: @algorithms,
             leeway: leeway,
-            iss: issuer,
+            iss: Boto::Security::Secrets.frozen_copy(issuer),
             verify_iss: !issuer.nil?,
-            aud: audience,
+            aud: Boto::Security::Secrets.frozen_copy(audience),
             verify_aud: !audience.nil?,
             required_claims: REQUIRED_CLAIMS
           }.freeze

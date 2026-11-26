@@ -41,6 +41,28 @@ class Boto::Plugins::Auth::BearerTest < Minitest::Test
     assert_raises(ArgumentError) { BEARER.new(tokens: "alpha") }
   end
 
+  def test_mutating_tokens_after_build_does_not_change_authentication
+    tokens = [+"alpha"]
+    strategy = BEARER.new(tokens: tokens)
+
+    tokens[0].replace("changed")
+    tokens << +"beta"
+
+    assert_equal({ token_index: 0 }, strategy.authenticate(env("Bearer alpha")))
+    assert_nil strategy.authenticate(env("Bearer changed"))
+    assert_nil strategy.authenticate(env("Bearer beta"))
+  end
+
+  def test_tokens_from_lambda_are_copied_and_frozen
+    tokens = [+"alpha"]
+    strategy = BEARER.new(tokens: -> { tokens })
+
+    tokens.clear
+
+    assert_equal({ token_index: 0 }, strategy.authenticate(env("Bearer alpha")))
+    assert_predicate strategy.instance_variable_get(:@tokens), :frozen?
+  end
+
   def test_challenge_uses_realm
     assert_equal 'Bearer realm="Boto"', strategy.challenge
     assert_equal 'Bearer realm="Api"', strategy(realm: "Api").challenge

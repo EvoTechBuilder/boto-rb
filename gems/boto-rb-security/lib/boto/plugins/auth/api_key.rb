@@ -9,6 +9,7 @@ module Boto
 
         def initialize(keys:, header: "X-API-Key")
           @keys = validate_keys(Boto::Security::Secrets.resolve(keys))
+          header = validate_header(header)
           @rack_key = rack_key_for(header)
           @challenge = %(API-Key header="#{header}").freeze
           @security_scheme = { "type" => "apiKey", "in" => "header", "name" => header }.freeze
@@ -29,12 +30,16 @@ module Boto
           valid = keys.is_a?(Hash) && !keys.empty? && keys.values.all? { |key| key.is_a?(String) && !key.empty? }
           raise ArgumentError, "keys must be a non-empty Hash of key_id => key" unless valid
 
-          keys.dup.freeze
+          Boto::Security::Secrets.frozen_copy(keys)
+        end
+
+        def validate_header(header)
+          raise ArgumentError, "header must be a non-empty String" unless header.is_a?(String) && !header.empty?
+
+          Boto::Security::Secrets.frozen_copy(header)
         end
 
         def rack_key_for(header)
-          raise ArgumentError, "header must be a non-empty String" unless header.is_a?(String) && !header.empty?
-
           "HTTP_#{header.upcase.tr("-", "_")}".freeze
         end
       end

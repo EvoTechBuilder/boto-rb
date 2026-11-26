@@ -56,6 +56,28 @@ class Boto::Plugins::Auth::BasicTest < Minitest::Test
     assert_raises(ArgumentError) { BASIC.new(credentials: { "admin" => "" }) }
   end
 
+  def test_mutating_credentials_after_build_does_not_change_authentication
+    credentials = { "admin" => +"s3cret" }
+    strategy = BASIC.new(credentials: credentials)
+
+    credentials["admin"].replace("changed")
+    credentials["ghost"] = +"any"
+
+    assert_equal({ user: "admin" }, strategy.authenticate(env(basic_header("admin", "s3cret"))))
+    assert_nil strategy.authenticate(env(basic_header("admin", "changed")))
+    assert_nil strategy.authenticate(env(basic_header("ghost", "any")))
+  end
+
+  def test_credentials_from_lambda_are_copied_and_frozen
+    credentials = { "admin" => +"s3cret" }
+    strategy = BASIC.new(credentials: -> { credentials })
+
+    credentials["admin"].replace("changed")
+
+    assert_equal({ user: "admin" }, strategy.authenticate(env(basic_header("admin", "s3cret"))))
+    assert_predicate strategy.instance_variable_get(:@credentials), :frozen?
+  end
+
   def test_challenge_uses_realm
     assert_equal 'Basic realm="Boto"', strategy.challenge
     assert_equal 'Basic realm="Admin"', strategy(realm: "Admin").challenge

@@ -24,10 +24,10 @@ module Boto
           @secret = validate_secret(Boto::Security::Secrets.resolve(secret))
           @algorithm = validate_algorithm(algorithm)
           @tolerance = validate_tolerance(tolerance)
-          @header = header
+          @header = Boto::Security::Secrets.frozen_copy(header)
           @signature_key = rack_key(header)
           @timestamp_key = rack_key(timestamp_header)
-          @prefix = prefix
+          @prefix = Boto::Security::Secrets.frozen_copy(prefix)
           @clock = clock
         end
 
@@ -55,13 +55,13 @@ module Boto
         def validate_secret(secret)
           raise ArgumentError, "secret deve ser uma String não vazia" unless secret.is_a?(String) && !secret.empty?
 
-          secret
+          Boto::Security::Secrets.frozen_copy(secret)
         end
 
         def validate_algorithm(algorithm)
           raise ArgumentError, "algorithm deve ser #{ALGORITHMS.join(" ou ")}" unless ALGORITHMS.include?(algorithm)
 
-          algorithm
+          Boto::Security::Secrets.frozen_copy(algorithm)
         end
 
         def validate_tolerance(tolerance)
