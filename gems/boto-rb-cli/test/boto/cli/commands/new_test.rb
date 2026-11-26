@@ -54,7 +54,7 @@ class Boto::CLI::NewCommandTest < Minitest::Test
   def test_missing_name_raises_usage
     Dir.mktmpdir do |cwd|
       error = assert_raises(Boto::CLI::Error) { new_command([], cwd: cwd).call }
-      assert_equal "usage: boto new <name>", error.message
+      assert_equal "Usage: boto new <name>", error.message
     end
   end
 

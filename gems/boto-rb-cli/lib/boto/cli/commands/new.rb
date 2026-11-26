@@ -6,7 +6,8 @@ module Boto
       class New < Command
         SUMMARY = "Create a new solution"
         TEMPLATE = "solution"
-        USAGE = "usage: boto new <name>"
+        USAGE = "Usage: boto new <name>"
+        POSITION = 1
 
         def call
           name = name_argument

@@ -87,7 +87,7 @@ class Boto::CLI::CheckCommandTest < Minitest::Test
       write_solution(cwd)
 
       error = assert_raises(Boto::CLI::Error) { check_command(%w[billing orders], cwd: cwd).call }
-      assert_equal "usage: boto check [project]", error.message
+      assert_equal "Usage: boto check [project]", error.message
     end
   end
 

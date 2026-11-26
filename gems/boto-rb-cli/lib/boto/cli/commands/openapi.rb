@@ -8,11 +8,18 @@ module Boto
     module Commands
       class Openapi < Command
         SUMMARY = "Print or write the OpenAPI document of a project"
-        USAGE = "usage: boto openapi <project> [-o FILE] [--api-version V]"
+        USAGE = "Usage: boto openapi <project> [-o FILE] [--api-version V]"
+        POSITION = 8
         DEFAULT_API_VERSION = "0.1.0"
         SERVABLE_TEMPLATES = %i[webapi microservice].freeze
         # Documentation needs the routes, not production secrets, so the app boots as in development.
         ENV_NAME = "development"
+        OPTIONS = [
+          Option.new(key: :output, flags: %w[-o --output], argument: "FILE",
+                     description: "Write the document to FILE instead of stdout"),
+          Option.new(key: :api_version, flags: %w[--api-version], argument: "V",
+                     description: "Version written to info.version (default #{DEFAULT_API_VERSION})")
+        ].freeze
 
         def call
           options = parse_options
@@ -36,14 +43,6 @@ module Boto
           options.merge(project: positional.first)
         rescue OptionParser::ParseError => error
           raise Error, error.message
-        end
-
-        def option_parser(options)
-          OptionParser.new do |parser|
-            parser.banner = USAGE
-            parser.on("-o", "--output FILE") { |file| options[:output] = file }
-            parser.on("--api-version VERSION") { |version| options[:api_version] = version }
-          end
         end
 
         def named_project(plan, name)

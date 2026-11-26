@@ -5,7 +5,8 @@ module Boto
     module Commands
       class Add < Command
         SUMMARY = "Add a project to the solution"
-        USAGE = "usage: boto add <webapi|library> <name>"
+        USAGE = "Usage: boto add <webapi|library> <name>"
+        POSITION = 2
         TEMPLATES = %w[webapi library].freeze
 
         def call

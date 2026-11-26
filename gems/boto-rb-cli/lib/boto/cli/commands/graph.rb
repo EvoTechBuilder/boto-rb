@@ -5,6 +5,8 @@ module Boto
     module Commands
       class Graph < Command
         SUMMARY = "Show the dependency graph of the solution"
+        USAGE = "Usage: boto graph"
+        POSITION = 4
         PROJECT_INDENT = "  "
         REF_INDENT = "    "
         REF_PREFIX = "-> "

@@ -102,7 +102,7 @@ class Boto::CLI::RunCommandTest < Minitest::Test
 
   def test_more_than_one_project_raises_usage
     error = assert_raises(Boto::CLI::Error) { run_command([WEBAPI, BILLING]) }
-    assert_equal "usage: boto run [project] [--port N] [--host H]", error.message
+    assert_equal "Usage: boto run [project] [--port N] [--host H]", error.message
   end
 
   def test_invalid_port_raises

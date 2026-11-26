@@ -8,10 +8,17 @@ module Boto
   module CLI
     module Commands
       class Test < Command
-        SUMMARY = "Run the tests of the solution projects"
-        USAGE = "usage: boto test [project] [--affected] [--base REF]"
+        SUMMARY = "Run the tests of the solution's projects"
+        USAGE = "Usage: boto test [project] [--affected] [--base REF]"
+        POSITION = 7
         CONFLICT_MESSAGE = "a project cannot be combined with --affected"
         DEFAULT_BASE = "main"
+        OPTIONS = [
+          Option.new(key: :affected, flags: %w[--affected],
+                     description: "Only projects affected by changes since the base ref"),
+          Option.new(key: :base, flags: %w[--base], argument: "REF",
+                     description: "Git ref to compare with (default #{DEFAULT_BASE})")
+        ].freeze
         TEST_DIR = "test"
         TEST_LOADER = 'Dir["test/**/*_test.rb"].sort.each { |file| require File.expand_path(file) }'
         # --relative keeps paths relative to the solution root even when it is a subfolder of the repo.
@@ -57,14 +64,6 @@ module Boto
           options.merge(project: positional.first)
         rescue OptionParser::ParseError => error
           raise Error, error.message
-        end
-
-        def option_parser(options)
-          OptionParser.new do |parser|
-            parser.banner = USAGE
-            parser.on("--affected") { options[:affected] = true }
-            parser.on("--base REF") { |ref| options[:base] = ref }
-          end
         end
 
         def select_projects(options, plan)

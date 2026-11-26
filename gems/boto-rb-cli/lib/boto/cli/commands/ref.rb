@@ -5,7 +5,8 @@ module Boto
     module Commands
       class Ref < Command
         SUMMARY = "Add a reference between projects"
-        USAGE = "usage: boto ref <project> <reference>"
+        USAGE = "Usage: boto ref <project> <reference>"
+        POSITION = 3
 
         def call
           project, ref = argv

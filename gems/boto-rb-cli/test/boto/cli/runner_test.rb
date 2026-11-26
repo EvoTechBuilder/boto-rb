@@ -44,7 +44,7 @@ class Boto::CLI::RunnerTest < Minitest::Test
 
   def test_command_error_is_reported_as_usage
     assert_equal 1, runner.run(["new"])
-    assert_equal "boto: usage: boto new <name>\n", @err.string
+    assert_equal "boto: Usage: boto new <name>\n", @err.string
   end
 
   private

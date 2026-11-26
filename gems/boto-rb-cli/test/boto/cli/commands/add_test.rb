@@ -107,7 +107,7 @@ class Boto::CLI::AddCommandTest < Minitest::Test
     with_solution do |dir|
       [[], ["webapi"]].each do |argv|
         error = assert_raises(Boto::CLI::Error) { add_command(argv, cwd: dir).call }
-        assert_equal "usage: boto add <webapi|library> <name>", error.message
+        assert_equal "Usage: boto add <webapi|library> <name>", error.message
       end
     end
   end

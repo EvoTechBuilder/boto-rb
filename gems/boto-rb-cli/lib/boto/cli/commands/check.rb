@@ -5,7 +5,8 @@ module Boto
     module Commands
       class Check < Command
         SUMMARY = "Check that projects only use the projects they reference"
-        USAGE = "usage: boto check [project]"
+        USAGE = "Usage: boto check [project]"
+        POSITION = 5
 
         def call
           plan = solution

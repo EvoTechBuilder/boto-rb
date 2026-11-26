@@ -42,7 +42,7 @@ class Boto::CLI::RefCommandTest < Minitest::Test
   def test_missing_arguments_raises_usage
     in_solution do |cwd|
       error = assert_raises(Boto::CLI::Error) { ref_command(["orders"], cwd: cwd).call }
-      assert_equal "usage: boto ref <project> <reference>", error.message
+      assert_equal "Usage: boto ref <project> <reference>", error.message
     end
   end
 

@@ -7,13 +7,20 @@ module Boto
     module Commands
       class Run < Command
         SUMMARY = "Run the solution's services in one process"
-        USAGE = "usage: boto run [project] [--port N] [--host H]"
+        USAGE = "Usage: boto run [project] [--port N] [--host H]"
+        POSITION = 6
         SERVABLE_TEMPLATES = %i[webapi microservice].freeze
         DEFAULT_PORT = 3000
         DEFAULT_ENV = "development"
         ENV_VARIABLE = "BOTO_ENV"
         VALID_PORTS = (1..65_535)
         STOP_MESSAGE = "Stopping"
+        OPTIONS = [
+          Option.new(key: :port, flags: %w[--port], argument: "N", type: Integer,
+                     description: "First port; each service gets the next one (default #{DEFAULT_PORT})"),
+          Option.new(key: :host, flags: %w[--host], argument: "H",
+                     description: "Host to bind (default #{Boto::CLI::Server::DEFAULT_HOST})")
+        ].freeze
 
         DEFAULT_SERVER_FACTORY = ->(apps_by_port, host:) { Boto::CLI::Server.new(apps_by_port, host:) }
 
@@ -47,14 +54,6 @@ module Boto
           options.merge(project: positional.first)
         rescue OptionParser::ParseError => error
           raise Error, error.message
-        end
-
-        def option_parser(options)
-          OptionParser.new do |parser|
-            parser.banner = USAGE
-            parser.on("--port PORT", Integer) { |port| options[:port] = port }
-            parser.on("--host HOST") { |host| options[:host] = host }
-          end
         end
 
         def select_projects(plan, name)
