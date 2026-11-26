@@ -76,10 +76,20 @@ module Boto
         invalid!(%(project "#{name}" references itself), line) if refs.include?(name)
         duplicate = refs.find { |ref| refs.count(ref) > 1 }
         invalid!(%(duplicate reference "#{duplicate}"), line) if duplicate
+        check_namespace(name, line)
       end
 
       def declared?(name)
         @projects.any? { |project| project.name == name }
+      end
+
+      # Different names can map to the same Ruby namespace (foo_bar and foo__bar both give FooBar).
+      def check_namespace(name, line)
+        namespace = ::Boto::Project.namespace_for(name)
+        owner = @projects.find { |project| project.namespace_name == namespace }
+        return unless owner
+
+        invalid!(%(project "#{name}" has the same namespace #{namespace} as project "#{owner.name}"), line)
       end
 
       def check_references

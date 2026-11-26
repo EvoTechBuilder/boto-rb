@@ -74,6 +74,40 @@ class Boto::BotofileTest < Minitest::Test
     BOTO
   end
 
+  def test_same_namespace_with_extra_underscores_reports_second_declaration_line
+    assert_invalid %(Botofile:3: project "foo__bar" has the same namespace FooBar as project "foo_bar"), <<~BOTO
+      solution "shop"
+      project "foo_bar", template: :library
+      project "foo__bar", template: :library
+    BOTO
+  end
+
+  def test_same_namespace_with_trailing_underscore_is_refused
+    assert_invalid %(Botofile:3: project "foo_bar_" has the same namespace FooBar as project "foo_bar"), <<~BOTO
+      solution "shop"
+      project "foo_bar", template: :library
+      project "foo_bar_", template: :library
+    BOTO
+  end
+
+  def test_same_namespace_with_digit_after_underscore_is_refused
+    assert_invalid %(Botofile:3: project "foo1bar" has the same namespace Foo1bar as project "foo_1bar"), <<~BOTO
+      solution "shop"
+      project "foo_1bar", template: :library
+      project "foo1bar", template: :library
+    BOTO
+  end
+
+  def test_different_namespaces_differing_only_in_case_are_valid
+    source = <<~BOTO
+      solution "shop"
+      project "foo_bar", template: :library
+      project "foobar", template: :library
+    BOTO
+
+    assert_equal %w[foo_bar foobar], Boto::Botofile.parse(source).projects.map(&:name)
+  end
+
   def test_unknown_template_reports_line
     assert_invalid "Botofile:2: unknown template :foo", <<~BOTO
       solution "shop"

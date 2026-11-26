@@ -13,12 +13,16 @@ module Boto
     PATH_SEPARATOR = "/"
     WORD_SEPARATOR = "_"
 
+    def self.namespace_for(name)
+      name.split(WORD_SEPARATOR).map(&:capitalize).join
+    end
+
     def path
       [TEMPLATE_DIRS.fetch(template), name].join(PATH_SEPARATOR)
     end
 
     def namespace_name
-      name.split(WORD_SEPARATOR).map(&:capitalize).join
+      self.class.namespace_for(name)
     end
   end
 end
