@@ -2,5 +2,5 @@
 # frozen_string_literal: true
 
 require "boto/cli"
-warn "boto #{Boto::CLI::VERSION}: no commands yet"
-exit 1
+
+exit Boto::CLI::Runner.new(out: $stdout, err: $stderr, cwd: Dir.pwd).run(ARGV)
