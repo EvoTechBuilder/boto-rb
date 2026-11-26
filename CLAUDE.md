@@ -122,7 +122,7 @@ isolamento: um projeto só enxerga o namespace dos projetos que referencia
 ```
 boto/
 ├── gems/
-│   ├── boto/            # core
+│   ├── boto/            # core (gem `boto-rb`: o nome `boto` já existe no RubyGems)
 │   ├── boto-cli/        # inclui templates/ oficiais
 │   ├── boto-security/   # plugins de segurança (hosts, cors, auth, rate_limit...)
 │   └── boto-telemetry/

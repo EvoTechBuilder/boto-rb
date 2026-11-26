@@ -16,6 +16,6 @@ Gem::Specification.new do |spec|
   spec.executables = ["boto"]
   spec.require_paths = ["lib"]
 
-  spec.add_dependency "boto", "= #{Boto::CLI::VERSION}"
+  spec.add_dependency "boto-rb", "= #{Boto::CLI::VERSION}"
   spec.add_dependency "falcon", "~> 0.57"
 end

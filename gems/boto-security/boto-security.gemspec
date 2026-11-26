@@ -14,6 +14,6 @@ Gem::Specification.new do |spec|
   spec.files = Dir["lib/**/*.rb"]
   spec.require_paths = ["lib"]
 
-  spec.add_dependency "boto", "= #{Boto::Security::VERSION}"
+  spec.add_dependency "boto-rb", "= #{Boto::Security::VERSION}"
   spec.add_dependency "jwt", "~> 3.0"
 end
