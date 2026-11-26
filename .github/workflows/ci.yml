@@ -64,20 +64,23 @@ jobs:
       - name: Check base has benchmarks
         id: base
         run: |
-          if [ -f "$GITHUB_WORKSPACE/base/gems/boto/lib/boto/app.rb" ]; then
+          if [ -f "$GITHUB_WORKSPACE/base/benchmarks/run.rb" ]; then
             echo "has_base=true" >> "$GITHUB_OUTPUT"
           else
             echo "has_base=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Base branch has no Boto::App to measure; skipping comparison."
+            echo "::notice::Base branch has no benchmarks/run.rb; skipping comparison."
           fi
 
-      - name: Save baseline from base Boto
+      - name: Save baseline from base branch
         if: steps.base.outputs.has_base == 'true'
-        # benchmarks/ comes from the PR (same apps and script); only the measured Boto copy changes.
+        # The base measures itself with its own scripts: a scenario added by the PR may need code the base lacks.
+        # The PR's --compare skips scenarios missing from the baseline.
         run: |
-          cd "$GITHUB_WORKSPACE/benchmarks"
+          cd "$GITHUB_WORKSPACE/base/benchmarks"
           BOTO_ROOT="$GITHUB_WORKSPACE/base" bundle install
           BOTO_ROOT="$GITHUB_WORKSPACE/base" bundle exec ruby run.rb --save-baseline
+          mkdir -p "$GITHUB_WORKSPACE/benchmarks/results"
+          cp results/baseline.json "$GITHUB_WORKSPACE/benchmarks/results/baseline.json"
 
       - name: Compare PR against baseline
         if: steps.base.outputs.has_base == 'true'
