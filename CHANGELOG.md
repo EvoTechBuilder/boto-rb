@@ -4,6 +4,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-26
+
+### Added
+
+- New gem `boto-redis` with `Boto::Redis::RateLimitStore`: a rate limit store shared by every process and instance through Redis, counting with one atomic Lua script per request. It uses a connection pool, a 100 ms timeout, `on_error: :allow` (default, fail-open with one log line per window) or `:deny` (503), and never logs the Redis URL. Load it with `require "boto/redis"` in `config/app.rb`.
+- `Boto::Error::ServiceUnavailable` (503), and the rate limit plugin answers errors raised by its store.
+
+### Fixed
+
+- `boto run` no longer serves GET responses from Falcon's built-in HTTP cache, which skipped the app (and so auth and rate limits) on repeated requests.
+
 ### Changed
 
 - The rate limit memory store keeps at most `max_keys` keys per window (100,000 by default, configurable with `app.use :rate_limit, max_keys:`) and evicts the oldest keys first, so memory stays bounded under a flood of distinct clients.

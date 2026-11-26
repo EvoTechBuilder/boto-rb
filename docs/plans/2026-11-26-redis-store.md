@@ -1,6 +1,6 @@
 # Plano — Store Redis do rate limit (gem `boto-redis`)
 
-Status: **aprovado, em execução**
+Status: **concluído** (2026-11-26). O cenário db_auth_redis do benchmark ficou de fora.
 Proposta: `docs/proposals/0005-redis-store.md`
 
 ## Objetivo
