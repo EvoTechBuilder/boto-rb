@@ -1,6 +1,6 @@
 # Plano — Fase 0 (fundação)
 
-Status: **aprovado, em execução**
+Status: **concluído** (2026-11-26)
 Proposta: `docs/proposals/0001-phase-0-foundation.md`
 
 ## Objetivo
