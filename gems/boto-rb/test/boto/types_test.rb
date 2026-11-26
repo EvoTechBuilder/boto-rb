@@ -147,6 +147,52 @@ module Boto
       assert_build_error("enum must be a non-empty Array") { Types.build(String, enum: []) }
     end
 
+    def test_equal_min_and_max_are_accepted
+      assert_equal 3, Types.build(Integer, min: 3, max: 3).coerce(3)
+      assert_equal 1.5, Types.build(Float, min: 1.5, max: 1.5).coerce(1.5)
+      assert_equal "ab", Types.build(String, min: 2, max: 2).coerce("ab")
+    end
+
+    def test_min_greater_than_max_raises_on_build
+      assert_build_error("min must be less than or equal to max") { Types.build(Integer, min: 10, max: 1) }
+      assert_build_error("min must be less than or equal to max") { Types.build(String, min: 1, max: 0) }
+      assert_build_error("min must be less than or equal to max") { Types.build([Integer], min: 2, max: 1) }
+    end
+
+    def test_non_finite_bounds_raise_on_build
+      assert_build_error("min and max must be finite") { Types.build(Float, min: Float::NAN) }
+      assert_build_error("min and max must be finite") { Types.build(Float, min: Float::INFINITY, max: 1) }
+    end
+
+    def test_size_bounds_must_be_non_negative_integers
+      message = "min and max must be Integer greater than or equal to 0 for characters and items"
+      assert_build_error(message) { Types.build(String, min: -1) }
+      assert_build_error(message) { Types.build(String, min: 1.5) }
+      assert_build_error(message) { Types.build([Integer], max: 1.5) }
+    end
+
+    def test_enum_with_repeated_values_raises_on_build
+      assert_build_error("enum values must be unique") { Types.build(Integer, enum: [1, 1]) }
+    end
+
+    def test_enum_value_outside_bounds_raises_on_build
+      assert_build_error("enum value 1 does not satisfy the other constraints") do
+        Types.build(Integer, enum: [1, 2], min: 5)
+      end
+    end
+
+    def test_enum_value_not_matching_pattern_raises_on_build
+      assert_build_error("enum value \"abc\" does not satisfy the other constraints") do
+        Types.build(String, enum: %w[abc Abc], pattern: /\A[A-Z][a-z]+\z/)
+      end
+    end
+
+    def test_valid_enum_with_bounds_and_pattern_is_accepted
+      options = { enum: %w[Abc Xyz], min: 3, max: 3, pattern: /\A[A-Z][a-z]+\z/ }
+      assert_equal "Xyz", Types.build(String, **options).coerce("Xyz")
+      assert_equal [["", "must be one of: Abc, Xyz"]], errors_for(String, "Qwe", **options)
+    end
+
     def test_unsupported_type_raises_on_build
       error = assert_raises(ArgumentError) { Types.build(Hash) }
       assert_match(/unsupported type/, error.message)

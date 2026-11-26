@@ -24,7 +24,14 @@ module Boto
         )
       }.freeze
 
+      SIZE_UNITS = %i[characters items].freeze
       PATTERN_MESSAGE = "must match the pattern"
+      BOUNDS_UNSUPPORTED_MESSAGE = "min and max are not supported for this type"
+      BOUNDS_NOT_NUMERIC_MESSAGE = "min and max must be Numeric"
+      BOUNDS_NOT_FINITE_MESSAGE = "min and max must be finite"
+      SIZE_BOUNDS_MESSAGE = "min and max must be Integer greater than or equal to 0 for characters and items"
+      BOUNDS_ORDER_MESSAGE = "min must be less than or equal to max"
+      ENUM_NOT_UNIQUE_MESSAGE = "enum values must be unique"
       ANCHOR_START = '\A'
       ANCHOR_END = '\z'
       JSON_ANCHOR_START = "^"
@@ -41,6 +48,7 @@ module Boto
         @max_message = max && format(@rule.max_message, max)
         @pattern = pattern
         @enum = enum
+        validate_enum!(enum)
         @json_keywords = build_json_keywords.freeze
         freeze
       end
@@ -55,10 +63,23 @@ module Boto
 
       def validate_bounds!(min, max)
         return if min.nil? && max.nil?
-        raise ArgumentError, "min and max are not supported for this type" if @rule.nil?
-        return if [min, max].all? { |bound| bound.nil? || bound.is_a?(Numeric) }
+        raise ArgumentError, BOUNDS_UNSUPPORTED_MESSAGE if @rule.nil?
 
-        raise ArgumentError, "min and max must be Numeric"
+        bounds = [min, max].compact
+        validate_bound_values!(bounds)
+        validate_size_bounds!(bounds) if SIZE_UNITS.include?(@unit)
+        raise ArgumentError, BOUNDS_ORDER_MESSAGE if min && max && min > max
+      end
+
+      def validate_bound_values!(bounds)
+        raise ArgumentError, BOUNDS_NOT_NUMERIC_MESSAGE unless bounds.all? { |bound| bound.is_a?(Numeric) && bound.real? }
+        raise ArgumentError, BOUNDS_NOT_FINITE_MESSAGE unless bounds.all?(&:finite?)
+      end
+
+      def validate_size_bounds!(bounds)
+        return if bounds.all? { |bound| bound.is_a?(Integer) && bound >= 0 }
+
+        raise ArgumentError, SIZE_BOUNDS_MESSAGE
       end
 
       def validate_pattern!(pattern)
@@ -72,6 +93,22 @@ module Boto
 
       def anchored?(source)
         source.start_with?(ANCHOR_START) && source.end_with?(ANCHOR_END)
+      end
+
+      # Runs after bounds and pattern are set, so each enum value is checked against them.
+      def validate_enum!(enum)
+        return if enum.nil?
+
+        values = enum.values
+        raise ArgumentError, ENUM_NOT_UNIQUE_MESSAGE unless values.uniq.size == values.size
+
+        values.each { |value| validate_enum_value!(value) }
+      end
+
+      def validate_enum_value!(value)
+        return unless bound_violation(value) || pattern_violation(value)
+
+        raise ArgumentError, "enum value #{value.inspect} does not satisfy the other constraints"
       end
 
       def bound_violation(value)
