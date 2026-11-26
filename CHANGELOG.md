@@ -4,6 +4,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- `Boto::RequestBody.read(env, limit:)` returns the raw request body under the same size limit as JSON parsing (1 MB by default) and raises `Boto::Error::PayloadTooLarge` (413) above it.
+
+### Fixed
+
+- The `:signature` auth strategy no longer reads an unbounded body: it reads through `Boto::RequestBody.read` and answers 413 above the limit. An input without `rewind` is replaced with the body it read, so the endpoint can still read it.
+- The Botofile rejects two projects whose names map to the same Ruby namespace (`foo_bar` and `foo__bar` both give `FooBar`), which would make them share one module and break isolation.
+- A schema whose compile failed is no longer reported as compiled: the next `compile!` retries and raises the same error, instead of `serialize` recursing until `SystemStackError`. Field names that shadow public `Object` methods (`object_id`, `send`...), `initialize` or the generated `__boto` methods are rejected. Ruby keywords such as `end` stay valid field names.
+
 ## [0.7.3] - 2026-11-26
 
 ### Changed
