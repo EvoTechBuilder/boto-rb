@@ -4,7 +4,7 @@ require "test_helper"
 require "rack/mock"
 
 class Boto::BootTest < Minitest::Test
-  FIXTURE = File.expand_path("../fixtures/shop", __dir__)
+  FIXTURE = File.expand_path("../../fixtures/shop", __dir__)
 
   def setup
     @boot = Boto::Boot.new(Boto::Botofile.load(File.join(FIXTURE, "Botofile")), root: FIXTURE)

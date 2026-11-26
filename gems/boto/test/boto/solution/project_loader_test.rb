@@ -3,7 +3,7 @@
 require "test_helper"
 
 class Boto::ProjectLoaderTest < Minitest::Test
-  FIXTURE = File.expand_path("../fixtures/shop", __dir__)
+  FIXTURE = File.expand_path("../../fixtures/shop", __dir__)
 
   def setup
     @project = Boto::Botofile.load(File.join(FIXTURE, "Botofile")).project("domain")
