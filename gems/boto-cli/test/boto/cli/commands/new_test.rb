@@ -18,6 +18,14 @@ class Boto::CLI::NewCommandTest < Minitest::Test
     end
   end
 
+  def test_generates_gemfile_with_boto_security
+    Dir.mktmpdir do |cwd|
+      new_command(["shop"], cwd: cwd).call
+
+      assert_includes File.read(File.join(cwd, "shop", "Gemfile")), %(gem "boto-security")
+    end
+  end
+
   def test_existing_directory_raises
     Dir.mktmpdir do |cwd|
       Dir.mkdir(File.join(cwd, "shop"))

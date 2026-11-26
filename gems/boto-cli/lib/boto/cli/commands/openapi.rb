@@ -11,7 +11,8 @@ module Boto
         USAGE = "usage: boto openapi <project> [-o FILE] [--api-version V]"
         DEFAULT_API_VERSION = "0.1.0"
         SERVABLE_TEMPLATES = %i[webapi microservice].freeze
-        ENV_NAME = "production"
+        # Documentation needs the routes, not production secrets, so the app boots as in development.
+        ENV_NAME = "development"
 
         def call
           options = parse_options

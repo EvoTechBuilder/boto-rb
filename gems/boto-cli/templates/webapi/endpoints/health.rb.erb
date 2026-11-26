@@ -4,6 +4,7 @@ class <%= namespace %>::Health < Boto::Endpoint
   get "/health"
   summary "Health check"
   returns <%= namespace %>::HealthSchema
+  skip :auth, :rate_limit
 
   def call = { status: "ok" }
 end

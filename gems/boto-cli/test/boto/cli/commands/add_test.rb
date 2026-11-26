@@ -22,6 +22,15 @@ class Boto::CLI::AddCommandTest < Minitest::Test
     end
   end
 
+  def test_webapi_generates_security_config_and_public_health
+    with_solution do |dir|
+      add_command(%w[webapi api], cwd: dir).call
+
+      assert_includes read(dir, "services/api/config/app.rb"), "app.use :auth"
+      assert_includes read(dir, "services/api/endpoints/health.rb"), "skip :auth, :rate_limit"
+    end
+  end
+
   def test_webapi_declares_project_in_botofile
     with_solution do |dir|
       add_command(%w[webapi api], cwd: dir).call

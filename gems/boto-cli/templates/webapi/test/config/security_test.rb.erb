@@ -1,0 +1,15 @@
+# frozen_string_literal: true
+
+require "test_helper"
+
+class <%= namespace %>SecurityTest < Minitest::Test
+  def test_health_is_public
+    response = Rack::MockRequest.new(APP).get("/health")
+    assert_equal 200, response.status
+  end
+
+  def test_health_ignores_wrong_token
+    response = Rack::MockRequest.new(APP).get("/health", "HTTP_AUTHORIZATION" => "Bearer wrong")
+    assert_equal 200, response.status
+  end
+end

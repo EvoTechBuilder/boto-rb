@@ -1,0 +1,10 @@
+# frozen_string_literal: true
+
+# Security plugins for <%= name %>. Secrets come from the environment and are read once at boot.
+# In development a fixed token keeps `boto run` working out of the box; elsewhere API_TOKENS is required.
+Boto.configure do |app|
+  default_tokens = app.env_name == "development" ? "dev-token" : ""
+  app.use :cors, origins: ENV.fetch("CORS_ORIGINS", "").split(",")
+  app.use :auth, strategy: :bearer, tokens: -> { ENV.fetch("API_TOKENS", default_tokens).split(",") }
+  app.use :rate_limit, limit: 300, period: 60
+end
