@@ -54,7 +54,49 @@ module Boto
       @auth_by_endpoint[endpoint]
     end
 
+    # Idempotent. A plugin that fails to start stops the ones already started, then the boot fails.
+    def start
+      return if @started_plugins
+
+      @started_plugins = []
+      lifecycle_plugins.each { |plugin| start_plugin(plugin) }
+    end
+
+    # Idempotent. Stops the started plugins in reverse order; a failing stop is logged, not raised.
+    def stop
+      return unless @started_plugins
+
+      @started_plugins.reverse_each { |plugin| stop_plugin(plugin) }
+      @started_plugins = nil
+    end
+
     private
+
+    def start_plugin(plugin)
+      plugin.start
+      @started_plugins << plugin
+    rescue StandardError => e
+      stop
+      raise BootError, "plugin :#{plugin.class.plugin_name} failed to start: #{e.class}: #{e.message}"
+    end
+
+    def stop_plugin(plugin)
+      plugin.stop
+    rescue StandardError => e
+      log_error(e)
+    end
+
+    def lifecycle_plugins
+      declared = ordered(@global_plugins + @endpoint_plugins)
+      declared + extra_auth_plugins(declared)
+    end
+
+    # The :auth instances built by `authenticate` are not in the plugin lists, so they are started here.
+    def extra_auth_plugins(declared)
+      @auth_by_endpoint.values.compact.uniq(&:object_id).reject do |auth|
+        declared.any? { |plugin| plugin.equal?(auth) }
+      end
+    end
 
     def handle(env)
       @handler.call(env)

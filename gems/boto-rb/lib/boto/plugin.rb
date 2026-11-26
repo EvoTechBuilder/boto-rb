@@ -42,6 +42,12 @@ module Boto
       raise NotImplementedError, "#{self.class} must implement #call"
     end
 
+    # Runs once, before the first request.
+    def start = nil
+
+    # Runs at shutdown; must tolerate being called after its resource is already closed.
+    def stop = nil
+
     def development?
       env_name == "development"
     end
