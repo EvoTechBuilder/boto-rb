@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "async"
 require "fileutils"
 require "rack/mock"
 require "stringio"
@@ -36,6 +37,42 @@ class Boto::CLI::RunCommandTest < Minitest::Test
 
   class InterruptedServer < FakeServer
     def run = raise(Interrupt)
+  end
+
+  # Like Server#run, runs the block inside a reactor; the signals of the subclass arrive before the block.
+  class SignalingServer < FakeServer
+    SIGNAL_SETTLE = 0.01
+    attr_reader :drain_calls
+
+    def self.signals = []
+
+    def initialize(apps_by_port, host:)
+      super
+      @drain_calls = []
+    end
+
+    def run
+      Async do
+        self.class.signals.each do |name|
+          Process.kill(name, Process.pid)
+          sleep SIGNAL_SETTLE
+        end
+        yield self
+      end
+    end
+
+    def drain(delay:, timeout:, interrupted:)
+      @drain_calls << { delay: delay, timeout: timeout, interrupted: interrupted.call }
+      true
+    end
+  end
+
+  class TermServer < SignalingServer
+    def self.signals = %w[TERM]
+  end
+
+  class TermThenIntServer < SignalingServer
+    def self.signals = %w[TERM INT]
   end
 
   # Booting loads the projects with Zeitwerk, so the shared solution is built once for this class.
@@ -136,6 +173,56 @@ class Boto::CLI::RunCommandTest < Minitest::Test
     end
 
     assert_equal %i[start stop], LifecycleRecorder::EVENTS
+  end
+
+  def test_first_signal_drains_with_the_timing_options
+    out = StringIO.new
+
+    assert_equal 0, run_command(%w[--shutdown-timeout 3 --drain-delay 0.5], out: out, server_class: TermServer)
+
+    assert_includes out.string, "Stopping (draining up to 3 s)"
+    assert_equal [{ delay: 0.5, timeout: 3.0, interrupted: false }], @server.drain_calls
+  end
+
+  def test_drain_defaults_to_no_delay_and_25_seconds
+    run_command([], server_class: TermServer)
+
+    assert_equal [{ delay: 0, timeout: 25, interrupted: false }], @server.drain_calls
+  end
+
+  def test_first_signal_stops_the_plugins_after_draining
+    LifecycleRecorder::EVENTS.clear
+    Dir.mktmpdir do |root|
+      dir = self.class.create_solution(root, [["webapi", LIFECYCLE]])
+      declare_lifecycle_recorder(dir)
+
+      assert_equal 0, run_command([], cwd: dir, server_class: TermServer)
+    end
+
+    assert_equal %i[start stop], LifecycleRecorder::EVENTS
+  end
+
+  def test_second_signal_during_the_drain_fails_and_marks_the_drain_interrupted
+    out = StringIO.new
+
+    assert_equal 1, run_command([], out: out, server_class: TermThenIntServer)
+
+    assert_equal true, @server.drain_calls.last[:interrupted]
+  end
+
+  def test_invalid_shutdown_timeout_raises
+    error = assert_raises(Boto::CLI::Error) { run_command(%w[--shutdown-timeout 0]) }
+    assert_equal %(invalid shutdown timeout "0.0"), error.message
+  end
+
+  def test_negative_drain_delay_raises
+    error = assert_raises(Boto::CLI::Error) { run_command(%w[--drain-delay=-1]) }
+    assert_equal %(invalid drain delay "-1.0"), error.message
+  end
+
+  def test_non_numeric_drain_delay_raises
+    error = assert_raises(Boto::CLI::Error) { run_command(%w[--drain-delay soon]) }
+    assert_includes error.message, "soon"
   end
 
   private

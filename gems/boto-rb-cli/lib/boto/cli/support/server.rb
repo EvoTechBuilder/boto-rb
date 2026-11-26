@@ -9,28 +9,76 @@ module Boto
     # Serves one Rack app per port, all of them inside a single Async reactor.
     class Server
       DEFAULT_HOST = "127.0.0.1"
+      MONOTONIC_CLOCK = -> { Process.clock_gettime(Process::CLOCK_MONOTONIC) }
+      NEVER = -> { false }
+      POLL_INTERVAL = 0.02
 
       attr_reader :apps_by_port, :host
 
-      def initialize(apps_by_port, host: DEFAULT_HOST)
+      def initialize(apps_by_port, host: DEFAULT_HOST, clock: MONOTONIC_CLOCK)
         @apps_by_port = apps_by_port
         @host = host
+        @clock = clock
+        @tracker = RequestTracker.new
+        @listeners = []
+        @closing = false
       end
 
+      # Blocks until the server stops. The block runs as a task inside the reactor, so it can call #drain.
       def run
         Async do |task|
-          apps_by_port.each { |port, app| task.async { falcon_server(app, port).run } }
+          apps_by_port.each { |port, app| task.async { listen(app, port) } }
+          task.async { yield } if block_given?
         end
+      end
+
+      # Stops accepting connections, then waits up to `timeout` for the requests in flight. Returns true when
+      # they all finished in time; otherwise cuts the ones still running. Call it inside the reactor.
+      def drain(delay:, timeout:, interrupted: NEVER)
+        apps_by_port.each_value { |app| app.drain! if app.respond_to?(:drain!) }
+        pause(delay, interrupted)
+        close_listeners
+        drained = wait_for_requests(timeout, interrupted)
+        @tracker.cut_all unless drained
+        drained
       end
 
       private
 
+      def listen(app, port)
+        endpoint = Async::HTTP::Endpoint.parse("http://#{host}:#{port}")
+        listener = endpoint.bound
+        @listeners << listener
+        falcon_server(app, endpoint, listener).run.wait
+      rescue IOError
+        # Closing the listener is how drain ends the accept loop; any other IOError is a real failure.
+        raise unless @closing
+      end
+
       # Falcon's HTTP cache is on by default and would replay GET responses without reaching the app,
       # skipping auth, rate limits and per-user data; an API server must not cache, so it is disabled.
-      def falcon_server(app, port)
-        endpoint = Async::HTTP::Endpoint.parse("http://#{host}:#{port}")
-        Falcon::Server.new(Falcon::Server.rack_middleware(app, cache: false), endpoint)
+      def falcon_server(app, endpoint, listener)
+        middleware = Falcon::Server.rack_middleware(@tracker.wrap(app), cache: false)
+        Falcon::Server.new(middleware, listener, protocol: endpoint.protocol, scheme: endpoint.scheme)
       end
+
+      def close_listeners
+        @closing = true
+        @listeners.each(&:close)
+      end
+
+      def pause(seconds, interrupted)
+        deadline = now + seconds
+        sleep POLL_INTERVAL until interrupted.call || now >= deadline
+      end
+
+      def wait_for_requests(timeout, interrupted)
+        deadline = now + timeout
+        sleep POLL_INTERVAL until @tracker.count.zero? || interrupted.call || now >= deadline
+        @tracker.count.zero?
+      end
+
+      def now = @clock.call
     end
   end
 end

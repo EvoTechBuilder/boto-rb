@@ -38,8 +38,10 @@ class Boto::CLI::CommandTest < Minitest::Test
       Run the solution's services in one process
 
       Options:
-        --port N   First port; each service gets the next one (default 3000)
-        --host H   Host to bind (default 127.0.0.1)
+        --port N               First port; each service gets the next one (default 3000)
+        --host H               Host to bind (default 127.0.0.1)
+        --shutdown-timeout N   Seconds to wait for requests in flight on shutdown (default 25)
+        --drain-delay N        Seconds to keep serving after readiness turns 503 (default 0)
     HELP
 
     assert_equal expected, Boto::CLI::Commands::Run.help
