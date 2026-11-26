@@ -170,5 +170,38 @@ module Boto
       assert_same Router::EMPTY_PARAMS, @router.match("GET", "/").params
       assert_same Router::EMPTY_PARAMS, @router.match("GET", "/x").params
     end
+
+    def test_ignores_duplicate_and_trailing_slashes
+      @router.add("GET", "/users/:id", :show).compile
+
+      assert_equal({ id: "42" }, @router.match("GET", "//users//42").params)
+      assert_equal({ id: "42" }, @router.match("GET", "/users/42/").params)
+    end
+
+    def test_keeps_plain_dynamic_values_and_decodes_percent_escapes
+      @router.add("GET", "/files/:name", :file).compile
+
+      assert_equal({ name: "plain" }, @router.match("GET", "/files/plain").params)
+      assert_equal({ name: "a b" }, @router.match("GET", "/files/a%20b").params)
+    end
+
+    def test_match_allocates_a_bounded_number_of_objects
+      @router.add("GET", "/users/:id", :show).compile
+      50.times { @router.match("GET", "/users/42") }
+
+      # The first GC.stat window also counts one object of its own; a dry run absorbs it.
+      allocations_during { @router.match("GET", "/users/42") }
+
+      # segments array, 2 segment strings, values array, params Hash and the Match.
+      assert_operator allocations_during { @router.match("GET", "/users/42") }, :<=, 6
+    end
+
+    private
+
+    def allocations_during
+      before = GC.stat(:total_allocated_objects)
+      yield
+      GC.stat(:total_allocated_objects) - before
+    end
   end
 end

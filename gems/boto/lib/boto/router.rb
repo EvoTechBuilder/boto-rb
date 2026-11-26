@@ -5,7 +5,16 @@ require "rack/utils"
 module Boto
   # Radix-style router: static segments win over dynamic ones, with backtracking.
   class Router
-    Match = Data.define(:target, :params)
+    # A plain class instead of Data: Data.new builds an internal Hash on every call.
+    class Match
+      attr_reader :target, :params
+
+      def initialize(target, params)
+        @target = target
+        @params = params
+        freeze
+      end
+    end
 
     class DuplicateRouteError < StandardError; end
 
@@ -31,6 +40,7 @@ module Boto
     EMPTY_PARAMS = {}.freeze
 
     SEPARATOR = "/"
+    PERCENT = "%"
     DYNAMIC_PREFIX = ":"
     VERB_GET = "GET"
     VERB_HEAD = "HEAD"
@@ -56,7 +66,7 @@ module Boto
     def match(verb, path)
       values = []
       handler = resolve(@root, segments_of(path), 0, verb, values)
-      Match.new(target: handler[0], params: params_for(handler[1], values)) if handler
+      Match.new(handler[0], params_for(handler[1], values)) if handler
     end
 
     def allowed_verbs(path)
@@ -67,8 +77,21 @@ module Boto
 
     private
 
+    # Walks the path by byte offsets so no intermediate arrays or empty strings are built.
     def segments_of(path)
-      path.split(SEPARATOR).reject(&:empty?)
+      segments = []
+      start = 0
+      while start < path.bytesize
+        separator = path.byteindex(SEPARATOR, start) || path.bytesize
+        segments << path.byteslice(start, separator - start) if separator > start
+        start = separator + SEPARATOR.bytesize
+      end
+      segments
+    end
+
+    # Rack's unescape is only needed when a percent-escape is present.
+    def unescape(segment)
+      segment.include?(PERCENT) ? Rack::Utils.unescape_path(segment) : segment
     end
 
     def dynamic_segment?(segment)
@@ -104,7 +127,7 @@ module Boto
     def resolve_dynamic(node, segment, segments, index, verb, values)
       return unless node.dynamic
 
-      values.push(Rack::Utils.unescape_path(segment))
+      values.push(unescape(segment))
       handler = resolve(node.dynamic, segments, index + 1, verb, values)
       values.pop unless handler
       handler
@@ -121,7 +144,14 @@ module Boto
     def params_for(names, values)
       return EMPTY_PARAMS if names.empty?
 
-      names.zip(values).to_h
+      # A while loop avoids the block and enumerator objects of each_with_index.
+      params = {}
+      index = 0
+      while index < names.size
+        params[names[index]] = values[index]
+        index += 1
+      end
+      params
     end
 
     def leaf_verbs(node, segments, index)
