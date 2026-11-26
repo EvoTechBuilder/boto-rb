@@ -122,6 +122,7 @@ boto/
 ├── gems/
 │   ├── boto/            # core
 │   ├── boto-cli/        # inclui templates/ oficiais
+│   ├── boto-security/   # plugins de segurança (hosts, cors, auth, rate_limit...)
 │   └── boto-telemetry/
 ├── benchmarks/
 ├── examples/            # solutions completas de exemplo
@@ -237,7 +238,15 @@ só declaram exceções (`skip`) ou exigências específicas (`authenticate`).
   end
   ```
 - **Implementação:** cada plugin é um middleware Rack inserido numa ordem fixa:
-  hosts -> secure_headers -> sessions -> csrf -> auth -> rate_limit.
+  hosts -> cors -> secure_headers -> sessions -> csrf -> auth -> rate_limit.
+  - **Plugins globais** (hosts, cors e os de sessão/CSRF) rodam antes do
+    roteamento, então também valem para 404, 405 e preflight.
+  - **Plugins de endpoint** (auth, rate_limit) rodam depois do roteamento e
+    podem ser pulados com `skip`.
+  - **CORS antes do auth:** o preflight não leva credenciais, então o `cors`
+    precisa vir antes do `auth`.
+  - **Onde ficam:** o core guarda só a base (`Boto::Plugin`,
+    `Boto.configure`). Os plugins de segurança vivem na gem `boto-security`.
 - **Nunca escrever primitivas de criptografia próprias:** usar OpenSSL,
   `Rack::Utils.secure_compare` e, onde fizer sentido, reaproveitar código
   auditado como o `rack-protection`.
