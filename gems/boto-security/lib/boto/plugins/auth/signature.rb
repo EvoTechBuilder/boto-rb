@@ -1,0 +1,109 @@
+# frozen_string_literal: true
+
+require "openssl"
+
+module Boto
+  module Plugins
+    class Auth < Boto::Plugin
+      # HMAC webhook strategy: the signature of the raw body (optionally bound to a timestamp) must match.
+      class Signature
+        ALGORITHMS = %w[sha256 sha512].freeze
+        DEFAULT_HEADER = "X-Signature"
+        DEFAULT_ALGORITHM = "sha256"
+        DEFAULT_TIMESTAMP_HEADER = "X-Timestamp"
+        RACK_HTTP_PREFIX = "HTTP_"
+        RACK_INPUT = "rack.input"
+        TIMESTAMP_FORMAT = /\A\d+\z/
+        PRINCIPAL = { signed: true }.freeze
+        SIGNED_MESSAGE_SEPARATOR = "."
+
+        def initialize(secret:, header: DEFAULT_HEADER, algorithm: DEFAULT_ALGORITHM, prefix: nil,
+                       tolerance: nil, timestamp_header: DEFAULT_TIMESTAMP_HEADER,
+                       clock: -> { Time.now.to_i })
+          @secret = validate_secret(Boto::Security::Secrets.resolve(secret))
+          @algorithm = validate_algorithm(algorithm)
+          @tolerance = validate_tolerance(tolerance)
+          @header = header
+          @signature_key = rack_key(header)
+          @timestamp_key = rack_key(timestamp_header)
+          @prefix = prefix
+          @clock = clock
+        end
+
+        def authenticate(env)
+          given = signature_from(env)
+          return unless given
+
+          message = signed_message(env, read_body(env))
+          return unless message
+
+          expected = OpenSSL::HMAC.hexdigest(@algorithm, @secret, message)
+          Boto::Security::Secrets.equal?(given, expected) ? PRINCIPAL : nil
+        end
+
+        def challenge
+          %(Signature header="#{@header}")
+        end
+
+        def security_scheme
+          { "type" => "apiKey", "in" => "header", "name" => @header }
+        end
+
+        private
+
+        def validate_secret(secret)
+          raise ArgumentError, "secret deve ser uma String não vazia" unless secret.is_a?(String) && !secret.empty?
+
+          secret
+        end
+
+        def validate_algorithm(algorithm)
+          raise ArgumentError, "algorithm deve ser #{ALGORITHMS.join(" ou ")}" unless ALGORITHMS.include?(algorithm)
+
+          algorithm
+        end
+
+        def validate_tolerance(tolerance)
+          return tolerance if tolerance.nil? || (tolerance.is_a?(Integer) && tolerance.positive?)
+
+          raise ArgumentError, "tolerance deve ser nil ou um Integer > 0"
+        end
+
+        def rack_key(header)
+          "#{RACK_HTTP_PREFIX}#{header.upcase.tr("-", "_")}"
+        end
+
+        def signature_from(env)
+          value = env[@signature_key]
+          return value unless @prefix && value
+
+          value.delete_prefix(@prefix) if value.start_with?(@prefix)
+        end
+
+        # Rewinds the input so that the downstream app can still read the body.
+        def read_body(env)
+          input = env[RACK_INPUT]
+          return "" unless input
+
+          body = input.read.to_s
+          input.rewind if input.respond_to?(:rewind)
+          body
+        end
+
+        def signed_message(env, body)
+          return body unless @tolerance
+
+          timestamp = timestamp_from(env)
+          return unless timestamp && (@clock.call - timestamp).abs <= @tolerance
+
+          [timestamp, body].join(SIGNED_MESSAGE_SEPARATOR)
+        end
+
+        def timestamp_from(env)
+          value = env[@timestamp_key].to_s
+          value.to_i if value.match?(TIMESTAMP_FORMAT)
+        end
+      end
+    end
+  end
+end
