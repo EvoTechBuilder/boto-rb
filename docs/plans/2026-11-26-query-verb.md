@@ -1,6 +1,6 @@
 # Plano — Verbo HTTP QUERY
 
-Status: **em revisão**
+Status: **concluído** (2026-11-26)
 Proposta: `docs/proposals/0003-query-verb.md`
 
 ## Objetivo
