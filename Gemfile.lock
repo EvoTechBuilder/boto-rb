@@ -3,7 +3,7 @@ PATH
   specs:
     boto-cli (0.1.0)
       boto (= 0.1.0)
-      falcon (~> 0.47)
+      falcon (~> 0.57)
 
 PATH
   remote: gems/boto
