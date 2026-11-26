@@ -15,5 +15,6 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
 
   spec.add_dependency "boto-security", "= #{Boto::Redis::VERSION}"
+  spec.add_dependency "connection_pool", "~> 3.0"
   spec.add_dependency "redis-client", "~> 0.31"
 end

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "boto/security"
+require "connection_pool"
 require "redis-client"
 require "zeitwerk"
 
