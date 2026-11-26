@@ -1,0 +1,4 @@
+solution "leaky"
+
+project "lkdomain", template: :library
+project "lkorders", template: :webapi

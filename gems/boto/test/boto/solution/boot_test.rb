@@ -2,13 +2,15 @@
 
 require "test_helper"
 require "rack/mock"
+require "stringio"
 require_relative "../../fixtures/boot_test_plugins"
 
 class Boto::BootTest < Minitest::Test
   FIXTURE = File.expand_path("../../fixtures/shop", __dir__)
 
   def setup
-    @boot = Boto::Boot.new(Boto::Botofile.load(File.join(FIXTURE, "Botofile")), root: FIXTURE)
+    @boot = Boto::Boot.new(Boto::Botofile.load(File.join(FIXTURE, "Botofile")), root: FIXTURE,
+                                                                              env: {}, warn_output: StringIO.new)
   end
 
   def teardown
@@ -56,13 +58,70 @@ class Boto::BootTest < Minitest::Test
   def test_load_unknown_project_raises_key_error
     assert_raises(KeyError) { @boot.load("missing") }
   end
+
+  def test_projects_are_verified_once_per_boot_instance
+    @boot.load("orders")
+    @boot.load("orders")
+
+    assert_equal %w[domain orders], @boot.checked_projects.to_a.sort
+  end
+end
+
+class Boto::BootIsolationTest < Minitest::Test
+  FIXTURE = File.expand_path("../../fixtures/leaky", __dir__)
+  PING = "services/lkorders/endpoints/ping.rb"
+
+  def setup
+    @warnings = StringIO.new
+    @boot = build_boot(env: {}, warn_output: @warnings)
+    @skipping_boot = build_boot(env: { Boto::Boot::SKIP_ENV => "1" }, warn_output: @warnings)
+  end
+
+  def teardown
+    @boot.shutdown
+    @skipping_boot.shutdown
+  end
+
+  def test_app_refuses_to_load_project_with_undeclared_use
+    error = assert_raises(Boto::IsolationError) { @boot.app("lkorders") }
+
+    assert_includes error.message, PING
+    assert_includes error.message, "Lkdomain::Thing"
+    assert_includes error.message, "Fix: boto ref lkorders lkdomain"
+  end
+
+  # Constants survive shutdown (also true for the shop fixture), so check that no fixture file was required.
+  def test_refused_project_loads_nothing_and_is_not_marked_checked
+    features_before = $LOADED_FEATURES.dup
+
+    assert_raises(Boto::IsolationError) { @boot.app("lkorders") }
+
+    assert_empty @boot.checked_projects
+    assert_empty ($LOADED_FEATURES - features_before).select { _1.start_with?(FIXTURE) }
+  end
+
+  def test_skip_env_lets_the_project_load_and_warns_once
+    @skipping_boot.load("lkorders")
+    @skipping_boot.load("lkorders")
+
+    assert_equal "Lkorders::Ping", Lkorders::Ping.name
+    assert_equal "#{Boto::Boot::SKIP_WARNING}\n", @warnings.string
+  end
+
+  private
+
+  def build_boot(env:, warn_output:)
+    Boto::Boot.new(Boto::Botofile.load(File.join(FIXTURE, "Botofile")), root: FIXTURE,
+                                                                       env: env, warn_output: warn_output)
+  end
 end
 
 class Boto::BootConfigTest < Minitest::Test
   FIXTURE = File.expand_path("../../fixtures/stamped", __dir__)
 
   def setup
-    @boot = Boto::Boot.new(Boto::Botofile.load(File.join(FIXTURE, "Botofile")), root: FIXTURE)
+    @boot = Boto::Boot.new(Boto::Botofile.load(File.join(FIXTURE, "Botofile")), root: FIXTURE,
+                                                                              env: {}, warn_output: StringIO.new)
   end
 
   def teardown
