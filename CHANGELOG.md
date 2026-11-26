@@ -4,6 +4,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-26
+
 ### Added
 
 - `app.use :health` (core): `GET /health/live` answers 200 while the process serves, and `GET /health/ready` answers 200 or 503 after running the project checks (`checks:`, with `timeout:`) and the checks plugins expose. It runs before every other plugin, so probes need no credentials and pass `:hosts`. Failures are logged and never exposed in the response, and readiness answers 503 once the app drains.
