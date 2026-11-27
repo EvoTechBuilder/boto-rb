@@ -249,6 +249,17 @@ class OpenAPITest < Minitest::Test
     assert_includes @doc, "components"
   end
 
+  def test_description_is_in_info_after_title_when_given
+    doc = Boto::OpenAPI.generate(@app, title: "Shop API", version: "1.0.0", description: "Shop docs.")
+
+    assert_equal({ "title" => "Shop API", "description" => "Shop docs.", "version" => "1.0.0" }, doc["info"])
+    assert_equal %w[title description version], doc["info"].keys
+  end
+
+  def test_description_is_absent_from_info_when_not_given
+    refute_includes @doc["info"], "description"
+  end
+
   def test_paths_use_braces_and_lowercase_verbs
     assert_equal ["/health", "/users", "/users/{id}"], @doc["paths"].keys
     assert_equal %w[delete get], @doc["paths"]["/users/{id}"].keys

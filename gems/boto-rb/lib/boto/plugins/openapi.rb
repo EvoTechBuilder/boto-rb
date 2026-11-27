@@ -29,6 +29,9 @@ module Boto
       # The :auth instance protecting the document, or nil. Other plugins answer through it too.
       def guard = @auth
 
+      # The title in the document: the configured one, or the project's namespace name.
+      def title = @title || @app&.title
+
       def attach(app)
         @app = app
         @auth = app.plugins.find { |plugin| plugin.class.plugin_name == AUTH_PLUGIN } if auth?
@@ -37,7 +40,7 @@ module Boto
 
       # Generated once: every response hands out the same frozen string.
       def start
-        document = Boto::OpenAPI.generate(@app, title: @app.title, version: @version)
+        document = Boto::OpenAPI.generate(@app, title: title, version: @version, description: @description)
         @document = JSON.generate(document).freeze
       end
 
@@ -49,10 +52,12 @@ module Boto
 
       private
 
-      def configure(path: DEFAULT_PATH, version: DEFAULT_VERSION, auth: true)
+      def configure(path: DEFAULT_PATH, version: DEFAULT_VERSION, auth: true, title: nil, description: nil)
         @path = validate_path(path)
         @version = validate_version(version)
         @auth_required = validate_auth(auth)
+        @title = validate_title(title)
+        @description = validate_description(description)
         @responder = ->(_env) { [OK, { "content-type" => JSON_TYPE }, [@document]] }
       end
 
@@ -72,6 +77,18 @@ module Boto
         return auth if [true, false].include?(auth)
 
         raise ArgumentError, "openapi: auth must be true or false, got #{auth.inspect}"
+      end
+
+      def validate_title(title)
+        return title if title.nil? || (title.is_a?(String) && !title.strip.empty?)
+
+        raise ArgumentError, "openapi: title must be a non-blank String or nil, got #{title.inspect}"
+      end
+
+      def validate_description(description)
+        return description if description.nil? || description.is_a?(String)
+
+        raise ArgumentError, "openapi: description must be a String or nil, got #{description.inspect}"
       end
 
       def check_no_endpoint_on_path!(app)

@@ -101,6 +101,41 @@ module Boto
         assert_equal document_for(application, "0.10.0"), get(application, "/openapi.json").body
       end
 
+      def test_title_and_description_are_in_the_served_info
+        application = app(plugins: [plugin(title: "Pedidos API", description: "Pedidos, pagamentos e entregas.", version: "1.4.0")])
+        info = JSON.parse(get(application, "/openapi.json").body)["info"]
+        assert_equal({ "title" => "Pedidos API", "description" => "Pedidos, pagamentos e entregas.", "version" => "1.4.0" }, info)
+      end
+
+      def test_default_title_is_the_namespace_and_info_has_no_description
+        info = JSON.parse(get(app, "/openapi.json").body)["info"]
+        assert_equal({ "title" => "OpenAPIPluginFakes::Shop", "version" => "0.0.0" }, info)
+      end
+
+      def test_title_method_is_the_configured_title_after_attach
+        openapi = plugin(title: "Pedidos API")
+        app(plugins: [openapi])
+        assert_equal "Pedidos API", openapi.title
+      end
+
+      def test_title_method_falls_back_to_the_namespace_after_attach
+        openapi = plugin
+        app(plugins: [openapi])
+        assert_equal "OpenAPIPluginFakes::Shop", openapi.title
+      end
+
+      def test_title_must_be_a_non_blank_string_or_nil
+        ["", "  ", 1].each do |title|
+          error = assert_raises(ArgumentError) { plugin(title: title) }
+          assert_match(/\Aopenapi: title must be/, error.message)
+        end
+      end
+
+      def test_description_must_be_a_string_or_nil
+        error = assert_raises(ArgumentError) { plugin(description: 1) }
+        assert_match(/\Aopenapi: description must be/, error.message)
+      end
+
       def test_every_response_hands_out_the_same_string
         application = app
         first = application.call(Rack::MockRequest.env_for("/openapi.json"))

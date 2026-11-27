@@ -49,12 +49,12 @@ module Boto
     CAMEL_ACRONYM_BOUNDARY = /([A-Z]+)([A-Z][a-z])/
     SNAKE_JOIN = '\1_\2'
 
-    def self.generate(app, title:, version:)
+    def self.generate(app, title:, version:, description: nil)
       endpoints = app.endpoints
       guards = endpoints.to_h { |endpoint| [endpoint, app.auth_for(endpoint)] }
       {
         "openapi" => spec_version(endpoints),
-        "info" => { "title" => title, "version" => version },
+        "info" => info_object(title, version, description),
         "paths" => paths(app, endpoints, guards),
         "components" => components(endpoints, guards)
       }
@@ -106,6 +106,14 @@ module Boto
       endpoints.any? { |endpoint| endpoint.route.first == QUERY_VERB } ? QUERY_SPEC_VERSION : SPEC_VERSION
     end
 
-    private_class_method :spec_version
+    # description is optional: omitted from the object when nil, not sent as null.
+    def self.info_object(title, version, description)
+      info = { "title" => title }
+      info["description"] = description unless description.nil?
+      info["version"] = version
+      info
+    end
+
+    private_class_method :spec_version, :info_object
   end
 end
