@@ -1,35 +1,35 @@
 PATH
   remote: gems/boto-rb-cli
   specs:
-    boto-rb-cli (0.13.0)
-      boto-rb (= 0.13.0)
+    boto-rb-cli (0.14.0)
+      boto-rb (= 0.14.0)
       falcon (~> 0.57)
 
 PATH
   remote: gems/boto-rb-redis
   specs:
-    boto-rb-redis (0.13.0)
-      boto-rb-security (= 0.13.0)
+    boto-rb-redis (0.14.0)
+      boto-rb-security (= 0.14.0)
       connection_pool (~> 3.0)
       redis-client (~> 0.31)
 
 PATH
   remote: gems/boto-rb-security
   specs:
-    boto-rb-security (0.13.0)
-      boto-rb (= 0.13.0)
+    boto-rb-security (0.14.0)
+      boto-rb (= 0.14.0)
       jwt (~> 3.0)
 
 PATH
   remote: gems/boto-rb-swaggerui
   specs:
-    boto-rb-swaggerui (0.13.0)
-      boto-rb (= 0.13.0)
+    boto-rb-swaggerui (0.14.0)
+      boto-rb (= 0.14.0)
 
 PATH
   remote: gems/boto-rb
   specs:
-    boto-rb (0.13.0)
+    boto-rb (0.14.0)
       rack (~> 3.1)
       zeitwerk (~> 2.7)
 
@@ -165,11 +165,11 @@ CHECKSUMS
   bake (0.25.0) sha256=a47bdc6a26addc048827debc36fe27bb4d5d71ac2958ad910b5386e9baf49869
   base64 (0.3.0) sha256=27337aeabad6ffae05c265c450490628ef3ebd4b67be58257393227588f5a97b
   bigdecimal (4.1.3) sha256=61ebe1e5e559bdc3cc6f2c0ee7f427321fc838f59611c294356eb04d6e21cf66
-  boto-rb (0.13.0)
-  boto-rb-cli (0.13.0)
-  boto-rb-redis (0.13.0)
-  boto-rb-security (0.13.0)
-  boto-rb-swaggerui (0.13.0)
+  boto-rb (0.14.0)
+  boto-rb-cli (0.14.0)
+  boto-rb-redis (0.14.0)
+  boto-rb-security (0.14.0)
+  boto-rb-swaggerui (0.14.0)
   connection_pool (3.0.3) sha256=e0f8ee3ee0039396753e06e8a2dde0ef028e40f7df29e97f57da7577c489cb5e
   console (1.38.0) sha256=35b82f59130e95e9be6b832d9e539c8b3988fc192e4a8e9a86ab4922f44ad5de
   drb (2.2.3) sha256=0b00d6fdb50995fe4a45dea13663493c841112e4068656854646f418fda13373
