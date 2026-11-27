@@ -4,6 +4,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+
+- An endpoint that raises `NotImplementedError` (a `ScriptError`) answers `500` problem JSON instead of escaping the error handling.
+
+### Added
+
+- `boto generate <schema|model|endpoint|operation> <project> <name>` (alias `boto g`) writes the file in the right folder, under the project namespace, with its test in `test/`. Fields are `name:type` (`string`, `integer`, `float`, `boolean`, `date`, `time`, `[type]`, or a schema of the project), with `?` for optional. Generated tests fail with `flunk` until they are written. `--skip-tests` skips the test, `--force` overwrites, and a name that would collide with another constant of the project is refused.
+- Botofile: `generators tests: false` turns generated tests off for the solution, and `project ..., generators: { tests: true }` overrides it per project.
+
 ## [0.13.0] - 2026-11-26
 
 ### Added

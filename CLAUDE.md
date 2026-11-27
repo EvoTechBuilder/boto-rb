@@ -64,6 +64,9 @@ no `dotnet new install`.
 - `boto new <solution> [-t <template>]` (sem template: solution vazia)
 - `boto add <template> <nome> [--framework react|vue]`
 - `boto ref <projeto> <referencia>`
+- `boto generate <schema|model|endpoint|operation> <projeto> <nome> [campos]`
+  (atalho `boto g`): gera o arquivo e o teste; `--skip-tests`, `--force`, e
+  `generators tests: false` no Botofile (por projeto: `generators: { tests: }`)
 - `boto graph`
 - `boto run [projeto]` (sem argumento, sobe a solution inteira)
 - `boto test [--all | --affected]`

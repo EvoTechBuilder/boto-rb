@@ -59,6 +59,7 @@ Open source, sob a licença [MIT](LICENSE), mantido pela
   - [OpenAPI e Swagger UI](#openapi-e-swagger-ui)
 - **Operação**
   - [Rodando a solution](#rodando-a-solution)
+  - [Gerando código](#gerando-código)
   - [Testes](#testes)
 - **Referência**
   - [CLI](#referência-do-cli)
@@ -363,6 +364,29 @@ boto run pedidos --port 4000 # só um projeto
   conexões e espera até `--shutdown-timeout` segundos (25 por padrão) pelos
   requests em andamento.
 
+## Gerando código
+
+O `boto generate` (ou `boto g`) cria o arquivo na pasta certa, com o namespace
+do projeto, e o teste em `test/`:
+
+```bash
+boto g schema catalogo product name:string price:float tags:[string] available_on:date?
+boto g endpoint catalogo products/show get /products/:id id:integer --returns product
+boto g operation catalogo create_product
+boto g model catalogo product id:integer name:string
+```
+
+- **Tipos dos campos:** `string`, `integer`, `float`, `boolean`, `date`,
+  `time`, listas (`[tipo]`) e outros schemas do projeto pelo nome. Um `?` no
+  fim torna o campo opcional.
+- **Testes gerados:** falham com `flunk` até serem escritos, para não passar
+  verde sem asserção. `--skip-tests` pula o teste num comando, e
+  `generators tests: false` no Botofile desliga para a solution, com exceção
+  por projeto em `generators: { tests: true }`.
+- **Arquivos existentes:** nunca são sobrescritos sem `--force`.
+- **Operations:** são verbos sem pasta (`create_product`), porque endpoints e
+  operations dividem o namespace do projeto.
+
 ## Testes
 
 Os testes ficam dentro de cada projeto, com
@@ -404,6 +428,7 @@ assert_equal 200, response.status
 | `boto new <nome>` | Cria uma solution. Não existe projeto avulso. |
 | `boto add <webapi\|library> <nome>` | Adiciona um projeto e o registra no Botofile. |
 | `boto ref <projeto> <referência>` | Adiciona uma referência e recusa ciclos. |
+| `boto generate <tipo> <projeto> <nome>` | Gera schema, model, endpoint ou operation com o teste (`boto g`, `--skip-tests`, `--force`). |
 | `boto graph` | Mostra o grafo de dependências. |
 | `boto check [projeto]` | Confere o isolamento entre projetos. |
 | `boto run [projeto]` | Sobe os serviços num processo, com reload em development (`--port`, `--host`, `--no-reload`, `--shutdown-timeout`, `--drain-delay`). |
