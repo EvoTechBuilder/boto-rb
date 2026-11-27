@@ -10,6 +10,9 @@ gem "boto-rb-security", path: boto_security_path if File.directory?(boto_securit
 # Mesma regra: só o cenário db_auth_redis usa a boto-rb-redis, e ele é pulado sem ela.
 boto_redis_path = File.join(boto_root, "gems/boto-rb-redis")
 gem "boto-rb-redis", path: boto_redis_path if File.directory?(boto_redis_path)
+# Bases antigas podem não ter o boto-rb-data: só o cenário db_repository usa, e ele é pulado sem ela.
+boto_data_path = File.join(boto_root, "gems/boto-rb-data")
+gem "boto-rb-data", path: boto_data_path if File.directory?(boto_data_path)
 gem "roda"
 gem "sinatra"
 gem "sequel"

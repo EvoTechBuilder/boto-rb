@@ -21,6 +21,11 @@ class BenchAllocationsTest < Minitest::Test
     assert_equal ["/users/1", "/users/2"], envs.map { _1["PATH_INFO"] }
   end
 
+  def test_build_envs_spreads_db_repository_paths
+    envs = BenchAllocations.build_envs("db_repository", 2, offset: 0)
+    assert_equal ["/users/1", "/users/2"], envs.map { _1["PATH_INFO"] }
+  end
+
   def test_build_envs_sends_bearer_token_only_for_db_auth
     auth_envs = BenchAllocations.build_envs("db_auth", 2, offset: 0)
     assert_equal ["Bearer bench-token"] * 2, auth_envs.map { _1["HTTP_AUTHORIZATION"] }

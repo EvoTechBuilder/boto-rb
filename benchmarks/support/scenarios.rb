@@ -3,23 +3,27 @@
 require "uri"
 require_relative "database"
 
-# Which frameworks run each scenario. db_schema, db_auth and db_auth_redis only exist for boto: the returns DSL and
-# the boto security plugins have no equivalent in roda or sinatra, so they measure boto alone.
-# db_auth_redis also needs a Redis: when there is none, it is left out of every combination.
+# Which frameworks run each scenario. db_schema, db_auth, db_auth_redis and db_repository only exist for boto: the
+# returns DSL, the boto security plugins and the Repository have no equivalent in roda or sinatra, so they measure
+# boto alone. db_auth_redis also needs a Redis, and db_repository needs the boto-rb-data gem folder: when either is
+# missing, the scenario is left out of every combination.
 module BenchScenarios
   ROOT = File.expand_path("..", __dir__)
   FRAMEWORKS = %w[boto roda sinatra].freeze
   BOTO_ONLY = %w[boto].freeze
   REDIS_SCENARIO = "db_auth_redis"
+  DATA_SCENARIO = "db_repository"
+  DATA_GEM_DIR = "gems/boto-rb-data"
   FRAMEWORKS_BY_SCENARIO = {
     "hello" => FRAMEWORKS,
     "db" => FRAMEWORKS,
     "db_schema" => BOTO_ONLY,
     "db_auth" => BOTO_ONLY,
-    REDIS_SCENARIO => BOTO_ONLY
+    REDIS_SCENARIO => BOTO_ONLY,
+    DATA_SCENARIO => BOTO_ONLY
   }.freeze
   NAMES = FRAMEWORKS_BY_SCENARIO.keys.freeze
-  DB_SCENARIOS = %w[db db_schema db_auth db_auth_redis].freeze
+  DB_SCENARIOS = %w[db db_schema db_auth db_auth_redis db_repository].freeze
   HELLO_PATH = "/"
   DB_LOAD_PATH = "/users/500"
   DB_PATH_PREFIX = "/users/"
@@ -53,7 +57,13 @@ module BenchScenarios
     FRAMEWORKS_BY_SCENARIO.fetch(scenario)
   end
 
-  def self.scenario_enabled?(scenario) = scenario != REDIS_SCENARIO || redis_available?
+  def self.scenario_enabled?(scenario)
+    case scenario
+    when REDIS_SCENARIO then redis_available?
+    when DATA_SCENARIO then data_available?
+    else true
+    end
+  end
 
   def self.scenarios_for(framework) = NAMES.select { |scenario| frameworks_for(scenario).include?(framework) }
 
@@ -96,15 +106,27 @@ module BenchScenarios
     "invalid REDIS_URL"
   end
 
-  def self.skip_notice
+  # The same root the Gemfile reads, so the scenario is skipped exactly when the gem is not bundled.
+  def self.boto_root(env: ENV) = env.fetch("BOTO_ROOT", File.expand_path("..", ROOT))
+
+  def self.data_available? = File.directory?(File.join(boto_root, DATA_GEM_DIR))
+
+  def self.redis_skip_notice
     return if redis_available?
 
     "#{REDIS_SCENARIO} skipped: Redis not available at #{redis_endpoint(redis_url)}"
   end
 
+  def self.data_skip_notice
+    return if data_available?
+
+    "#{DATA_SCENARIO} skipped: #{DATA_GEM_DIR} not found"
+  end
+
+  def self.skip_notices = [redis_skip_notice, data_skip_notice].compact
+
   def self.warn_skipped(io: $stderr)
-    notice = skip_notice
-    io.puts(notice) if notice
+    skip_notices.each { io.puts(_1) }
   end
 
   def self.db_scenario?(scenario) = DB_SCENARIOS.include?(scenario)
