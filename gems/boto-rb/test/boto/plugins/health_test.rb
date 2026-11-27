@@ -134,14 +134,14 @@ module Boto
 
       def test_non_callable_check_fails_at_boot
         error = assert_raises(ArgumentError) do
-          Boto::Configuration.new(env_name: "production").use(:health, checks: { db: "not callable" })
+          Boto::Configuration.new(env_name: "production").use(:health, checks: { db: "not callable" }).plugins
         end
         assert_includes error.message, "db must respond to call"
       end
 
       def test_non_positive_timeout_fails_at_boot
         error = assert_raises(ArgumentError) do
-          Boto::Configuration.new(env_name: "production").use(:health, timeout: 0)
+          Boto::Configuration.new(env_name: "production").use(:health, timeout: 0).plugins
         end
         assert_includes error.message, "timeout must be a positive number"
       end

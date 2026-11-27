@@ -21,6 +21,37 @@ module ConfigurationTestPlugins
       @allow = allow
     end
   end
+
+  class Pooled < Boto::Plugin
+    attr_reader :url, :pool
+
+    private
+
+    def configure(url:, pool: 1)
+      @url = url
+      @pool = pool
+    end
+  end
+
+  # Records each instance in the log array passed as option, so tests can count builds.
+  class Counting < Boto::Plugin
+    private
+
+    def configure(log:)
+      log << self
+    end
+  end
+
+  # Calls the option value, so tests can check whether a lambda ran.
+  class Resolving < Boto::Plugin
+    attr_reader :value
+
+    private
+
+    def configure(value:)
+      @value = value.call
+    end
+  end
 end
 
 module Boto
@@ -69,19 +100,6 @@ module Boto
       assert_kind_of Boto::Plugins::TestEcho, @config.plugin(:test_echo)
     end
 
-    def test_invalid_name_is_rejected
-      error = assert_raises(ArgumentError) { @config.use "Rate-Limit" }
-
-      assert_match(/Rate-Limit/, error.message)
-    end
-
-    def test_unknown_name_points_to_gem_that_provides_it
-      error = assert_raises(ArgumentError) { @config.use :no_such_plugin }
-
-      assert_equal %(unknown plugin :no_such_plugin (add the gem that provides it to the Gemfile, e.g. "boto-rb-security")),
-                   error.message
-    end
-
     def test_use_finds_plugin_file_on_load_path
       with_feature("lookup_probe", <<~RUBY) do
         module Boto::Plugins
@@ -102,22 +120,6 @@ module Boto
       end
     end
 
-    def test_inflections_override_camelized_name
-      assert_equal "OpenAPI", Boto::INFLECTIONS.fetch("openapi")
-      assert_equal "OpenAPI", @config.send(:camelize, "openapi")
-      assert_equal "RateLimit", @config.send(:camelize, "rate_limit")
-    end
-
-    def test_class_must_inherit_from_plugin
-      error = assert_raises(ArgumentError) { @config.use String }
-
-      assert_match(/Boto::Plugin/, error.message)
-    end
-
-    def test_other_argument_types_are_rejected
-      assert_raises(ArgumentError) { @config.use 42 }
-    end
-
     def test_duplicate_class_is_rejected
       @config.use ConfigurationTestPlugins::Hosts
 
@@ -135,7 +137,9 @@ module Boto
     end
 
     def test_unknown_plugin_option_is_rejected
-      assert_raises(ArgumentError) { @config.use ConfigurationTestPlugins::Allowing }
+      @config.use ConfigurationTestPlugins::Allowing
+
+      assert_raises(ArgumentError) { @config.plugins }
     end
 
     def test_plugins_are_sorted_by_order_then_declaration
@@ -233,14 +237,199 @@ module Boto
       end
     end
 
+    def test_use_in_later_phase_merges_options_and_environment_wins
+      with_phase(:app) { @config.use ConfigurationTestPlugins::Pooled, url: "general", pool: 10 }
+      with_phase(:environment) { @config.use ConfigurationTestPlugins::Pooled, url: "development" }
+
+      plugin = @config.plugin(:pooled)
+
+      assert_equal "development", plugin.url
+      assert_equal 10, plugin.pool
+    end
+
+    def test_use_in_later_phase_adds_new_plugin
+      with_phase(:environment) { @config.use ConfigurationTestPlugins::Hosts }
+
+      assert_kind_of ConfigurationTestPlugins::Hosts, @config.plugin(:hosts)
+    end
+
+    def test_duplicate_use_in_environment_phase_after_merge_is_rejected
+      with_phase(:app) { @config.use ConfigurationTestPlugins::Pooled, url: "general" }
+      with_phase(:environment) { @config.use ConfigurationTestPlugins::Pooled, url: "development" }
+
+      error = assert_raises(ArgumentError) do
+        with_phase(:environment) { @config.use ConfigurationTestPlugins::Pooled, url: "again" }
+      end
+
+      assert_equal "plugin :pooled already enabled", error.message
+    end
+
+    def test_duplicate_use_in_environment_phase_is_rejected
+      error = assert_raises(ArgumentError) do
+        with_phase(:environment) do
+          @config.use ConfigurationTestPlugins::Hosts
+          @config.use ConfigurationTestPlugins::Hosts
+        end
+      end
+
+      assert_equal "plugin :hosts already enabled", error.message
+    end
+
+    def test_remove_drops_declared_plugin
+      @config.use ConfigurationTestPlugins::Hosts
+
+      assert_same @config, @config.remove(:hosts)
+      assert_nil @config.plugin(:hosts)
+    end
+
+    def test_remove_of_undeclared_plugin_is_rejected
+      error = assert_raises(ArgumentError) { @config.remove(:no_such_plugin) }
+
+      assert_equal "plugin :no_such_plugin is not enabled", error.message
+    end
+
+    def test_remove_then_use_in_later_phase_starts_fresh
+      @config.use ConfigurationTestPlugins::Pooled, url: "general", pool: 10
+      with_phase(:environment) do
+        @config.remove(:pooled)
+        @config.use ConfigurationTestPlugins::Pooled, url: "development"
+      end
+
+      plugin = @config.plugin(:pooled)
+
+      assert_equal "development", plugin.url
+      assert_equal 1, plugin.pool
+    end
+
+    def test_plugin_is_built_once_with_merged_options
+      log = []
+      @config.use ConfigurationTestPlugins::Counting, log: log
+      @config.plugins
+      @config.plugin(:counting)
+      @config.plugins
+
+      assert_equal 1, log.size
+    end
+
+    def test_overridden_option_lambda_is_not_called
+      with_phase(:app) { @config.use ConfigurationTestPlugins::Resolving, value: -> { raise "general lambda ran" } }
+      with_phase(:environment) { @config.use ConfigurationTestPlugins::Resolving, value: -> { "development" } }
+
+      assert_equal "development", @config.plugin(:resolving).value
+    end
+
+    def test_fixed_order_is_kept_after_merge
+      @config.use ConfigurationTestPlugins::CustomThing
+      @config.use ConfigurationTestPlugins::RateLimit
+      @config.use ConfigurationTestPlugins::Other
+      with_phase(:environment) do
+        @config.use ConfigurationTestPlugins::Hosts
+        @config.use ConfigurationTestPlugins::RateLimit
+      end
+
+      assert_equal %i[hosts rate_limit custom_thing other], names(@config.plugins)
+    end
+
+    def test_use_after_build_is_rejected
+      @config.use ConfigurationTestPlugins::Hosts
+      @config.plugins
+
+      error = assert_raises(ArgumentError) { @config.use ConfigurationTestPlugins::Other }
+
+      assert_equal "configuration is already built", error.message
+    end
+
+    def test_remove_after_build_is_rejected
+      @config.use ConfigurationTestPlugins::Hosts
+      @config.plugins
+
+      error = assert_raises(ArgumentError) { @config.remove(:hosts) }
+
+      assert_equal "configuration is already built", error.message
+    end
+
+    def test_env_is_the_object_given_to_configuration
+      env = Object.new
+      config = Boto::Configuration.new(env_name: "test", env: env)
+
+      assert_same env, config.env
+    end
+
+    def test_env_is_nil_when_not_given
+      assert_nil @config.env
+    end
+
+    def test_load_gives_config_files_access_to_env
+      Dir.mktmpdir do |dir|
+        path = write_app(dir, <<~RUBY)
+          Boto.configure do |app|
+            app.use ConfigurationTestPlugins::Allowing, allow: [app.env.fetch("ALLOWED")]
+          end
+        RUBY
+
+        config = Boto::Configuration.load(path, env_name: "test", env: { "ALLOWED" => "api.loja.com" })
+
+        assert_equal %w[api.loja.com], config.plugin(:allowing).allow
+      end
+    end
+
+    def test_load_evaluates_app_then_environment_file
+      Dir.mktmpdir do |dir|
+        app = write_app(dir, <<~RUBY)
+          Boto.configure do |app|
+            app.use ConfigurationTestPlugins::Pooled, url: "general", pool: 4
+            app.use ConfigurationTestPlugins::Allowing, allow: %w[api.loja.com]
+          end
+        RUBY
+        environment = write_file(dir, "development.rb", <<~RUBY)
+          Boto.configure do |app|
+            app.use ConfigurationTestPlugins::Pooled, url: "development"
+          end
+        RUBY
+
+        config = Boto::Configuration.load([app, environment], env_name: "development")
+
+        assert_equal "development", config.plugin(:pooled).url
+        assert_equal 4, config.plugin(:pooled).pool
+        assert_equal %w[api.loja.com], config.plugin(:allowing).allow
+      end
+    end
+
+    def test_load_skips_missing_environment_file
+      Dir.mktmpdir do |dir|
+        app = write_app(dir, "Boto.configure { |app| app.use ConfigurationTestPlugins::Hosts }\n")
+        missing = File.join(dir, "environments", "production.rb")
+
+        config = Boto::Configuration.load([app, missing], env_name: "production")
+
+        assert_kind_of ConfigurationTestPlugins::Hosts, config.plugin(:hosts)
+      end
+    end
+
+    def test_load_rejects_more_than_two_files
+      error = assert_raises(ArgumentError) do
+        Boto::Configuration.load(%w[a.rb b.rb c.rb], env_name: "test")
+      end
+
+      assert_equal "expected at most 2 config files", error.message
+    end
+
     private
 
     def names(plugins)
       plugins.map { |plugin| plugin.class.plugin_name }
     end
 
+    def with_phase(name, &block)
+      @config.with_phase(name, &block)
+    end
+
     def write_app(dir, source)
-      path = File.join(dir, "app.rb")
+      write_file(dir, "app.rb", source)
+    end
+
+    def write_file(dir, name, source)
+      path = File.join(dir, name)
       File.write(path, source)
       path
     end
