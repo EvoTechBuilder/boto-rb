@@ -270,7 +270,7 @@ Boto.configure do |app|
   app.use :cors, origins: %w[https://painel.loja.com]
   app.use :auth, strategy: :bearer, tokens: -> { ENV.fetch("API_TOKENS").split(",") }
   app.use :rate_limit, limit: 300, period: 60
-  app.use :openapi, version: "1.4.0"
+  app.use :openapi, title: "Pedidos API", description: "Pedidos e pagamentos da Loja.", version: "1.4.0"
 end
 ```
 
@@ -297,7 +297,7 @@ end
 | Plugin | Gem | O que faz |
 |---|---|---|
 | `:health` | [`boto-rb`](gems/boto-rb) | `GET /health/live` e `GET /health/ready`. O ready roda os `checks:` do projeto e os dos plugins (como o Redis do rate limit) e responde `503` durante o shutdown. Não exige credencial. |
-| `:openapi` | [`boto-rb`](gems/boto-rb) | Serve o documento OpenAPI em qualquer ambiente: `path:` (`/openapi.json`), `version:` (`"0.0.0"`) e `auth:` (`true`, protegido pelo `:auth` do projeto). |
+| `:openapi` | [`boto-rb`](gems/boto-rb) | Serve o documento OpenAPI em qualquer ambiente: `path:` (`/openapi.json`), `title:` (o namespace do projeto), `description:`, `version:` (`"0.0.0"`) e `auth:` (`true`, protegido pelo `:auth` do projeto). |
 | `:swagger_ui` | [`boto-rb-swaggerui`](gems/boto-rb-swaggerui) | [Swagger UI](https://swagger.io/tools/swagger-ui/) em `/docs` (`path:`), com os arquivos embutidos na gem, sem CDN. Precisa do `:openapi`. |
 | `:hosts` | [`boto-rb-security`](gems/boto-rb-security) | Só aceita os hosts de `allow:`, contra DNS rebinding. |
 | `:cors` | [`boto-rb-security`](gems/boto-rb-security) | [CORS](https://developer.mozilla.org/docs/Web/HTTP/CORS) com `origins:`, `methods:`, `headers:`, `expose:`, `credentials:` e `max_age:`. Responde o preflight. |

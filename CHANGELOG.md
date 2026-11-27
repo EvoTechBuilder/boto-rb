@@ -4,6 +4,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- `app.use :openapi` takes `title:` (default: the project namespace) and `description:` (left out when not given) for the document's `info`.
+- The `:swagger_ui` page shows the Swagger UI topbar (document URL and Explore) with a ruby drawn for Boto and the Boto name instead of the Swagger logo, and takes its title from the `:openapi` `title:`. `swagger-ui-standalone-preset.js` (swagger-ui-dist 5.36.0) is now vendored too.
+
 ## [0.12.0] - 2026-11-26
 
 ### Added
