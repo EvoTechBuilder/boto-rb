@@ -4,6 +4,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-26
+
 ### Added
 
 - `app.use :openapi` takes `title:` (default: the project namespace) and `description:` (left out when not given) for the document's `info`.
@@ -13,7 +15,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- `:swagger_ui` asset URLs carry the gem version next to the Swagger UI version (`/docs/assets/5.36.0-0.12.0/`), so a new `boto.css` or `ruby.svg` reaches browsers that cached the old one as immutable.
+- `:swagger_ui` asset URLs carry the gem version next to the Swagger UI version (`/docs/assets/5.36.0-0.13.0/`), so a new `boto.css` or `ruby.svg` reaches browsers that cached the old one as immutable.
 
 ## [0.12.0] - 2026-11-26
 
