@@ -203,6 +203,12 @@ jobs:
           done
           echo "new_gems=${new_gems# }" >> "$GITHUB_OUTPUT"
 
+      # The action refuses to overwrite a key in ~/.gem/credentials, so the first one is removed before the
+      # exchange below.
+      - name: Drop the first RubyGems key
+        if: steps.push.outputs.new_gems != ''
+        run: rm -f ~/.gem/credentials
+
       # The first push of a new gem goes through its pending trusted publisher on RubyGems, which must name
       # the account that will own it (an immutable account ID, not a secret).
       - uses: rubygems/configure-rubygems-credentials@v2.2.0
