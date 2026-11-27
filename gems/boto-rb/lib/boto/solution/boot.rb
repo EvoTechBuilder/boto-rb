@@ -37,18 +37,21 @@ module Boto
       @checked.dup.freeze
     end
 
-    def load(name)
+    # The block runs after the autoloads are set up and before the eager load (see #app).
+    def load(name, &before_eager_load)
       Layout.check!(@solution, root: @root)
       verify_isolation(name)
       created = load_order(name).reject { @loaders.key?(_1) }
-      load_loaders(load_order(name).map { loader_for(_1) }, created)
+      load_loaders(load_order(name).map { loader_for(_1) }, created, &before_eager_load)
       loader_for(name).namespace
     end
 
     def app(name, **app_options)
       env_name = environment_name(app_options)
-      namespace = load(name)
-      config = configuration(name, env_name: env_name)
+      config = nil
+      # The configuration is read before the eager load: app.use :database requires boto-rb-data, whose
+      # Boto::Repository the project's repositories inherit from. Constants named in config files still autoload.
+      namespace = load(name) { config = configuration(name, env_name: env_name) }
       context = ProjectContext.new(name: name, env_name: env_name, env: config.env)
       namespace.extend(ProjectApp::Namespace).bind_app(context)
       app = App.new(**app_options, env_name: env_name, namespace: namespace, plugins: config.plugins)
@@ -76,6 +79,7 @@ module Boto
 
     def load_loaders(loaders, created)
       loaders.each(&:setup)
+      yield if block_given?
       loaders.each(&:eager_load)
     rescue StandardError
       discard(created)
