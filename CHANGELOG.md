@@ -4,7 +4,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-11-26
+
+Same code as 0.11.0, which reached RubyGems only for `boto-rb`, `boto-rb-security` and `boto-rb-redis`: the first push of `boto-rb-swaggerui` failed, and `boto-rb-cli` 0.11.0 was never published. Use 0.11.1 for every gem.
+
+### Fixed
+
+- Releases publish a new gem through its pending trusted publisher on RubyGems, and skip versions already published, so a release that failed halfway can run again.
+
 ## [0.11.0] - 2026-11-26
+
+Published only in part; see 0.11.1.
 
 ### Added
 
