@@ -3,6 +3,7 @@
 require "test_helper"
 require "async"
 require "fileutils"
+require "json"
 require "rack/mock"
 require "stringio"
 require "tmpdir"
@@ -15,6 +16,8 @@ class Boto::CLI::RunCommandTest < Minitest::Test
   BILLING = "runbilling"
   HOST = "127.0.0.1"
   LIFECYCLE = "runlifecycle"
+  RELOAD_API = "reloadapi"
+  DEV_TOKEN = "dev-token"
 
   # Records the lifecycle calls of the plugin declared by the solution's config/app.rb.
   class LifecycleRecorder < Boto::Plugin
@@ -67,6 +70,16 @@ class Boto::CLI::RunCommandTest < Minitest::Test
     end
   end
 
+  # Runs the given script with the apps instead of waiting for requests from outside.
+  class ScriptedServer < FakeServer
+    def initialize(apps_by_port, host:, script:)
+      super(apps_by_port, host: host)
+      @script = script
+    end
+
+    def run = @script.call(apps_by_port)
+  end
+
   class TermServer < SignalingServer
     def self.signals = %w[TERM]
   end
@@ -95,7 +108,7 @@ class Boto::CLI::RunCommandTest < Minitest::Test
 
     assert_equal [3000, 3001], @server.apps_by_port.keys
     assert_equal HOST, @server.host
-    assert_includes out.string, "Boto running (Ctrl-C to stop)"
+    assert_includes out.string, "Boto running (Ctrl-C to stop, reload on)"
     assert_includes out.string, "  #{WEBAPI}  http://127.0.0.1:3000\n"
     assert_includes out.string, "  #{BILLING}  http://127.0.0.1:3001\n"
     refute_includes out.string, LIBRARY
@@ -202,6 +215,65 @@ class Boto::CLI::RunCommandTest < Minitest::Test
     assert_equal %i[start stop], LifecycleRecorder::EVENTS
   end
 
+  def test_development_serves_reloading_apps
+    out = StringIO.new
+
+    assert_equal 0, run_command([], out: out)
+
+    assert @server.apps_by_port.values.all? { |app| app.is_a?(Boto::CLI::ReloadingApp) }
+    assert_includes out.string, "reload on"
+  end
+
+  def test_no_reload_option_serves_the_booted_apps
+    out = StringIO.new
+
+    assert_equal 0, run_command(%w[--no-reload], out: out)
+
+    assert @server.apps_by_port.values.all? { |app| app.is_a?(Boto::App) }
+    assert_includes out.string, "Boto running (Ctrl-C to stop)\n"
+    refute_includes out.string, "reload on"
+  end
+
+  def test_production_serves_the_booted_apps_without_reload
+    out = StringIO.new
+
+    # The template reads API_TOKENS from the real ENV, so the variable is set here and restored after.
+    with_api_tokens("t") do
+      assert_equal 0, run_command([], out: out, env: { "BOTO_ENV" => "production" })
+    end
+
+    assert @server.apps_by_port.values.all? { |app| app.is_a?(Boto::App) }
+    refute_includes out.string, "reload on"
+  end
+
+  def test_help_lists_no_reload
+    out = StringIO.new
+    runner = Boto::CLI::Runner.new(out: out, err: StringIO.new, cwd: self.class.solution_dir)
+
+    assert_equal 0, runner.run(%w[help run])
+    assert_includes out.string, "--no-reload"
+  end
+
+  def test_development_reload_serves_the_changed_endpoint
+    responses = []
+    Dir.mktmpdir do |root|
+      dir = self.class.create_solution(root, [["webapi", RELOAD_API]])
+      path = write_ping(dir, ping_source(1))
+      script = lambda do |apps_by_port|
+        responses << ping_version(apps_by_port.fetch(3000))
+        write_ping(dir, ping_source(2))
+        touch_future(path)
+        responses << ping_version(apps_by_port.fetch(3000))
+      end
+      factory = ->(apps_by_port, host:) { ScriptedServer.new(apps_by_port, host: host, script: script) }
+
+      Boto::CLI::Commands::Run.new([], out: StringIO.new, err: StringIO.new, cwd: dir,
+                                       server_factory: factory, env: {}).call
+    end
+
+    assert_equal [1, 2], responses
+  end
+
   def test_second_signal_during_the_drain_fails_and_marks_the_drain_interrupted
     out = StringIO.new
 
@@ -237,9 +309,45 @@ class Boto::CLI::RunCommandTest < Minitest::Test
     RUBY
   end
 
-  def run_command(argv, cwd: self.class.solution_dir, out: StringIO.new, server_class: FakeServer)
+  def run_command(argv, cwd: self.class.solution_dir, out: StringIO.new, server_class: FakeServer, env: {})
     factory = ->(apps_by_port, host:) { @server = server_class.new(apps_by_port, host: host) }
     Boto::CLI::Commands::Run.new(argv, out: out, err: StringIO.new, cwd: cwd,
-                                       server_factory: factory, env: {}).call
+                                       server_factory: factory, env: env).call
+  end
+
+  def with_api_tokens(value)
+    previous = ENV.fetch("API_TOKENS", nil)
+    ENV["API_TOKENS"] = value
+    yield
+  ensure
+    ENV["API_TOKENS"] = previous
+  end
+
+  def write_ping(dir, source)
+    path = File.join(dir, "apps", RELOAD_API, "endpoints", "ping.rb")
+    FileUtils.mkdir_p(File.dirname(path))
+    File.write(path, source)
+    path
+  end
+
+  # A future mtime makes the change visible without depending on the clock's resolution.
+  def touch_future(path)
+    time = Time.now + 5
+    File.utime(time, time, path)
+  end
+
+  def ping_source(version)
+    <<~RUBY
+      class #{Boto::Project.namespace_for(RELOAD_API)}::Ping < Boto::Endpoint
+        get "/ping"
+
+        def call = { v: #{version} }
+      end
+    RUBY
+  end
+
+  def ping_version(app)
+    response = Rack::MockRequest.new(app).get("/ping", "HTTP_AUTHORIZATION" => "Bearer #{DEV_TOKEN}")
+    JSON.parse(response.body).fetch("v")
   end
 end

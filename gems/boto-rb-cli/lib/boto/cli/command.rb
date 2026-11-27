@@ -13,8 +13,9 @@ module Boto
       OPTIONS = [].freeze
 
       # flags: names in display order, the last one is the long form the parser switch uses.
-      Option = Data.define(:key, :flags, :description, :argument, :type) do
-        def initialize(key:, flags:, description:, argument: nil, type: nil)
+      # given: the value a switch without argument stores (e.g. false for --no-reload).
+      Option = Data.define(:key, :flags, :description, :argument, :type, :given) do
+        def initialize(key:, flags:, description:, argument: nil, type: nil, given: true)
           super
         end
 
@@ -75,7 +76,7 @@ module Boto
 
       def add_option(parser, option, values)
         args = [*option.switches, option.type].compact
-        parser.on(*args) { |value| values[option.key] = value }
+        parser.on(*args) { |value| values[option.key] = option.argument ? value : option.given }
       end
     end
   end
