@@ -1,0 +1,11 @@
+/* Boto brand on the Swagger UI topbar: the Swagger logo is hidden and replaced by the Boto ruby and name. */
+.swagger-ui .topbar .topbar-wrapper .link svg,
+.swagger-ui .topbar .topbar-wrapper .link img { display: none; }
+.swagger-ui .topbar .topbar-wrapper .link { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.swagger-ui .topbar .topbar-wrapper .link::before {
+  content: ""; display: block; width: 40px; height: 40px;
+  background: url("ruby.svg") no-repeat center / contain;
+}
+.swagger-ui .topbar .topbar-wrapper .link::after {
+  content: "Boto"; color: #fff; font-family: sans-serif; font-size: 1.75em; font-weight: 600;
+}

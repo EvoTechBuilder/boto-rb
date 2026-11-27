@@ -13,7 +13,7 @@ module SwaggerUiVendor
   HOST = "registry.npmjs.org"
   PACKAGE = "swagger-ui-dist"
   VERSION_PATTERN = /\A\d+\.\d+\.\d+\z/
-  FILES = %w[swagger-ui.css swagger-ui-bundle.js LICENSE].freeze
+  FILES = %w[swagger-ui.css swagger-ui-bundle.js swagger-ui-standalone-preset.js LICENSE].freeze
   DIR = File.expand_path("../../vendor/swagger-ui", __dir__)
   MAX_REDIRECTS = 3
 

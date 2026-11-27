@@ -23,10 +23,12 @@ module Boto
           <meta charset="utf-8">
           <title>#{escape(@title)}</title>
           <link rel="stylesheet" href="#{escape(asset("swagger-ui.css"))}">
+          <link rel="stylesheet" href="#{escape(asset("boto.css"))}">
           </head>
           <body>
           <div id="swagger-ui"></div>
           <script src="#{escape(asset("swagger-ui-bundle.js"))}"></script>
+          <script src="#{escape(asset("swagger-ui-standalone-preset.js"))}"></script>
           <script src="#{escape(asset(INITIALIZER_NAME))}"></script>
           </body>
           </html>
@@ -35,7 +37,7 @@ module Boto
 
       def initializer_js
         <<~JS.freeze
-          window.onload = function () { window.ui = SwaggerUIBundle({ url: #{document_literal}, dom_id: "#swagger-ui", deepLinking: true }); };
+          window.onload = function () { window.ui = SwaggerUIBundle({ url: #{document_literal}, dom_id: "#swagger-ui", deepLinking: true, presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset], layout: "StandaloneLayout" }); };
         JS
       end
 

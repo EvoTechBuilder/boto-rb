@@ -9,9 +9,17 @@ class PageTest < Minitest::Test
     html = page.html
 
     assert_includes html, %(<link rel="stylesheet" href="#{ASSETS_PATH}/swagger-ui.css">)
+    assert_includes html, %(<link rel="stylesheet" href="#{ASSETS_PATH}/boto.css">)
     assert_includes html, %(<script src="#{ASSETS_PATH}/swagger-ui-bundle.js"></script>)
+    assert_includes html, %(<script src="#{ASSETS_PATH}/swagger-ui-standalone-preset.js"></script>)
     assert_includes html, %(<script src="#{ASSETS_PATH}/initializer.js"></script>)
     assert_includes html, '<div id="swagger-ui"></div>'
+  end
+
+  def test_html_loads_brand_css_after_swagger_css
+    html = page.html
+
+    assert_operator html.index("swagger-ui.css"), :<, html.index("boto.css")
   end
 
   def test_html_escapes_title
@@ -31,6 +39,13 @@ class PageTest < Minitest::Test
     js = page(document_url: "/docs/openapi.json").initializer_js
 
     assert_includes js, 'SwaggerUIBundle({ url: "/docs/openapi.json", dom_id: "#swagger-ui"'
+  end
+
+  def test_initializer_uses_standalone_layout_and_preset
+    js = page.initializer_js
+
+    assert_includes js, 'layout: "StandaloneLayout"'
+    assert_includes js, "SwaggerUIStandalonePreset"
   end
 
   def test_initializer_escapes_closing_tags_in_url
