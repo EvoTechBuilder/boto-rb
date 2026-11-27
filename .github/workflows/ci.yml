@@ -182,11 +182,40 @@ jobs:
             test -f "gems/$gem/$gem-$version.gem" || { echo "::error::$gem is not at version $version"; exit 1; }
           done
 
-      - uses: rubygems/configure-rubygems-credentials@v1.0.0
+      - uses: rubygems/configure-rubygems-credentials@v2.2.0
 
+      # Pushes, in dependency order, the gems that already exist on RubyGems. A version already there is
+      # skipped, so a release that failed halfway can be pushed again. A gem RubyGems has never seen is
+      # left for the next step, which needs the owner of its pending trusted publisher.
       - name: Push gems
+        id: push
         run: |
           version="${GITHUB_REF_NAME#v}"
+          new_gems=""
           for gem in boto-rb boto-rb-security boto-rb-redis boto-rb-swaggerui boto-rb-cli; do
+            if curl -sf "https://rubygems.org/api/v2/rubygems/$gem/versions/$version.json" > /dev/null; then
+              echo "$gem $version is already on RubyGems; skipping"
+            elif curl -sf "https://rubygems.org/api/v1/gems/$gem.json" > /dev/null; then
+              gem push "gems/$gem/$gem-$version.gem"
+            else
+              new_gems="$new_gems $gem"
+            fi
+          done
+          echo "new_gems=${new_gems# }" >> "$GITHUB_OUTPUT"
+
+      # The first push of a new gem goes through its pending trusted publisher on RubyGems, which must name
+      # the account that will own it (an immutable account ID, not a secret).
+      - uses: rubygems/configure-rubygems-credentials@v2.2.0
+        if: steps.push.outputs.new_gems != ''
+        with:
+          owner: "246924"
+
+      - name: Push new gems
+        if: steps.push.outputs.new_gems != ''
+        env:
+          NEW_GEMS: ${{ steps.push.outputs.new_gems }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          for gem in $NEW_GEMS; do
             gem push "gems/$gem/$gem-$version.gem"
           done
