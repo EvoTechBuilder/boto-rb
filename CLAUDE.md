@@ -65,6 +65,8 @@ no `dotnet new install`.
 - `boto add <template> <nome> [--refs a,b] [--framework react|vue]`
 - `boto ref <projeto> <referencia>`
 - `boto generate <schema|model|endpoint|operation|repository|migration> <projeto> <nome> [campos]`
+  (endpoint: `[<verbo> <rota>]` opcional para `index`, `show`, `create`,
+  `update`, `destroy` e `search`, que deduzem rota e schemas)
   (atalho `boto g`): gera o arquivo e o teste; `--skip-tests`, `--force`, e
   `generators tests: false` no Botofile (por projeto: `generators: { tests: }`)
 - `boto graph`

@@ -4,6 +4,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- `boto generate endpoint` derives verb, route and schemas from a known action: `boto g endpoint catalogo products/update` gives `PATCH /products/:id` with `--body product_input` and `--returns product` when those schemas exist (`index`, `show`, `create`, `update`, `destroy`, `search`; nested folders become the route). A missing deduced schema is skipped with a notice; `--no-body` and `--no-returns` turn the deduction off. The output ends with a summary line, and the help lists the actions. The explicit `<verb> <path>` form is unchanged.
+
+### Changed
+
+- A path param without a type is `Integer` when it is `id` or ends in `_id` (it was always `String`).
+
 ## [0.18.0] - 2026-11-27
 
 ### Added

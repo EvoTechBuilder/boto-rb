@@ -1,6 +1,6 @@
 # 0024 — Convenções no `boto generate endpoint`
 
-Status: **aprovada**
+Status: **implementada**
 
 ## Problema
 

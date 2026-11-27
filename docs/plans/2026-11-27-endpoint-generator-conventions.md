@@ -1,6 +1,6 @@
 # Convenções no `boto generate endpoint` (proposta 0024)
 
-Status: **em andamento**
+Status: **concluído**
 
 ## Objetivo
 

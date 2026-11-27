@@ -598,7 +598,8 @@ do projeto, e o teste em `test/`:
 
 ```bash
 boto g schema catalogo product name:string price:float tags:[string] available_on:date?
-boto g endpoint catalogo products/show get /products/:id id:integer --returns product
+boto g endpoint catalogo products/show          # GET /products/:id, --returns product
+boto g endpoint catalogo products/publish post /products/:id/publish
 boto g operation catalogo create_product
 boto g model catalogo product id:integer name:string
 ```
@@ -610,6 +611,14 @@ boto g model catalogo product id:integer name:string
   verde sem asserção. `--skip-tests` pula o teste num comando, e
   `generators tests: false` no Botofile desliga para a solution, com exceção
   por projeto em `generators: { tests: true }`.
+- **Endpoints por convenção:** sem verbo e rota, a ação do nome decide:
+  `index` (`GET /products`), `show` (`GET /products/:id`), `create`
+  (`POST /products`), `update` (`PATCH /products/:id`), `destroy`
+  (`DELETE /products/:id`) e `search` (`QUERY /products/search`). Os schemas
+  `product`, `product_input` e `product_filter` entram quando existem
+  (`--no-body` e `--no-returns` desligam), e a saída resume o que foi
+  decidido. Outra ação pede verbo e rota. `:id` e `:<algo>_id` sem tipo viram
+  `Integer`.
 - **Arquivos existentes:** nunca são sobrescritos sem `--force`.
 - **Operations:** são verbos sem pasta (`create_product`), porque endpoints e
   operations dividem o namespace do projeto.
