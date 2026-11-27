@@ -80,15 +80,19 @@ loja/
 ├── Botofile.lock        # grafo resolvido + versões
 ├── .ruby-version
 ├── config/credentials/  # credentials compartilhadas
+├── apps/                # projetos webapi, microservice, web e spa
 ├── libs/                # projetos library
-├── services/            # projetos webapi e microservice
-├── workers/             # projetos worker
-└── apps/                # projetos web e spa
+└── workers/             # projetos worker
 ```
+
+As pastas `apps/`, `libs/` e `workers/` não vêm vazias no `boto new`: cada uma
+nasce no primeiro `boto add` de um projeto daquele tipo. Não existe
+`services/`; um projeto HTTP ainda em `services/` é recusado com o `git mv`
+que o move para `apps/`.
 
 ### Projeto (template microservice)
 ```
-services/pedidos/
+apps/pedidos/
 ├── pedidos.gemspec      # gerenciado pelo Boto
 ├── config/
 │   ├── app.rb           # plugins
@@ -146,7 +150,7 @@ boto/
   `Boto::Endpoint`. Cada classe declara rota, params tipados e schema de
   retorno; a lógica fica em `call`, com os params injetados como keyword args.
   ```ruby
-  # services/pedidos/endpoints/users/show.rb
+  # apps/pedidos/endpoints/users/show.rb
   class Pedidos::Users::Show < Boto::Endpoint
     get "/users/:id"
     param :id, Integer
@@ -173,11 +177,11 @@ boto/
 - **Descoberta automática**: tudo em `endpoints/` é carregado via Zeitwerk e as
   rotas são registradas sozinhas, sem arquivo de rotas central. A pasta espelha
   o namespace, sempre sob o namespace do projeto
-  (`services/pedidos/endpoints/users/show.rb` -> `Pedidos::Users::Show`).
+  (`apps/pedidos/endpoints/users/show.rb` -> `Pedidos::Users::Show`).
 - **Plugins no nível do projeto** (como o `builder.Services` do .NET), nunca
   dentro dos endpoints. Núcleo mínimo; telemetria, auth, CORS etc. são plugins.
   ```ruby
-  # services/pedidos/config/app.rb
+  # apps/pedidos/config/app.rb
   Boto.configure do |app|
     app.use :telemetry
     app.use :auth, strategy: :jwt
@@ -220,7 +224,7 @@ só declaram exceções (`skip`) ou exigências específicas (`authenticate`).
   - `force_ssl` -> respeita `X-Forwarded-Proto` (TLS termina no ingress).
 - **Exemplo:**
   ```ruby
-  # services/admin/config/app.rb
+  # apps/admin/config/app.rb
   Boto.configure do |app|
     app.use :sessions, store: :cookie
     app.use :csrf
@@ -229,7 +233,7 @@ só declaram exceções (`skip`) ou exigências específicas (`authenticate`).
             credentials: -> { Boto.credentials.admin }
   end
 
-  # services/admin/endpoints/webhooks/pagamento.rb
+  # apps/admin/endpoints/webhooks/pagamento.rb
   class Admin::Webhooks::Pagamento < Boto::Endpoint
     post "/webhooks/pagamento"
     skip :csrf, :auth

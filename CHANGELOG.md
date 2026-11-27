@@ -4,6 +4,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** `webapi` and `microservice` projects live in `apps/`, next to `web` and `spa`; the `services/` folder is gone. A solution whose HTTP project is still in `services/<name>` fails at boot and in every CLI command with the command that fixes it. To migrate, run `git mv services/<name> apps/<name>` for each project.
+- `boto new` no longer creates empty `apps/`, `libs/`, `services/` and `workers/` folders; `boto add` creates the folder a project needs.
+
+### Added
+
+- `Boto::Layout.check!(solution, root:)` and `Boto::LegacyLayoutError`.
+
 ## [0.9.1] - 2026-11-26
 
 ### Fixed
