@@ -218,8 +218,22 @@ class Boto::CLI::GenerateCommandTest < Minitest::Test
     RUBY
   end
 
-  def test_endpoint_path_param_defaults_to_string
-    generate(%w[endpoint catalogo products/show get /products/:id])
+  def test_endpoint_path_param_defaults_to_integer_for_id_and_foreign_keys
+    generate(%w[endpoint catalogo shops/products/show get /shops/:shop_id/products/:id])
+
+    source = read("apps/catalogo/endpoints/shops/products/show.rb")
+    assert_includes source, %(  param :shop_id, Integer\n)
+    assert_includes source, %(  param :id, Integer\n)
+  end
+
+  def test_endpoint_path_param_defaults_to_string_otherwise
+    generate(%w[endpoint catalogo products/show get /products/:slug])
+
+    assert_includes read(ENDPOINT_PATH), %(  param :slug, String\n)
+  end
+
+  def test_endpoint_path_param_type_given_on_the_command_wins
+    generate(%w[endpoint catalogo products/show get /products/:id id:string])
 
     assert_includes read(ENDPOINT_PATH), %(  param :id, String\n)
   end
@@ -623,10 +637,110 @@ class Boto::CLI::GenerateCommandTest < Minitest::Test
     assert_equal "Catalogo::ProductRepository already exists in #{path}", error.message
   end
 
+  def test_each_action_derives_its_verb_route_and_schemas
+    generate_product_schemas
+    action_lines.each do |action, lines|
+      generate(["endpoint", PROJECT, "products/#{action}", "--skip-tests"])
+
+      source = read("apps/catalogo/endpoints/products/#{action}.rb")
+      lines.each { assert_includes source, "#{_1}\n", "#{action} should have #{_1}" }
+    end
+  end
+
+  def test_destroy_has_neither_body_nor_returns
+    generate_product_schemas
+    generate(%w[endpoint catalogo products/destroy --skip-tests])
+
+    refute_match(/^  (body|returns) /, read("apps/catalogo/endpoints/products/destroy.rb"))
+    assert_equal "create apps/catalogo/endpoints/products/destroy.rb\nendpoint DELETE /products/:id\n", @out.string
+  end
+
+  def test_missing_schemas_are_left_out_with_a_notice
+    generate(%w[endpoint catalogo products/create --skip-tests])
+
+    refute_match(/^  (body|returns) /, read("apps/catalogo/endpoints/products/create.rb"))
+    assert_includes @out.string, "skip --body product_input (no schemas/product_input_schema.rb)\n"
+    assert_includes @out.string, "skip --returns product (no schemas/product_schema.rb)\n"
+    assert_includes @out.string, "endpoint POST /products\n"
+  end
+
+  def test_explicit_schema_option_wins_over_the_deduced_one
+    generate_product_schemas
+    generate(%w[schema catalogo other --skip-tests])
+    generate(%w[endpoint catalogo products/show --returns other --skip-tests])
+
+    assert_includes read("apps/catalogo/endpoints/products/show.rb"), "  returns Catalogo::OtherSchema\n"
+    refute_includes @out.string, "skip"
+  end
+
+  def test_no_body_and_no_returns_switch_the_deduction_off
+    generate_product_schemas
+    generate(%w[endpoint catalogo products/create --no-body --no-returns --skip-tests])
+
+    refute_match(/^  (body|returns) /, read(CREATE_ENDPOINT_PATH))
+    assert_equal "create apps/catalogo/endpoints/products/create.rb\nendpoint POST /products\n", @out.string
+  end
+
+  def test_explicit_form_deduces_no_schemas
+    generate_product_schemas
+    generate(%w[endpoint catalogo products/show get /products/:id --skip-tests])
+
+    refute_match(/^  (body|returns) /, read(ENDPOINT_PATH))
+    assert_equal "create apps/catalogo/endpoints/products/show.rb\nendpoint GET /products/:id\n", @out.string
+  end
+
+  def test_convention_prints_the_summary_line_with_its_schemas
+    generate_product_schemas
+    generate(%w[endpoint catalogo products/update --skip-tests])
+
+    assert_includes @out.string, "endpoint PATCH /products/:id  body: product_input  returns: product\n"
+  end
+
+  def test_unknown_action_without_a_verb_is_an_error
+    error = assert_raises(Boto::CLI::Error) { generate(%w[endpoint catalogo products/publish]) }
+
+    assert_equal 'unknown action "publish" for products/publish; known actions: index, show, create, update, ' \
+                 "destroy, search. Otherwise pass the verb and path: " \
+                 "boto g endpoint catalogo products/publish post /products/publish", error.message
+    refute File.exist?(File.join(@dir, "apps/catalogo/endpoints/products/publish.rb"))
+  end
+
+  def test_explicit_form_without_a_path_shows_the_endpoint_usage
+    error = assert_raises(Boto::CLI::Error) { generate(%w[endpoint catalogo products/show get]) }
+
+    assert_equal Boto::CLI::EndpointBuilder::USAGE, error.message
+  end
+
+  def test_help_lists_the_endpoint_actions_and_examples
+    help = Boto::CLI::Commands::Generate.help
+
+    assert_includes help, "  index   GET     /products\n"
+    assert_includes help, "  search  QUERY   /products/search\n"
+    assert_includes help, "boto g endpoint catalogo products/show\n"
+    assert_includes help, "boto g endpoint catalogo products/publish post /products/:id/publish"
+    assert_includes help, "--no-returns"
+  end
+
   private
 
   FixedClock = Struct.new(:time) do
     def now = time
+  end
+
+  def generate_product_schemas
+    %w[product product_input product_filter].each { generate(["schema", PROJECT, _1, "--skip-tests"]) }
+    @out = StringIO.new
+  end
+
+  def action_lines
+    {
+      "index" => [%(  get "/products"), "  returns [Catalogo::ProductSchema]"],
+      "show" => [%(  get "/products/:id"), "  returns Catalogo::ProductSchema"],
+      "create" => [%(  post "/products"), "  body Catalogo::ProductInputSchema", "  returns Catalogo::ProductSchema"],
+      "update" => [%(  patch "/products/:id"), "  body Catalogo::ProductInputSchema", "  returns Catalogo::ProductSchema"],
+      "search" => [%(  query "/products/search"), "  body Catalogo::ProductFilterSchema",
+                   "  returns [Catalogo::ProductSchema]"]
+    }
   end
 
   def create_solution(root)

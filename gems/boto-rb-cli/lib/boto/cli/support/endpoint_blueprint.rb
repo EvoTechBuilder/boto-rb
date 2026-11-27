@@ -2,10 +2,12 @@
 
 module Boto
   module CLI
-    # Renders an endpoint and its test. Path params take the type of their field, and String when none is given.
+    # Renders an endpoint and its test. Path params take the type of their field; without one, id and *_id are integers.
     class EndpointBlueprint < Blueprint
       KIND = "endpoint"
       DEFAULT_PARAM_TYPE = "string"
+      INTEGER_PARAM_TYPE = "integer"
+      INTEGER_PARAM = /\A(\w+_)?id\z/
       PARAM_PLACEHOLDER = "1"
       QUERY_VERB = "query"
       INPUT_VERBS = %w[post put patch query].freeze
@@ -15,13 +17,26 @@ module Boto
 
       attr_reader :route
 
-      def initialize(name:, namespace:, route:, fields:, body:, returns:, auth:)
+      # notices: messages about what was left out, printed with the summary.
+      def initialize(name:, namespace:, route:, fields:, body:, returns:, auth:, notices: [])
         @namespace = namespace
         @route = route
         @auth = auth
+        @body = body
+        @returns = returns
+        @notices = notices
         super(KIND, name: name, fields: path_params(fields), namespace: namespace)
         @body_source = body && schema_constant(body)
         @returns_source = returns && returns_constant(returns)
+      end
+
+      def report = [*@notices, summary]
+
+      def summary
+        parts = ["endpoint #{route.verb.upcase} #{route.path}"]
+        parts << "body: #{@body}" if @body
+        parts << "returns: #{@returns}" if @returns
+        parts.join("  ")
       end
 
       private
@@ -33,11 +48,13 @@ module Boto
 
       def typed_param(param, fields)
         field = fields.find { _1.name == param } ||
-                FieldSpec.parse("#{param}:#{DEFAULT_PARAM_TYPE}", namespace: @namespace)
+                FieldSpec.parse("#{param}:#{default_param_type(param)}", namespace: @namespace)
         return field if field.scalar?
 
         raise Error, %(path param "#{param}" must be a scalar type (#{FieldSpec::TYPES.keys.join(", ")}))
       end
+
+      def default_param_type(param) = INTEGER_PARAM.match?(param) ? INTEGER_PARAM_TYPE : DEFAULT_PARAM_TYPE
 
       def ensure_path_fields!(fields)
         unknown = fields.find { !route.param_names.include?(_1.name) }

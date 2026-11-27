@@ -8,8 +8,6 @@ module Boto
       REPOSITORY_KIND = "repository"
       MIGRATION_KIND = "migration"
       KINDS = [*Blueprint::KINDS.keys, REPOSITORY_KIND, MIGRATION_KIND].freeze
-      ENDPOINT_USAGE = "Usage: boto generate endpoint <project> <name> <verb> <path> [param:type ...] " \
-                       "[--body NAME] [--returns NAME]"
       NO_FIELD_KINDS = ["operation", REPOSITORY_KIND, MIGRATION_KIND].freeze
       TYPE_HINT = "use string, integer, float, boolean, date, time, [type] or the name of a schema in schemas/"
 
@@ -58,15 +56,9 @@ module Boto
       end
 
       def endpoint(name, args, options)
-        verb, path, *specs = args
-        raise Error, ENDPOINT_USAGE if verb.nil? || path.nil?
-
         ensure_http!
-        ensure_schema_option!("body", options[:body])
-        ensure_schema_option!("returns", options[:returns])
-        EndpointBlueprint.new(name: name, namespace: namespace, route: EndpointRoute.parse(verb, path),
-                              fields: fields(specs), body: options[:body], returns: options[:returns],
-                              auth: @folder.auth_enabled?)
+        EndpointBuilder.new(project: @project, folder: @folder, fields: method(:fields))
+                       .build(name, args, options)
       end
 
       def fields(specs)
@@ -84,18 +76,6 @@ module Boto
 
         type = reference.delete_suffix("_#{FieldSpec::SCHEMA_SUFFIX}")
         raise Error, %(unknown type "#{type}" for field "#{field.name}" (#{TYPE_HINT}))
-      end
-
-      # Same reason as ensure_schema!. A list such as [product] checks product.
-      def ensure_schema_option!(option, value)
-        return if value.nil?
-
-        schema = FieldSpec::LIST.match(value)&.[](1) || value
-        suffixed = ConstantName.new(schema, namespace: namespace).with_suffix(FieldSpec::SCHEMA_SUFFIX)
-        reference = suffixed.relative_path
-        return if @folder.schema?(reference)
-
-        raise Error, %(unknown schema "#{schema}" for --#{option} (no schemas/#{reference}.rb in #{@project.name}))
       end
 
       def ensure_http!

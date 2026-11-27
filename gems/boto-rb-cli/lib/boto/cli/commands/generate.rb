@@ -17,9 +17,31 @@ module Boto
                      description: "Schema of the request body (endpoint)"),
           Option.new(key: :returns, flags: %w[--returns], argument: "NAME",
                      description: "Schema of the response, [NAME] for a list (endpoint)"),
+          Option.new(key: :no_body, flags: %w[--no-body],
+                     description: "Do not deduce the request body schema from the action (endpoint)"),
+          Option.new(key: :no_returns, flags: %w[--no-returns],
+                     description: "Do not deduce the response schema from the action (endpoint)"),
           Option.new(key: :table, flags: %w[--table], argument: "NAME",
                      description: "Table of the repository (default: the plural of the name)")
         ].freeze
+        EXAMPLES = [
+          "boto g endpoint catalogo products/show",
+          "boto g endpoint catalogo products/publish post /products/:id/publish"
+        ].freeze
+
+        def self.help = [super, endpoint_help].join("\n\n")
+
+        def self.endpoint_help
+          actions = EndpointConvention::KNOWN_ACTIONS.map { |action| action_row(action) }
+          ["Endpoint actions (the last part of the name; verb and path follow from it):", *actions,
+           "", "Examples:", *EXAMPLES.map { "  #{_1}" }].join("\n")
+        end
+
+        # Shows the convention for a sample resource, so the table cannot drift from EndpointConvention.
+        def self.action_row(action)
+          rule = EndpointConvention.for("products/#{action}")
+          "  #{action.ljust(8)}#{rule.verb.upcase.ljust(8)}#{rule.path}"
+        end
 
         def initialize(argv, out:, err:, cwd:, clock: Time)
           super(argv, out: out, err: err, cwd: cwd)
@@ -39,6 +61,7 @@ module Boto
           ensure_writable!(project, files, force: options[:force])
           ensure_no_clash!(project, files, blueprint.constant)
           write_files(project, files)
+          print_report(blueprint)
           SUCCESS
         end
 
@@ -98,6 +121,13 @@ module Boto
             file.write(project_dir(project))
             out.puts "create #{shown_path(project, file)}"
           end
+        end
+
+        # Only endpoints report notices and a summary; the other kinds print just their files.
+        def print_report(blueprint)
+          return unless blueprint.respond_to?(:report)
+
+          blueprint.report.each { out.puts _1 }
         end
 
         def project_dir(project) = File.join(cwd, project.path)
