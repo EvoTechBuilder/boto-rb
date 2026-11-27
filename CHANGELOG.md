@@ -4,6 +4,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-11-27
+
 ### Added
 
 - New gem `boto-rb-gateway`: the template `gateway` (`boto add gateway borda --refs catalogo,users`) and the plugin `:gateway` (`prefixes:`, `panel:`). In development and test, the gateway mounts the apps of its HTTP refs in the same process, each under `/<project>`, so the solution answers on one port. Refuses to boot in production.
