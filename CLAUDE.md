@@ -62,7 +62,7 @@ no `dotnet new install`.
 ## CLI (papel do `dotnet`)
 
 - `boto new <solution> [-t <template>]` (sem template: solution vazia)
-- `boto add <template> <nome> [--framework react|vue]`
+- `boto add <template> <nome> [--refs a,b] [--framework react|vue]`
 - `boto ref <projeto> <referencia>`
 - `boto generate <schema|model|endpoint|operation|repository|migration> <projeto> <nome> [campos]`
   (atalho `boto g`): gera o arquivo e o teste; `--skip-tests`, `--force`, e
@@ -74,6 +74,9 @@ no `dotnet new install`.
 - `boto check [projeto]` (isolamento: só usa projetos referenciados)
 - `boto db migrate|rollback|status [projeto]` (gem `boto-rb-data`)
 - `boto templates list | install <gem>`
+- `boto plugin new <gem> [--plugin nome] [--template nome]` (gera uma gem que
+  estende o Boto; o template vai em `lib/boto/templates/<nome>/template.rb`,
+  declarado com `Boto::Template.define` e descoberto nas gems do bundle)
 
 ## Estrutura de pastas
 

@@ -67,6 +67,7 @@ Open source, sob a licença [MIT](LICENSE), mantido pela
   - [Testes](#testes)
 - **Referência**
   - [CLI](#referência-do-cli)
+  - [Estendendo o Boto](#estendendo-o-boto)
   - [Gems](#gems)
 - **Projeto**
   - [Contribuindo](#contribuindo)
@@ -599,7 +600,9 @@ assert_equal 200, response.status
 | Comando | O que faz |
 |---|---|
 | `boto new <nome>` | Cria uma solution. Não existe projeto avulso. |
-| `boto add <webapi\|library> <nome>` | Adiciona um projeto e o registra no Botofile. |
+| `boto add <template> <nome>` | Adiciona um projeto e o registra no Botofile (`--refs a,b`). |
+| `boto templates list` | Lista os templates, com a gem de origem. `install <gem>` acrescenta a gem ao Gemfile. |
+| `boto plugin new <gem>` | Gera uma gem que estende o Boto (`--plugin`, `--template`). |
 | `boto ref <projeto> <referência>` | Adiciona uma referência e recusa ciclos. |
 | `boto generate <tipo> <projeto> <nome>` | Gera schema, model, endpoint ou operation com o teste (`boto g`, `--skip-tests`, `--force`). |
 | `boto graph` | Mostra o grafo de dependências. |
@@ -610,6 +613,42 @@ assert_equal 200, response.status
 | `boto openapi <projeto>` | Imprime ou grava (`-o`) o documento OpenAPI (`--api-version`). |
 
 `boto help <comando>` mostra as opções, e `boto -v`, a versão.
+
+## Estendendo o Boto
+
+Plugins (`app.use`) e templates de projeto (`boto add`) podem vir de gems. O
+`boto plugin new` gera o esqueleto:
+
+```bash
+boto plugin new boto-auditoria --plugin auditoria --template painel --http
+```
+
+```
+boto-auditoria/
+├── lib/boto/auditoria.rb                     # entrada (Zeitwerk)
+├── lib/boto/plugins/auditoria.rb             # Boto::Plugins::Auditoria < Boto::Plugin
+└── lib/boto/templates/painel/
+    ├── template.rb                           # Boto::Template.define :painel
+    └── files/                                # o esqueleto do projeto (.erb)
+```
+
+```ruby
+# lib/boto/templates/painel/template.rb
+Boto::Template.define :painel do |t|
+  t.folder "apps"                       # apps, libs ou workers
+  t.http true                           # o boto run sobe e tem endpoints
+  t.files File.join(__dir__, "files")
+end
+```
+
+Com a gem no Gemfile da solution, nada mais precisa ser configurado:
+
+- **`app.use :auditoria`** encontra o plugin;
+- **`boto templates list`** mostra o template `painel`;
+- **`boto add painel admin --refs catalogo`** gera o projeto.
+
+Só entram templates das gems do bundle, e os nomes oficiais (`webapi`,
+`library`...) não podem ser redefinidos.
 
 ## Gems
 
