@@ -51,6 +51,7 @@ Open source, sob a licença [MIT](LICENSE), mantido pela
 - **Construindo uma API**
   - [Endpoints](#endpoints)
   - [Schemas](#schemas)
+  - [Operations](#operations)
   - [Erros](#erros)
 - **Plugins**
   - [Configurando plugins](#plugins)
@@ -238,6 +239,57 @@ end
 | **Tipos** | `String`, `Integer`, `Float`, `Boto::Boolean`, `Date`, `Time`, listas (`[Tipo]`) e outros schemas. |
 | **Restrições** | `min:` e `max:` (valor, tamanho do texto ou número de itens), `enum:`, `pattern:` (sempre ancorado com `\A` e `\z`) e `required: false`. |
 | **Usos** | Validar a entrada (`body`), serializar a saída (`returns`) e gerar os componentes do OpenAPI. |
+
+## Operations
+
+Regras de negócio ficam em `operations/`, como subclasses de
+`Boto::Operation`. A operation é chamada com `.call`, que sempre devolve um
+`Boto::Operation::Result`:
+
+```ruby
+# apps/catalogo/operations/create_product.rb
+class Catalogo::CreateProduct < Boto::Operation
+  def initialize(input, repository: Catalogo::Products)
+    super(input)
+    @repository = repository
+  end
+
+  def call
+    return failure(:conflict, "a product named #{input.name} already exists") if @repository.exists?(input.name)
+
+    @repository.create(input)              # um retorno comum vira success(...)
+  end
+end
+```
+
+```ruby
+result = Catalogo::CreateProduct.call(input)
+result.success?          # true ou false
+result.value             # o valor, no sucesso
+result.failure.code      # :conflict, na falha
+result.value!            # o valor, ou levanta Boto::Operation::FailedError
+```
+
+- **Sucesso implícito, falha explícita:** qualquer retorno vira sucesso, e só
+  `failure(:codigo, "mensagem", **details)` é falha. Exceções continuam sendo
+  exceções (bug vira `500`).
+- **`new` é privado:** a única entrada é o `.call`, com uma instância nova por
+  chamada. Dependências entram pelo `initialize`, o que facilita os testes.
+- **No endpoint:** devolver o `Result` basta. O sucesso segue o `returns` e o
+  `status`, e a falha vira problem+json com o status do código, mais o campo
+  `code` na resposta. Os `details` nunca vão para o cliente.
+
+  ```ruby
+  def call(body:) = Catalogo::CreateProduct.call(body)
+  ```
+
+  | `code` | Status |
+  |---|---|
+  | `:not_found` | 404 |
+  | `:conflict` | 409 |
+  | `:unauthorized` | 401 |
+  | `:forbidden` | 403 |
+  | `:invalid` e qualquer outro | 422 |
 
 ## Erros
 

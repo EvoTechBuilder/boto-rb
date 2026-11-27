@@ -4,6 +4,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- `Boto::Operation`: base class of operations. `.call(...)` builds the instance (`new` is private) and always returns a `Boto::Operation::Result`; inside, `success(value)` and `failure(code, message, **details)` build it, and any other return is wrapped as success. Exceptions are not caught.
+- `Boto::Operation::Result` (`success?`, `failure?`, `value`, `failure`, `value!`, pattern matching), `Boto::Operation::Failure` (`code`, `message`, `details`) and `Boto::Operation::FailedError`.
+- An endpoint can return a `Result`: success goes through `returns` and `status`; failure answers problem+json with the status of its code (`not_found` 404, `conflict` 409, `unauthorized` 401, `forbidden` 403, anything else 422) and a `code` member. `details` never reach the response.
+
+### Changed
+
+- `boto generate operation` writes a subclass of `Boto::Operation`.
+
 ## [0.14.0] - 2026-11-27
 
 ### Fixed

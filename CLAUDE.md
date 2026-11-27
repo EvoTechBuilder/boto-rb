@@ -103,7 +103,7 @@ apps/pedidos/
 │   └── credentials.yml.enc
 ├── endpoints/           # um endpoint por classe
 ├── schemas/             # contratos de entrada/saída
-├── operations/          # regras de negócio (casos de uso)
+├── operations/          # regras de negócio: subclasses de Boto::Operation, .call devolve Result
 ├── models/              # persistência
 ├── test/                # espelha as pastas acima
 └── Dockerfile
