@@ -4,6 +4,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-11-27
+
 ### Added
 
 - New gem `boto-rb-data` (namespace `Boto::Database`, on Sequel):
