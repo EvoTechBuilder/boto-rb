@@ -39,6 +39,16 @@ class Boto::ProjectLoaderTest < Minitest::Test
     assert_same @loader.namespace, namespace
   end
 
+  def test_unload_removes_eager_loaded_constants
+    @loader.eager_load
+    assert defined?(Domain::Greeting)
+
+    @loader.unload
+
+    refute Domain.const_defined?(:Greeting, false)
+    @loader = Boto::ProjectLoader.new(@project, root: FIXTURE).setup # teardown unloads a set-up loader
+  end
+
   def test_unload_unregisters_even_when_zeitwerk_unload_fails
     @loader.setup
     zeitwerk = @loader.instance_variable_get(:@loader)

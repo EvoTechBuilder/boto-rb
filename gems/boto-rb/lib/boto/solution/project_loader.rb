@@ -16,6 +16,9 @@ module Boto
       @namespace = resolve_namespace(project.namespace_name)
       @loader = Zeitwerk::Loader.new
       @loader.tag = project.name
+      # Without it Zeitwerk does not track what it loads, so unload would leave the constants and files behind
+      # (a failed boot would leak them, and the dev reload would keep serving the old code).
+      @loader.enable_reloading
       @set_up = false
     end
 
