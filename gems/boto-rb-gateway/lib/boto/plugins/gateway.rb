@@ -23,6 +23,7 @@ module Boto
         @app = app
         @mounts = Boto::Gateway::Mounts.new(services: app.services, prefixes: @prefixes)
         @router = Rack::URLMap.new(@mounts.apps_by_prefix)
+        @panel = Boto::Gateway::Panel.new(gateway: app, mounts: @mounts, env_name: env_name) if panel?
       end
 
       # Panel defaults to development only; an explicit true or false wins.
@@ -31,6 +32,8 @@ module Boto
       end
 
       def call(env, app)
+        return @panel.call(env) if panel_request?(env)
+
         response = @router.call(env)
         return response unless cascade?(response)
 
@@ -38,6 +41,14 @@ module Boto
       end
 
       private
+
+      # Checked before the URLMap so a service can never claim the panel namespace.
+      def panel_request?(env)
+        return false unless @panel
+
+        path = env["PATH_INFO"].to_s
+        path == Boto::Gateway::Panel::PATH || path.start_with?("#{Boto::Gateway::Panel::PATH}/")
+      end
 
       def configure(prefixes: {}, panel: nil)
         @prefixes = validate_prefixes(prefixes)

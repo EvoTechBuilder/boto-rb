@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boto gateway panel</title>
+<link rel="stylesheet" href="<%= h(page.link(Panel::CSS_PATH)) %>">
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar__inner">
+    <div class="topbar__brand">
+      <svg width="28" height="28" viewBox="0 0 64 64" aria-hidden="true"><polygon points="16,10 48,10 60,24 4,24" fill="#e0473f"></polygon><polygon points="4,24 60,24 32,56" fill="#cc342d"></polygon><path d="M16 10 L24 24 L32 56 L40 24 L48 10" stroke="#ffffff" stroke-opacity="0.45" stroke-width="1.5" stroke-linecap="round" fill="none"></path></svg>
+      <span class="brand">Boto</span>
+      <span class="muted">/</span>
+      <span class="gateway-name">gateway <%= h(page.gateway) %></span>
+      <span class="env-badge"><%= h(page.env_name) %></span>
+    </div>
+    <nav class="topbar__nav" aria-label="Panel links">
+      <span class="host"><%= h(page.host) %></span>
+      <a href="<%= h(page.link(Panel::JSON_PATH)) %>">services.json</a>
+    </nav>
+  </div>
+</header>
+
+<main class="panel">
+  <section class="summary" aria-label="Summary">
+    <div class="stat"><div class="stat__label">Services</div><div class="stat__value"><%= page.services.size %></div></div>
+    <div class="stat"><div class="stat__label">Ready</div><div class="stat__value stat__value--ready"><%= page.ready_count %></div></div>
+    <div class="stat"><div class="stat__label">Not ready</div><div class="stat__value stat__value--failing"><%= page.failing_count %></div></div>
+    <div class="stat"><div class="stat__label">Routes</div><div class="stat__value"><%= page.route_count %></div></div>
+  </section>
+
+  <section class="card" aria-labelledby="solution-env-title">
+    <details open>
+      <summary class="card__summary">
+        <h2 id="solution-env-title" class="card__title">Solution environment</h2>
+        <span class="muted"><%= plural(page.solution_env.size, "variable") %> · loaded into ENV, shared by every project</span>
+      </summary>
+      <div class="table-wrap">
+        <table class="env-table">
+          <thead>
+            <tr><th scope="col">Name</th><th scope="col">Value</th><th scope="col">Source</th></tr>
+          </thead>
+          <tbody>
+            <% page.solution_env.each do |row| %>
+            <tr>
+              <td class="env-name"><%= h(row.name) %></td>
+              <td class="env-value"><span><%= h(row.value) %></span><% if row.masked %> <span class="masked-badge">masked</span><% end %></td>
+              <td class="env-source"><%= h(row.source) %></td>
+            </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </details>
+  </section>
+
+  <section class="services" aria-labelledby="services-title">
+    <div class="section-head">
+      <h1 id="services-title" class="section-title">Services</h1>
+      <span class="muted">Health checked in-process at page load</span>
+    </div>
+
+    <% page.services.each_with_index do |service, index| %>
+    <article class="service">
+      <div class="service__head">
+        <div class="service__identity">
+          <h2 class="service__name"><%= h(service.name) %></h2>
+          <code class="prefix"><%= h(service.prefix) %></code>
+          <% if service.port %>
+          <a class="port-link" href="<%= h("http://localhost:#{service.port}") %>">localhost:<%= h(service.port) %></a>
+          <span class="muted"><%= service.random_port ? "random port" : "fixed PORT" %></span>
+          <% end %>
+        </div>
+        <div class="service__status">
+          <span class="health health--<%= h(service.health.status) %>"><% case service.health.status %><% when :ready %><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="#16a34a"></circle><path d="M5 8.2 L7.1 10.2 L11 6" stroke="#ffffff" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg><% when :failing %><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="#dc2626"></circle><path d="M5.5 5.5 L10.5 10.5 M10.5 5.5 L5.5 10.5" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"></path></svg><% else %><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" stroke="#71717a" stroke-width="1.6" fill="none"></circle><path d="M5.5 8 H10.5" stroke="#71717a" stroke-width="1.6" stroke-linecap="round"></path></svg><% end %><%= health_label(service.health.status) %></span>
+          <a class="link-strong" href="<%= h(page.link(service.openapi)) %>">OpenAPI</a>
+          <% if service.swagger %>
+          <a class="link-strong" href="<%= h(page.link(service.swagger)) %>">Swagger</a>
+          <% end %>
+        </div>
+      </div>
+
+      <% if service.failing? %>
+      <div class="health-detail"><%= h(service.health.detail) %></div>
+      <% end %>
+
+      <div class="table-wrap">
+        <table class="routes">
+          <caption><%= plural(service.routes.size, "route") %></caption>
+          <thead>
+            <tr><th scope="col">Method</th><th scope="col">Path</th><th scope="col">Endpoint</th></tr>
+          </thead>
+          <tbody>
+            <% service.routes.each do |route| %>
+            <tr>
+              <td><span class="<%= verb_class(route.verb) %>"><%= h(route.verb) %></span></td>
+              <td class="route-path"><span class="prefix-dim"><%= h(service.prefix) %></span><%= h(route.path) %></td>
+              <td class="endpoint"><%= h(route.endpoint) %></td>
+            </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+
+      <details class="service__env"<% if index.zero? %> open<% end %>>
+        <summary class="service__env-summary">Environment <span class="muted">· <%= plural(service.env.size, "variable") %> · app.env, this project only</span></summary>
+        <div class="table-wrap">
+          <table class="env-table">
+            <thead>
+              <tr><th scope="col">Name</th><th scope="col">Value</th><th scope="col">Source</th></tr>
+            </thead>
+            <tbody>
+              <% service.env.each do |row| %>
+              <tr>
+                <td class="env-name"><%= h(row.name) %></td>
+                <td class="env-value"><span><%= h(row.value) %></span><% if row.masked %> <span class="masked-badge">masked</span><% end %></td>
+                <td class="env-source"><%= h(row.source) %></td>
+              </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </article>
+    <% end %>
+  </section>
+
+  <footer class="footer">
+    <span>boto-rb-gateway <%= h(Boto::Gateway::VERSION) %></span>
+    <span>This panel is on in development only</span>
+  </footer>
+</main>
+</body>
+</html>
