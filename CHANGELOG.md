@@ -4,6 +4,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-27
+
 ### Added
 
 - Templates as gems: `Boto::Template.define :name { |t| t.folder; t.http; t.files; t.summary }` in `lib/boto/templates/<name>/template.rb`. `Boto::Templates` loads the official ones and every such file in the bundle's gems, once; a duplicate, a redefined official name or an invalid declaration is an error. `boto add`, `boto run`, `boto openapi` and `boto generate` follow the registry, so a gem's HTTP template is generated, served and gets endpoints.
