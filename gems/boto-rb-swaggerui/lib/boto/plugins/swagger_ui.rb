@@ -30,7 +30,7 @@ module Boto
         @guard = openapi.guard
         check_guard!
         check_no_endpoint_on_path!(app)
-        @table = build_table(app.title, openapi.path)
+        @table = build_table(openapi.title, openapi.path)
       end
 
       def call(env, app)

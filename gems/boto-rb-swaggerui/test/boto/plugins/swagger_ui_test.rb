@@ -137,6 +137,25 @@ module Boto
         assert_includes get(application, asset_url("initializer.js")).body, '"/spec.json"'
       end
 
+      def test_page_title_comes_from_the_openapi_title
+        application = app(plugins: [openapi(title: "Pedidos API"), swagger])
+        assert_includes get(application, "/docs").body, "<title>Pedidos API</title>"
+      end
+
+      def test_page_title_defaults_to_the_namespace
+        assert_includes get(app, "/docs").body, "<title>SwaggerUiFakes::Shop</title>"
+      end
+
+      def test_brand_assets_are_served_immutable
+        application = app
+        { "boto.css" => "text/css; charset=utf-8", "ruby.svg" => "image/svg+xml",
+          "swagger-ui-standalone-preset.js" => "text/javascript; charset=utf-8" }.each do |name, type|
+          response = get(application, asset_url(name))
+          assert_equal [200, type], [response.status, response.content_type], name
+          assert_includes response.headers["cache-control"], "immutable", name
+        end
+      end
+
       def test_asset_bodies_are_built_once
         application = app
         path = asset_url("swagger-ui.css")
