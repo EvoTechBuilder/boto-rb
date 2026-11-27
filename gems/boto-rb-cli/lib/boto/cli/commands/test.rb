@@ -25,6 +25,8 @@ module Boto
         GIT_DIFF = %w[git diff --name-only --relative].freeze
         GIT_UNTRACKED = %w[git ls-files --others --exclude-standard].freeze
 
+        TEST_ENV = "test"
+        DEFAULT_DATABASE_LIBRARY = -> { require DatabaseTasks::LIBRARY }
         DEFAULT_PROCESS_RUNNER = ->(command, chdir:) { system(*command, chdir: chdir) }
         DEFAULT_CHANGED_FILES = lambda do |base, cwd|
           commands = [GIT_DIFF + [base], GIT_UNTRACKED]
@@ -38,10 +40,13 @@ module Boto
         end
 
         def initialize(argv, out:, err:, cwd:, process_runner: DEFAULT_PROCESS_RUNNER,
-                       changed_files: DEFAULT_CHANGED_FILES)
+                       changed_files: DEFAULT_CHANGED_FILES, env: ENV,
+                       database_library: DEFAULT_DATABASE_LIBRARY)
           super(argv, out: out, err: err, cwd: cwd)
           @process_runner = process_runner
           @changed_files = changed_files
+          @env = env
+          @database_library = database_library
         end
 
         def call
@@ -50,7 +55,7 @@ module Boto
           projects = select_projects(options, plan)
           return report_empty if projects.empty?
 
-          failed = projects.filter_map { |project| project.name unless run_project(project) }
+          failed = projects.filter_map { |project| project.name unless run_project(project, plan) }
           report(projects.count { |project| test_dir?(project) }, failed)
         end
 
@@ -85,11 +90,34 @@ module Boto
           names.map { |name| plan.project(name) }
         end
 
-        def run_project(project)
+        def run_project(project, plan)
           return skip(project) unless test_dir?(project)
 
+          migrate_test_database(project, plan)
           out.puts "== #{project.name}"
           @process_runner.call([RbConfig.ruby, "-Itest", "-e", TEST_LOADER], chdir: project_dir(project))
+        end
+
+        # Without the gem, or without :database in the test environment, there is no database to prepare.
+        def migrate_test_database(project, plan)
+          return unless database_library?
+
+          tasks = database_tasks(plan)
+          return unless tasks.database?(project.name)
+
+          tasks.migrate(project.name).each { out.puts "#{project.name}: migrated #{_1}" }
+        end
+
+        def database_library?
+          @database_library.call
+          true
+        rescue LoadError
+          false
+        end
+
+        def database_tasks(plan)
+          boot = Boto::Boot.new(plan, root: cwd, env: @env)
+          DatabaseTasks.new(plan, boot: boot, root: cwd, env_name: TEST_ENV)
         end
 
         def skip(project)

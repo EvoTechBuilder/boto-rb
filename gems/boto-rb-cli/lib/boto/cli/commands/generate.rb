@@ -6,9 +6,9 @@ module Boto
   module CLI
     module Commands
       class Generate < Command
-        SUMMARY = "Generate a schema, model, endpoint or operation with its test"
-        USAGE = "Usage: boto generate <schema|model|endpoint|operation> <project> <name> [args] " \
-                "[--skip-tests] [--force]"
+        SUMMARY = "Generate a schema, model, endpoint, operation, repository or migration with its test"
+        USAGE = "Usage: boto generate <schema|model|endpoint|operation|repository|migration> <project> <name> " \
+                "[args] [--skip-tests] [--force]"
         POSITION = 4
         OPTIONS = [
           Option.new(key: :skip_tests, flags: %w[--skip-tests], description: "Do not generate the test file"),
@@ -16,8 +16,15 @@ module Boto
           Option.new(key: :body, flags: %w[--body], argument: "NAME",
                      description: "Schema of the request body (endpoint)"),
           Option.new(key: :returns, flags: %w[--returns], argument: "NAME",
-                     description: "Schema of the response, [NAME] for a list (endpoint)")
+                     description: "Schema of the response, [NAME] for a list (endpoint)"),
+          Option.new(key: :table, flags: %w[--table], argument: "NAME",
+                     description: "Table of the repository (default: the plural of the name)")
         ].freeze
+
+        def initialize(argv, out:, err:, cwd:, clock: Time)
+          super(argv, out: out, err: err, cwd: cwd)
+          @clock = clock
+        end
 
         def call
           options = {}
@@ -44,9 +51,9 @@ module Boto
         end
 
         def ensure_kind!(kind)
-          return if Blueprint::KINDS.key?(kind)
+          return if BlueprintBuilder::KINDS.include?(kind)
 
-          raise Error, %(unknown generator "#{kind}" (available: #{Blueprint::KINDS.keys.join(", ")}))
+          raise Error, %(unknown generator "#{kind}" (available: #{BlueprintBuilder::KINDS.join(", ")}))
         end
 
         def find_project(plan, name)
@@ -58,7 +65,7 @@ module Boto
 
         def build_blueprint(project, kind, name, args, options)
           folder = ProjectFolder.new(project_dir(project))
-          BlueprintBuilder.new(project: project, folder: folder).build(kind, name, args, options)
+          BlueprintBuilder.new(project: project, folder: folder, clock: @clock).build(kind, name, args, options)
         end
 
         def with_test?(plan, project, options)

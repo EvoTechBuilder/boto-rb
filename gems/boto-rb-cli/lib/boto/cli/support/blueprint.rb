@@ -65,6 +65,10 @@ module Boto
       end
 
       def render(template)
+        self.class.render(kind, template, locals)
+      end
+
+      def self.render(kind, template, locals)
         source = File.read(File.join(TEMPLATES_ROOT, kind, template))
         ERB.new(source, trim_mode: TEMPLATE_TRIM_MODE).result_with_hash(locals)
       end

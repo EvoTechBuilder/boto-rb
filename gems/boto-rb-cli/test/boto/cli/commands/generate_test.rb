@@ -180,7 +180,7 @@ class Boto::CLI::GenerateCommandTest < Minitest::Test
   def test_unknown_generator_lists_the_available_ones
     error = assert_raises(Boto::CLI::Error) { generate(%w[widget catalogo show]) }
 
-    assert_equal %(unknown generator "widget" (available: schema, model, endpoint, operation)), error.message
+    assert_equal %(unknown generator "widget" (available: schema, model, endpoint, operation, repository, migration)), error.message
   end
 
   def test_unknown_field_type_is_refused_before_anything_is_written
@@ -516,7 +516,103 @@ class Boto::CLI::GenerateCommandTest < Minitest::Test
     boot&.shutdown
   end
 
+  def test_migration_is_timestamped_with_the_clock_and_has_no_test
+    generate(%w[migration catalogo create_products], clock: FixedClock.new(Time.utc(2026, 11, 27, 13, 5, 9)))
+
+    assert_equal "create apps/catalogo/db/migrations/20261127130509_create_products.rb\n", @out.string
+    assert_equal <<~RUBY, read("apps/catalogo/db/migrations/20261127130509_create_products.rb")
+      # frozen_string_literal: true
+
+      Sequel.migration do
+        change do
+          # create_table(:products) do
+          #   primary_key :id
+          #   String :name, null: false
+          # end
+        end
+      end
+    RUBY
+    refute File.exist?(File.join(@dir, "apps/catalogo/test/db"))
+  end
+
+  def test_migration_name_with_a_folder_is_refused
+    error = assert_raises(Boto::CLI::Error) { generate(%w[migration catalogo products/create], clock: FixedClock.new(Time.now)) }
+
+    assert_equal %(invalid migration name "products/create" (use lowercase snake_case, e.g. create_products)), error.message
+  end
+
+  def test_repository_writes_the_source_and_its_test
+    generate(%w[repository catalogo product])
+
+    assert_equal "create apps/catalogo/repositories/product_repository.rb\n" \
+                 "create apps/catalogo/test/repositories/product_repository_test.rb\n", @out.string
+    assert_equal <<~RUBY, read("apps/catalogo/repositories/product_repository.rb")
+      # frozen_string_literal: true
+
+      class Catalogo::ProductRepository < Boto::Repository
+        entity Catalogo::Product
+        table :products
+      end
+    RUBY
+    assert_equal <<~RUBY, read("apps/catalogo/test/repositories/product_repository_test.rb")
+      # frozen_string_literal: true
+
+      require "test_helper"
+
+      class Catalogo::ProductRepositoryTest < Minitest::Test
+        def test_create_and_find
+          flunk "create a record with Catalogo::ProductRepository.create(...) and assert it is found"
+        end
+      end
+    RUBY
+  end
+
+  def test_repository_table_option_overrides_the_plural
+    generate(%w[repository catalogo product --table items --skip-tests])
+
+    assert_includes read("apps/catalogo/repositories/product_repository.rb"), "  table :items\n"
+  end
+
+  def test_repository_table_defaults_to_the_plural_of_the_last_segment
+    generate(%w[repository catalogo shop/line --skip-tests])
+
+    assert_includes read("apps/catalogo/repositories/shop/line_repository.rb"), "  table :lines\n"
+  end
+
+  def test_repository_name_with_the_suffix_is_refused
+    error = assert_raises(Boto::CLI::Error) { generate(%w[repository catalogo product_repository]) }
+
+    assert_equal "repository names are entity names, so write product instead of product_repository", error.message
+  end
+
+  def test_repository_invalid_table_is_refused
+    error = assert_raises(Boto::CLI::Error) { generate(%w[repository catalogo product --table Items]) }
+
+    assert_equal %(invalid table "Items" (use lowercase snake_case)), error.message
+    refute File.exist?(File.join(@dir, "apps/catalogo/repositories/product_repository.rb"))
+  end
+
+  def test_table_option_only_applies_to_repository
+    error = assert_raises(Boto::CLI::Error) { generate(%w[model catalogo product --table items]) }
+
+    assert_equal "--table only applies to repository", error.message
+  end
+
+  def test_repository_is_refused_when_another_folder_has_the_same_file
+    path = "apps/catalogo/operations/product_repository.rb"
+    FileUtils.mkdir_p(File.dirname(File.join(@dir, path)))
+    File.write(File.join(@dir, path), "class Catalogo::ProductRepository; end\n")
+
+    error = assert_raises(Boto::CLI::Error) { generate(%w[repository catalogo product]) }
+
+    assert_equal "Catalogo::ProductRepository already exists in #{path}", error.message
+  end
+
   private
+
+  FixedClock = Struct.new(:time) do
+    def now = time
+  end
 
   def create_solution(root)
     quiet = { out: StringIO.new, err: StringIO.new }
@@ -528,8 +624,8 @@ class Boto::CLI::GenerateCommandTest < Minitest::Test
     dir
   end
 
-  def generate(argv)
-    Boto::CLI::Commands::Generate.new(argv, out: @out, err: @err, cwd: @dir).call
+  def generate(argv, clock: Time)
+    Boto::CLI::Commands::Generate.new(argv, out: @out, err: @err, cwd: @dir, clock: clock).call
   end
 
   def add_library(name)

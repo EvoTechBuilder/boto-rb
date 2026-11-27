@@ -1,0 +1,9 @@
+# frozen_string_literal: true
+
+require "test_helper"
+
+class <%= test_class %> < Minitest::Test
+  def test_create_and_find
+    flunk "create a record with <%= constant %>.create(...) and assert it is found"
+  end
+end

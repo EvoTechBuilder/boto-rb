@@ -5,6 +5,8 @@ require "fileutils"
 require "rbconfig"
 require "stringio"
 require "tmpdir"
+require "sequel"
+require "boto/database"
 
 # Named outside Commands: any constant there is listed as a command by the runner.
 class Boto::CLI::TestCommandTest < Minitest::Test
@@ -124,10 +126,72 @@ class Boto::CLI::TestCommandTest < Minitest::Test
     assert_equal "1 project tested, 0 failed\n", out.string
   end
 
+  def test_migrates_the_test_database_before_its_tests_run
+    with_solution do |cwd|
+      use_test_database(cwd, "billing")
+      out = StringIO.new
+      tables_at_run = []
+      observe = ->(_chdir) { tables_at_run << database_tables(cwd) }
+      build_command(["billing"], cwd: cwd, out: out, observe: observe).call
+
+      assert_includes out.string, "billing: migrated 20260101000000_create_things.rb\n"
+      assert_equal [[:things]], tables_at_run
+    end
+  end
+
+  def test_without_the_database_gem_tests_run_and_nothing_is_migrated
+    with_solution do |cwd|
+      use_test_database(cwd, "billing")
+      out = StringIO.new
+      missing = -> { raise LoadError, "cannot load such file -- boto/database" }
+      status = build_command(["billing"], cwd: cwd, out: out, database_library: missing).call
+
+      assert_equal 0, status
+      refute_includes out.string, "migrated"
+      assert_equal [File.join(cwd, "apps/billing")], chdirs
+    end
+  end
+
+  def test_project_without_database_runs_its_tests_without_migrating
+    with_solution do |cwd|
+      out = StringIO.new
+      assert_equal 0, build_command(["billing"], cwd: cwd, out: out).call
+
+      refute_includes out.string, "migrated"
+      assert_equal [File.join(cwd, "apps/billing")], chdirs
+    end
+  end
+
   private
 
   def chdirs
     @calls.map(&:last)
+  end
+
+  # The test environment declares the database; the migration creates one table in it.
+  def use_test_database(cwd, project)
+    project_dir = File.join(cwd, "apps", project)
+    FileUtils.mkdir_p(File.join(project_dir, "config", "environments"))
+    FileUtils.mkdir_p(File.join(project_dir, "db", "migrations"))
+    File.write(File.join(project_dir, "config", "environments", "test.rb"), <<~RUBY)
+      Boto.configure do |app|
+        app.use :database, url: "sqlite://#{cwd}/test.sqlite3"
+      end
+    RUBY
+    File.write(File.join(project_dir, "db", "migrations", "20260101000000_create_things.rb"), <<~RUBY)
+      Sequel.migration do
+        change do
+          create_table(:things) { primary_key :id }
+        end
+      end
+    RUBY
+  end
+
+  def database_tables(cwd)
+    database = Sequel.sqlite(File.join(cwd, "test.sqlite3"))
+    database.tables - [:schema_migrations]
+  ensure
+    database&.disconnect
   end
 
   def with_solution
@@ -138,16 +202,20 @@ class Boto::CLI::TestCommandTest < Minitest::Test
     end
   end
 
-  def build_command(argv, cwd:, out: StringIO.new, failing: [], changed: [])
+  def build_command(argv, cwd:, out: StringIO.new, failing: [], changed: [], observe: nil,
+                    database_library: -> {})
     Boto::CLI::Commands::Test.new(
       argv, out: out, err: StringIO.new, cwd: cwd,
-      process_runner: process_runner(failing), changed_files: changed_files(changed)
+      process_runner: process_runner(failing, observe), changed_files: changed_files(changed),
+      env: { "API_TOKENS" => "test-token" }, database_library: database_library
     )
   end
 
-  def process_runner(failing)
+  # observe runs when the tests would start, so a test can check what the migration already did.
+  def process_runner(failing, observe)
     lambda do |command, chdir:|
       @calls << [command, chdir]
+      observe&.call(chdir)
       !failing.include?(File.basename(chdir))
     end
   end

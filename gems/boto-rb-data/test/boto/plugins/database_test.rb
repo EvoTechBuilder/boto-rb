@@ -126,6 +126,25 @@ class DatabasePluginTest < Minitest::Test
     holder.resume
   end
 
+  def test_open_connection_returns_a_new_unregistered_database
+    plugin = build_plugin
+    database = plugin.open_connection
+    other = plugin.open_connection
+
+    assert_instance_of Sequel::SQLite::Database, database
+    refute_same database, other
+    refute Boto::Database::Connections.registered?(DatabaseTestShop)
+    assert database.test_connection
+  ensure
+    [database, other].compact.each(&:disconnect)
+  end
+
+  def test_open_connection_hides_the_url_on_failure
+    error = assert_raises(Boto::Database::ConnectionError) { build_plugin(url: MISSING_DIR_URL).open_connection }
+
+    assert_equal "database: could not connect (Sequel::DatabaseConnectionError)", error.message
+  end
+
   private
 
   def build_plugin(**options)

@@ -5,22 +5,30 @@ module Boto
     # Turns the arguments of `boto generate` into the blueprint of its kind, after checking them against the project.
     class BlueprintBuilder
       ENDPOINT_KIND = "endpoint"
+      REPOSITORY_KIND = "repository"
+      MIGRATION_KIND = "migration"
+      KINDS = [*Blueprint::KINDS.keys, REPOSITORY_KIND, MIGRATION_KIND].freeze
       ENDPOINT_USAGE = "Usage: boto generate endpoint <project> <name> <verb> <path> [param:type ...] " \
                        "[--body NAME] [--returns NAME]"
       LIBRARY_TEMPLATE = :library
-      NO_FIELD_KINDS = %w[operation].freeze
+      NO_FIELD_KINDS = ["operation", REPOSITORY_KIND, MIGRATION_KIND].freeze
       TYPE_HINT = "use string, integer, float, boolean, date, time, [type] or the name of a schema in schemas/"
 
-      def initialize(project:, folder:)
+      def initialize(project:, folder:, clock: Time)
         @project = project
         @folder = folder
+        @clock = clock
       end
 
       def build(kind, name, args, options)
         return endpoint(name, args, options) if kind == ENDPOINT_KIND
 
         ensure_no_endpoint_options!(options)
+        ensure_no_table_option!(kind, options)
         ensure_no_fields!(kind, args)
+        return repository(name, options) if kind == REPOSITORY_KIND
+        return MigrationBlueprint.new(name: name, clock: @clock) if kind == MIGRATION_KIND
+
         Blueprint.new(kind, name: name, fields: fields(args), namespace: namespace)
       end
 
@@ -32,6 +40,16 @@ module Boto
         return unless options[:body] || options[:returns]
 
         raise Error, "--body and --returns only apply to endpoint"
+      end
+
+      def ensure_no_table_option!(kind, options)
+        return if kind == REPOSITORY_KIND || options[:table].nil?
+
+        raise Error, "--table only applies to repository"
+      end
+
+      def repository(name, options)
+        RepositoryBlueprint.new(name: name, namespace: namespace, table: options[:table])
       end
 
       def ensure_no_fields!(kind, args)

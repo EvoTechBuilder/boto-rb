@@ -25,7 +25,7 @@ module Boto
 
       def start
         Sequel.extension FIBER_EXTENSION
-        database = connect
+        database = open_connection
         check_repositories(database)
         @database = database
         Boto::Database::Connections.register(@namespace, @database)
@@ -46,6 +46,14 @@ module Boto
 
       def inspect
         "#<#{self.class.name} url=#{masked_url} pool=#{@pool}>"
+      end
+
+      # A new Sequel::Database on every call, not registered: the caller owns it and must disconnect it.
+      def open_connection
+        Sequel.connect(@url, max_connections: @pool, test: true, logger: @logger)
+      rescue StandardError => error
+        # cause: nil keeps the driver error, which may print the URL, out of the boot report.
+        raise Boto::Database::ConnectionError, "database: could not connect (#{error.class})", cause: nil
       end
 
       private
@@ -84,13 +92,6 @@ module Boto
         Boto::Repository.subclasses.select do |repository|
           repository.name.to_s.start_with?(prefix) && repository.declared?
         end
-      end
-
-      def connect
-        Sequel.connect(@url, max_connections: @pool, test: true, logger: @logger)
-      rescue StandardError => error
-        # cause: nil keeps the driver error, which may print the URL, out of the boot report.
-        raise Boto::Database::ConnectionError, "database: could not connect (#{error.class})", cause: nil
       end
 
       def masked_url
