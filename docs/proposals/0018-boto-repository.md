@@ -170,12 +170,12 @@ de uma transação que é desfeita no fim.
 ```
 gems/boto-rb-data/                                   # gem nova, opcional
 ├── boto-rb-data.gemspec                             # depende de boto-rb e sequel
-├── lib/boto/data.rb
+├── lib/boto/database.rb
 ├── lib/boto/repository.rb                           # Boto::Repository (API acima)
 ├── lib/boto/repository/{not_found,unique_violation,foreign_key_violation}.rb
-├── lib/boto/data/entity_mapper.rb                   # linha <-> Data, conferência das colunas
-├── lib/boto/data/connections.rb                     # conexão por namespace, definida no start
-├── lib/boto/data/migrator.rb                        # migrate, rollback e status sobre o Sequel::Migrator
+├── lib/boto/database/entity_mapper.rb                   # linha <-> Data, conferência das colunas
+├── lib/boto/database/connections.rb                     # conexão por namespace, definida no start
+├── lib/boto/database/migrator.rb                        # migrate, rollback e status sobre o Sequel::Migrator
 └── lib/boto/plugins/database.rb                     # app.use :database
 
 gems/boto-rb/lib/boto/solution/project.rb            # CODE_DIRS único, com repositories/
@@ -304,6 +304,11 @@ Fase 1. É a peça que faltava para APIs reais, e também é a base do template
   que recebem o repositório.
 - **SQL próprio sobre os drivers:** muito código para manter, quando o Sequel
   já resolve parametrização, pool, dialetos e migrations.
+- **Namespace interno `Boto::Data`:** esconderia o `Data` do Ruby para todo
+  código dentro de `Boto` (o core usa `Data.define` em vários lugares, e
+  plugins de terceiros também usariam), e só quando a gem estivesse
+  instalada. O namespace da gem é `Boto::Database`. O nome da gem continua
+  `boto-rb-data`.
 - **Repository no core:** o core ganharia a dependência do Sequel e dos
   drivers, que nem toda API usa.
 - **Derived queries completas como as do Spring
