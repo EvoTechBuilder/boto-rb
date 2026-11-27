@@ -19,6 +19,13 @@ class Boto::CLI::RunCommandTest < Minitest::Test
   LIFECYCLE = "runlifecycle"
   RELOAD_API = "reloadapi"
   DEV_TOKEN = "dev-token"
+  GATEWAY = "borda"
+  CATALOG = "catalogo"
+  USERS = "users"
+  GATEWAY_TEMPLATE = "gateway_api"
+  SERVICE_TEMPLATE = "service_api"
+  # The tests inject the free ports they expect; a real pick would make the expected ports depend on the OS.
+  NO_FREE_PORT = ->(_host) { raise "a free port was not expected in this test" }
 
   # Records the lifecycle calls of the plugin declared by the solution's config/app.rb.
   class LifecycleRecorder < Boto::Plugin
@@ -186,7 +193,7 @@ class Boto::CLI::RunCommandTest < Minitest::Test
   end
 
   def test_serves_a_project_from_an_http_gem_template
-    with_template_gems("gemweb" => true) do
+    with_template_gems({ "gemweb" => true }) do
       Dir.mktmpdir do |root|
         dir = self.class.create_solution(root, [["gemweb", "gemrun"]])
 
@@ -197,7 +204,7 @@ class Boto::CLI::RunCommandTest < Minitest::Test
   end
 
   def test_refuses_a_non_http_gem_template
-    with_template_gems("gemjobs" => false) do
+    with_template_gems({ "gemjobs" => false }) do
       Dir.mktmpdir do |root|
         dir = self.class.create_solution(root, [["gemjobs", "gemrun"]])
 
@@ -344,6 +351,104 @@ class Boto::CLI::RunCommandTest < Minitest::Test
     assert_equal %(invalid drain delay "-1.0"), error.message
   end
 
+  def test_gateway_serves_its_services_on_their_ports_and_a_free_one
+    with_gateway_solution do |dir|
+      assert_equal 0, run_command(%w[--no-reload], cwd: dir, free_port: free_ports(6001))
+
+      gateway = @server.apps_by_port.fetch(3000)
+      assert_equal [3000, 4101, 6001], @server.apps_by_port.keys.sort
+      assert_equal 3000, gateway.port
+      assert_equal({ CATALOG => 4101, USERS => 6001 }, gateway.services.transform_values(&:port))
+      assert_same @server.apps_by_port.fetch(4101), gateway.services.fetch(CATALOG)
+    end
+  end
+
+  def test_running_a_gateway_runs_its_services_too
+    with_gateway_solution do |dir|
+      assert_equal 0, run_command([GATEWAY], cwd: dir, free_port: free_ports(6001))
+
+      assert_equal [3000, 4101, 6001], @server.apps_by_port.keys.sort
+    end
+  end
+
+  def test_running_a_service_runs_only_it_on_the_base_port
+    with_gateway_solution do |dir|
+      assert_equal 0, run_command([USERS], cwd: dir)
+
+      assert_equal [3000], @server.apps_by_port.keys
+    end
+  end
+
+  def test_reload_serves_the_services_on_their_ports
+    with_gateway_solution do |dir|
+      assert_equal 0, run_command([], cwd: dir, free_port: free_ports(6001))
+
+      assert_equal [3000, 4101, 6001], @server.apps_by_port.keys.sort
+      health = Rack::MockRequest.new(@server.apps_by_port.fetch(4101)).get("/health/live")
+      assert_equal 200, health.status
+    end
+  end
+
+  def test_gateway_announces_its_services_and_the_panel
+    out = StringIO.new
+    lines = [
+      "Gateway #{GATEWAY} on http://127.0.0.1:3000",
+      "  #{CATALOG}  http://127.0.0.1:3000/#{CATALOG}   http://127.0.0.1:4101",
+      "  #{USERS}     http://127.0.0.1:3000/#{USERS}      http://127.0.0.1:6001 (random)",
+      "  panel     http://127.0.0.1:3000/_boto"
+    ]
+    with_gateway_solution do |dir|
+      run_command([], cwd: dir, out: out, free_port: free_ports(6001))
+    end
+
+    assert_includes out.string, "#{lines.join("\n")}\n"
+  end
+
+  def test_the_process_and_the_root_env_do_not_set_a_project_port
+    with_solution([["webapi", "rootenv"]]) do |dir|
+      File.write(File.join(dir, ".env"), "PORT=5555\n")
+
+      assert_equal 0, run_command(%w[--no-reload], cwd: dir, env: { "PORT" => "6666" })
+      assert_equal [3000], @server.apps_by_port.keys
+    end
+  end
+
+  def test_project_port_replaces_the_sequence_and_the_sequence_skips_it
+    with_solution([["webapi", "alpha"], ["webapi", "beta"], ["webapi", "gamma"]]) do |dir|
+      write_port(dir, "alpha", 3001)
+
+      assert_equal 0, run_command(%w[--no-reload], cwd: dir)
+      assert_equal [3000, 3001, 3002], @server.apps_by_port.keys.sort
+      assert_equal 3001, @server.apps_by_port.fetch(3001).port
+    end
+  end
+
+  def test_invalid_project_port_raises
+    with_solution([["webapi", "alpha"]]) do |dir|
+      write_port(dir, "alpha", "abc")
+
+      error = assert_raises(Boto::CLI::Error) { run_command([], cwd: dir) }
+      assert_equal %(alpha: invalid PORT "abc"), error.message
+    end
+  end
+
+  def test_projects_sharing_a_fixed_port_raise
+    with_solution([["webapi", CATALOG], ["webapi", USERS]]) do |dir|
+      write_port(dir, CATALOG, 4101)
+      write_port(dir, USERS, 4101)
+
+      error = assert_raises(Boto::CLI::Error) { run_command([], cwd: dir) }
+      assert_equal "#{CATALOG} and #{USERS} both use PORT 4101", error.message
+    end
+  end
+
+  def test_gateway_port_counts_for_the_fixed_port_conflicts
+    with_gateway_solution do |dir|
+      error = assert_raises(Boto::CLI::Error) { run_command(%w[--port 4101], cwd: dir) }
+      assert_equal "#{CATALOG} and #{GATEWAY} both use PORT 4101", error.message
+    end
+  end
+
   def test_non_numeric_drain_delay_raises
     error = assert_raises(Boto::CLI::Error) { run_command(%w[--drain-delay soon]) }
     assert_includes error.message, "soon"
@@ -362,21 +467,52 @@ class Boto::CLI::RunCommandTest < Minitest::Test
   end
 
   # Declares one template per entry ({ name => http }) in a fake gem whose files are the official webapi ones.
-  def with_template_gems(declarations)
+  # The names listed in mounts_refs are gateway templates.
+  def with_template_gems(declarations, mounts_refs: [])
     self.class.solution_dir # built before the fake gems are active, so the order of the tests does not matter
     template_gem = FakeTemplateGem.new
     files = Boto::CLI::Generator.official_dir("webapi")
-    declarations.each { |name, http| template_gem.declare(name, http: http, files: files) }
+    declarations.each do |name, http|
+      template_gem.declare(name, http: http, files: files, mounts_refs: mounts_refs.include?(name))
+    end
     template_gem.activate
     yield
   ensure
     template_gem&.cleanup
   end
 
-  def run_command(argv, cwd: self.class.solution_dir, out: StringIO.new, server_class: FakeServer, env: {})
+  def run_command(argv, cwd: self.class.solution_dir, out: StringIO.new, server_class: FakeServer, env: {},
+                  free_port: NO_FREE_PORT)
     factory = ->(apps_by_port, host:) { @server = server_class.new(apps_by_port, host: host) }
     Boto::CLI::Commands::Run.new(argv, out: out, err: StringIO.new, cwd: cwd,
-                                       server_factory: factory, env: env).call
+                                       server_factory: factory, env: env, free_port: free_port).call
+  end
+
+  def free_ports(*ports) = ->(_host) { ports.shift }
+
+  def with_solution(projects)
+    Dir.mktmpdir { |root| yield self.class.create_solution(root, projects) }
+  end
+
+  # The gateway mounts CATALOG (PORT=4101) and USERS (no PORT); both are services of GATEWAY.
+  def with_gateway_solution
+    templates = { GATEWAY_TEMPLATE => true, SERVICE_TEMPLATE => true }
+    with_template_gems(templates, mounts_refs: [GATEWAY_TEMPLATE]) do
+      with_solution([[GATEWAY_TEMPLATE, GATEWAY], [SERVICE_TEMPLATE, CATALOG], [SERVICE_TEMPLATE, USERS]]) do |dir|
+        refer(dir, GATEWAY, CATALOG)
+        refer(dir, GATEWAY, USERS)
+        write_port(dir, CATALOG, 4101)
+        yield dir
+      end
+    end
+  end
+
+  def refer(dir, project, ref)
+    Boto::CLI::Commands::Ref.new([project, ref], out: StringIO.new, err: StringIO.new, cwd: dir).call
+  end
+
+  def write_port(dir, project, value)
+    File.write(File.join(dir, "apps", project, ".env"), "PORT=#{value}\n")
   end
 
   def write_ping(dir, source)

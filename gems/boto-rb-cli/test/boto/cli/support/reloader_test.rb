@@ -71,6 +71,12 @@ class Boto::CLI::ReloaderTest < Minitest::Test
     assert_empty @out.string
   end
 
+  def test_the_booted_app_runs_on_the_port_it_was_given
+    build_reloader
+
+    assert_equal PORT, @reloader.current(PORT).port
+  end
+
   def test_changed_endpoint_is_served_after_reload
     build_reloader
     assert_equal 1, ping_version

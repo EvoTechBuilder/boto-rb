@@ -23,11 +23,12 @@ class FakeTemplateGem
     FileUtils.remove_entry(root)
   end
 
-  def declare(name, http:, files: own_files_dir(name))
+  def declare(name, http:, files: own_files_dir(name), mounts_refs: false)
     write_declaration(name, <<~RUBY)
       Boto::Template.define :#{name} do |t|
         t.folder "apps"
         t.http #{http}
+        t.mounts_refs #{mounts_refs}
         t.files #{files.inspect}
       end
     RUBY

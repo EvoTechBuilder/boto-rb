@@ -119,7 +119,7 @@ module Boto
 
       # Assigns @boot before the apps are built, so a partial boot is still shut down by the next #shutdown.
       def build
-        @boot = Boto::Boot.new(@solution, root: @root, env: @env, process_env: @process_env)
+        @boot = Boto::Boot.new(@solution, root: @root, env: @env, process_env: @process_env, ports: @ports)
         @apps = @ports.to_h { |name, port| [port, @boot.app(name, env_name: @env_name)] }
       end
 
