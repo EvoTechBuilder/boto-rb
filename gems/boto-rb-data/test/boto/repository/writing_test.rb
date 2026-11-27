@@ -162,6 +162,13 @@ class WritingTest < Minitest::Test
     assert_equal 1, PRODUCT_REPO.count
   end
 
+  def test_transaction_passes_options_to_sequel
+    created = PRODUCT_REPO.transaction(rollback: :always) { PRODUCT_REPO.create(name: "Caneca", price: 39.9) }
+
+    assert_equal "Caneca", created.name
+    assert_equal 0, PRODUCT_REPO.count
+  end
+
   def test_transaction_rolls_back_and_reraises_on_an_exception
     assert_raises(BOOM) do
       PRODUCT_REPO.transaction do

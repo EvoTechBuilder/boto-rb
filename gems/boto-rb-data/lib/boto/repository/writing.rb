@@ -27,8 +27,9 @@ module Boto
       end
 
       # Repository calls inside the block share its connection, which Sequel keeps per fiber or thread.
-      def transaction(&)
-        database.transaction(&)
+      # Options go to Sequel: rollback: :always keeps a test's writes out of the database.
+      def transaction(**options, &)
+        database.transaction(**options, &)
       end
 
       private

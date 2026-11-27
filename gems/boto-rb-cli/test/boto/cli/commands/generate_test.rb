@@ -561,7 +561,7 @@ class Boto::CLI::GenerateCommandTest < Minitest::Test
 
       class Catalogo::ProductRepositoryTest < Minitest::Test
         def test_create_and_find
-          flunk "create a record with Catalogo::ProductRepository.create(...) and assert it is found"
+          flunk "inside Catalogo::ProductRepository.transaction(rollback: :always) { ... }, create a record and assert it is found"
         end
       end
     RUBY
