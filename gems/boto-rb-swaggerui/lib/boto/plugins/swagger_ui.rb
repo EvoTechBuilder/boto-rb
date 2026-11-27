@@ -2,8 +2,8 @@
 
 module Boto
   module Plugins
-    # Serves Swagger UI at a path, pointed at the document of the :openapi plugin. Pages and assets are
-    # built at boot, so a request is a table lookup that never touches disk or builds a route.
+    # Serves Swagger UI at a path, pointed at the document of the :openapi plugin. Assets are read at boot and
+    # pages are built once per mount prefix, so a request is a table lookup that never touches disk or builds a route.
     class SwaggerUi < Boto::Plugin
       scope :global
 
@@ -26,11 +26,14 @@ module Boto
       IMMUTABLE = "public, max-age=31536000, immutable"
 
       def attach(app)
-        openapi = find_openapi!(app)
-        @guard = openapi.guard
+        @openapi = find_openapi!(app)
+        @guard = @openapi.guard
         check_guard!
         check_no_endpoint_on_path!(app)
-        @table = build_table(openapi.title, openapi.path)
+        @assets = Boto::SwaggerUi::Assets.load
+        @table = build_table
+        # Few prefixes exist (one per gateway), so one cached table per prefix stays small.
+        @tables_by_prefix = {}
       end
 
       def call(env, app)
@@ -65,8 +68,16 @@ module Boto
       end
 
       def respond(env)
-        content_type, body, cache_control = @table.fetch(env["PATH_INFO"])
+        content_type, body, cache_control = table_for(env).fetch(env["PATH_INFO"])
         [OK, { CONTENT_TYPE => content_type, CACHE_CONTROL => cache_control }, [body]]
+      end
+
+      # Keys are always PATH_INFO-based, so every table has the same keys; only the URLs in the page change.
+      def table_for(env)
+        prefix = env["SCRIPT_NAME"].to_s
+        return @table if prefix.empty?
+
+        @tables_by_prefix[prefix] ||= build_table(prefix)
       end
 
       def find_openapi!(app)
@@ -91,15 +102,20 @@ module Boto
         raise ArgumentError, "swagger_ui: #{conflict.name} uses GET #{@path}, which the plugin already serves"
       end
 
-      def build_table(title, document_url)
-        assets = Boto::SwaggerUi::Assets.load
-        # The gem version is in the URL too: boto.css and ruby.svg change with the gem, not with Swagger UI.
-        base = "#{@path}#{ASSETS_SEGMENT}#{assets.version}-#{Boto::SwaggerUi::VERSION}"
-        page = Boto::SwaggerUi::Page.new(title: title, document_url: document_url, assets_path: base)
+      # The prefix only changes the URLs embedded in the page; the table keys and asset bodies stay the same.
+      def build_table(prefix = "")
+        base = asset_base
+        page = Boto::SwaggerUi::Page.new(title: @openapi.title, document_url: "#{prefix}#{@openapi.path}",
+                                         assets_path: "#{prefix}#{base}")
         table = { @path => [HTML_TYPE, page.html, NO_CACHE] }
         table["#{base}/#{Boto::SwaggerUi::Page::INITIALIZER_NAME}"] = [JS_TYPE, page.initializer_js, NO_CACHE]
-        Boto::SwaggerUi::Assets::FILES.each_key { |name| table["#{base}/#{name}"] = [*assets.fetch(name), IMMUTABLE] }
+        Boto::SwaggerUi::Assets::FILES.each_key { |name| table["#{base}/#{name}"] = [*@assets.fetch(name), IMMUTABLE] }
         table.transform_values(&:freeze).freeze
+      end
+
+      # The gem version is in the URL too: boto.css and ruby.svg change with the gem, not with Swagger UI.
+      def asset_base
+        "#{@path}#{ASSETS_SEGMENT}#{@assets.version}-#{Boto::SwaggerUi::VERSION}"
       end
     end
   end

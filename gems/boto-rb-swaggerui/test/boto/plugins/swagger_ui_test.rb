@@ -50,6 +50,7 @@ module Boto
         "initializer.js" => [JS, NO_CACHE]
       }.freeze
       BASIC_AUTH = { "HTTP_AUTHORIZATION" => "Basic #{["admin:secret"].pack("m0")}" }.freeze
+      MOUNT_PREFIX = "/catalogo"
 
       def swagger(**options)
         Boto::Plugins::SwaggerUi.new(env_name: "production", **options)
@@ -167,6 +168,32 @@ module Boto
         second = application.call(Rack::MockRequest.env_for(path))[2].first
         assert_same first, second
         assert_predicate first, :frozen?
+      end
+
+      def test_empty_script_name_serves_the_same_page
+        application = app
+        assert_equal get(application, "/docs").body, get(application, "/docs", "SCRIPT_NAME" => "").body
+      end
+
+      def test_script_name_prefixes_the_page_and_document_links
+        application = app
+        body = get(application, "/docs", "SCRIPT_NAME" => MOUNT_PREFIX).body
+        assert_includes body, %(href="#{MOUNT_PREFIX}#{asset_url("swagger-ui.css")}")
+        init = get(application, asset_url("initializer.js"), "SCRIPT_NAME" => MOUNT_PREFIX).body
+        assert_includes init, %("#{MOUNT_PREFIX}/openapi.json")
+      end
+
+      def test_assets_are_served_under_a_script_name
+        res = get(app, asset_url("swagger-ui.css"), "SCRIPT_NAME" => MOUNT_PREFIX)
+        assert_equal [200, CSS], [res.status, res.content_type]
+      end
+
+      def test_prefixed_table_is_built_once_per_prefix
+        application = app
+        env = -> { Rack::MockRequest.env_for("/docs", "SCRIPT_NAME" => MOUNT_PREFIX) }
+        first = application.call(env.call)[2].first
+        second = application.call(env.call)[2].first
+        assert_same first, second
       end
 
       def test_basic_auth_without_credentials_is_unauthorized
