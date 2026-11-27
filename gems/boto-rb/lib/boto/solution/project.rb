@@ -2,17 +2,8 @@
 
 module Boto
   class Project < Data.define(:name, :template, :refs, :line, :generators)
-    TEMPLATE_DIRS = {
-      library: "libs",
-      webapi: "apps",
-      microservice: "apps",
-      worker: "workers",
-      web: "apps",
-      spa: "apps"
-    }.freeze
     # Code folders loaded under the project namespace; every tool reads this list.
     CODE_DIRS = %w[endpoints operations models repositories schemas].freeze
-    HTTP_TEMPLATES = %i[webapi microservice].freeze
     LEGACY_HTTP_DIR = "services"
     PATH_SEPARATOR = "/"
     WORD_SEPARATOR = "_"
@@ -26,12 +17,12 @@ module Boto
     end
 
     def path
-      [TEMPLATE_DIRS.fetch(template), name].join(PATH_SEPARATOR)
+      [::Boto::Templates.fetch(template).folder, name].join(PATH_SEPARATOR)
     end
 
     # Where HTTP projects lived before `apps/`; nil for the other templates.
     def legacy_path
-      return unless HTTP_TEMPLATES.include?(template)
+      return unless ::Boto::Templates.fetch(template).legacy_services
 
       [LEGACY_HTTP_DIR, name].join(PATH_SEPARATOR)
     end

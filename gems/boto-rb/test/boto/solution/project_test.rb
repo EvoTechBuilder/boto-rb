@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "support/fake_template_gem"
 
 class Boto::ProjectTest < Minitest::Test
   def build(name, template: :library)
@@ -36,6 +37,17 @@ class Boto::ProjectTest < Minitest::Test
     assert_nil build("domain").legacy_path
     assert_nil build("mailer", template: :worker).legacy_path
     assert_nil build("admin", template: :spa).legacy_path
+  end
+
+  def test_gem_template_uses_its_declared_folder_and_no_legacy_path
+    gem = FakeTemplateGem.new
+    gem.write("demo", %(Boto::Template.define(:demo) { |t| t.folder "workers"; t.http true }\n))
+    gem.activate
+
+    assert_equal "workers/x", build("x", template: :demo).path
+    assert_nil build("x", template: :demo).legacy_path
+  ensure
+    gem&.cleanup
   end
 
   def test_namespace_name_camelizes_single_word

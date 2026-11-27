@@ -2,6 +2,7 @@
 
 require "test_helper"
 require "tmpdir"
+require "support/fake_template_gem"
 
 class Boto::BotofileTest < Minitest::Test
   VALID = <<~BOTO
@@ -108,11 +109,24 @@ class Boto::BotofileTest < Minitest::Test
     assert_equal %w[foo_bar foobar], Boto::Botofile.parse(source).projects.map(&:name)
   end
 
-  def test_unknown_template_reports_line
-    assert_invalid "Botofile:2: unknown template :foo", <<~BOTO
+  def test_unknown_template_reports_line_and_available_templates
+    assert_invalid "Botofile:2: unknown template :foo (available: library, microservice, spa, web, webapi, worker; " \
+                   "is its gem in the Gemfile?)", <<~BOTO
       solution "shop"
       project "domain", template: :foo
     BOTO
+  end
+
+  def test_template_declared_by_a_gem_is_accepted
+    gem = FakeTemplateGem.new
+    gem.write("demo", %(Boto::Template.define(:demo) { |t| t.folder "apps"; t.http true }\n))
+    gem.activate
+
+    solution = Boto::Botofile.parse(%(solution "shop"\nproject "x", template: :demo\n))
+
+    assert_equal "apps/x", solution.project("x").path
+  ensure
+    gem&.cleanup
   end
 
   def test_unknown_reference_reports_line_of_referencing_project

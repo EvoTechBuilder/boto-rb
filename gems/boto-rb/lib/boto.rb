@@ -11,6 +11,8 @@ loader = Zeitwerk::Loader.for_gem
 loader.inflector.inflect(Boto::INFLECTIONS)
 # Area folders group files on disk without adding a namespace (Boto::Router stays Boto::Router).
 %w[http endpoint solution].each { |area| loader.collapse("#{__dir__}/boto/#{area}") }
+# Declarations run through Template.define when the registry loads; they are not constants.
+loader.ignore("#{__dir__}/boto/templates")
 loader.setup
 
 module Boto

@@ -84,7 +84,7 @@ module Boto
 
       def check_project(name, template, refs, line)
         invalid!(%(invalid project name "#{name}"), line) unless ::Boto::Botofile::NAME_FORMAT.match?(name)
-        invalid!("unknown template #{template.inspect}", line) unless ::Boto::Project::TEMPLATE_DIRS.key?(template)
+        invalid!(::Boto::Templates.unknown_message(template), line) unless ::Boto::Templates.key?(template)
         invalid!(%(duplicate project "#{name}"), line) if declared?(name)
         invalid!(%(project "#{name}" references itself), line) if refs.include?(name)
         duplicate = refs.find { |ref| refs.count(ref) > 1 }
