@@ -5,16 +5,27 @@ require "set"
 module Boto
   # Loads a solution's projects in dependency order and builds the Rack app of one project.
   class Boot
+    class InvalidEnvironmentError < ArgumentError; end
+
     CONFIG_FILE = File.join("config", "app.rb")
+    ENVIRONMENTS_DIR = File.join("config", "environments")
+    ENV_NAME_KEY = "BOTO_ENV"
+    DEFAULT_ENV_NAME = "production"
+    # Keeps BOTO_ENV safe to use in a file path (no "../").
+    ENV_NAME_PATTERN = /\A[a-z][a-z0-9_]*\z/
+    INVALID_ENV_NAME_MESSAGE = "invalid environment name %<name>s: use lowercase letters, digits and _"
     SKIP_ENV = "BOTO_SKIP_ISOLATION"
     SKIP_VALUE = "1"
     SKIP_WARNING = "Boto: project isolation check skipped (BOTO_SKIP_ISOLATION=1)"
     UNLOAD_WARNING = "Boto: failed to unload project %<name>s (%<error>s): %<message>s"
 
-    def initialize(solution, root:, env: ENV, warn_output: $stderr)
+    # process_env: the variables set before any .env was read. A process that boots again (the dev reload) passes
+    # the snapshot it took first, so solution values a previous boot wrote to ENV do not count as process values.
+    def initialize(solution, root:, env: ENV, process_env: nil, warn_output: $stderr)
       @solution = solution
       @root = root
       @env = env
+      @process_env = process_env&.to_h&.dup&.freeze
       @warn_output = warn_output
       @loaders = {}
       @apps = []
@@ -35,9 +46,12 @@ module Boto
     end
 
     def app(name, **app_options)
-      env_name = app_options.fetch(:env_name) { ENV.fetch("BOTO_ENV", "production") }
+      env_name = environment_name(app_options)
       namespace = load(name)
-      config = Configuration.load(config_path(name), env_name: env_name)
+      env = project_env(name, env_name)
+      config = Configuration.load(config_paths(name, env_name), env_name: env_name, env: env)
+      context = ProjectContext.new(name: name, env_name: env_name, env: env)
+      namespace.extend(ProjectApp::Namespace).bind_app(context)
       app = App.new(**app_options, env_name: env_name, namespace: namespace, plugins: config.plugins)
       app.start
       @apps << app
@@ -107,8 +121,36 @@ module Boto
       @loaders[name] ||= ProjectLoader.new(@solution.project(name), root: @root)
     end
 
-    def config_path(name)
-      File.join(@root, @solution.project(name).path, CONFIG_FILE)
+    def environment_name(app_options)
+      env_name = app_options.fetch(:env_name) { @env.fetch(ENV_NAME_KEY, DEFAULT_ENV_NAME) }
+      return env_name if env_name.is_a?(String) && ENV_NAME_PATTERN.match?(env_name)
+
+      raise InvalidEnvironmentError, format(INVALID_ENV_NAME_MESSAGE, name: env_name.inspect)
+    end
+
+    def project_dir(name)
+      File.join(@root, @solution.project(name).path)
+    end
+
+    def config_paths(name, env_name)
+      dir = project_dir(name)
+      [File.join(dir, CONFIG_FILE), File.join(dir, ENVIRONMENTS_DIR, "#{env_name}.rb")]
+    end
+
+    # Precedence is process > project > solution, so the process snapshot is taken before solution values reach ENV.
+    def project_env(name, env_name)
+      load_solution_env(env_name)
+      project_layer = Env::Files.read(project_dir(name), env_name: env_name)
+      Env.new(@process_env, project_layer, @solution_env)
+    end
+
+    # Solution values reach @env (ENV by default) for gems that read it directly, without overwriting it.
+    def load_solution_env(env_name)
+      return if @solution_env
+
+      @process_env ||= @env.to_h.dup.freeze
+      @solution_env = Env::Files.read(@root, env_name: env_name)
+      @solution_env.each { |key, value| @env[key] = value unless @env.key?(key) }
     end
   end
 end

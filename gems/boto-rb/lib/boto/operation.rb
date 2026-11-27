@@ -3,6 +3,8 @@
 module Boto
   # Base class of operations (business rules). Call it with .call; it always returns a Result.
   class Operation
+    include ProjectApp
+
     def self.call(...)
       returned = new(...).call
       returned.is_a?(Result) ? returned : Result.success(returned)

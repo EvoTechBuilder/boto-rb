@@ -1,0 +1,4 @@
+solution "environment"
+
+project "orders", template: :webapi
+project "pedidos", template: :webapi

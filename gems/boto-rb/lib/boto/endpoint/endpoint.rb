@@ -6,6 +6,8 @@ module Boto
   # Base class for one endpoint. Subclasses declare route, params and status at class level,
   # and implement #call with the already-extracted params as keyword arguments.
   class Endpoint
+    include ProjectApp
+
     class RouteError < StandardError; end
 
     VERBS = %w[GET POST PUT PATCH DELETE QUERY].freeze
