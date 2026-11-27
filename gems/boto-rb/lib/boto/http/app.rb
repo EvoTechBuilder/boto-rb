@@ -16,6 +16,15 @@ module Boto
     JSON_HEADERS_TYPE = "application/json"
     NO_CONTENT = 204
     INTERNAL_ERROR = 500
+    UNPROCESSABLE = 422
+    FAILURE_STATUSES = {
+      invalid: 422,
+      unprocessable: 422,
+      unauthorized: 401,
+      forbidden: 403,
+      not_found: 404,
+      conflict: 409
+    }.freeze
     EMPTY = {}.freeze
     NO_INPUT = [EMPTY, EMPTY].freeze
     HEAD = "HEAD"
@@ -312,10 +321,26 @@ module Boto
     end
 
     def success_response(entry, result)
+      return operation_response(entry, result) if result.is_a?(Boto::Operation::Result)
       return [NO_CONTENT, {}, []] if result.nil?
 
       payload = entry.return_schema ? serialize_result(entry, result) : result
       [entry.status, { "content-type" => JSON_HEADERS_TYPE }, [JSON.generate(payload)]]
+    end
+
+    def operation_response(entry, result)
+      return failure_response(result.failure) unless result.success?
+
+      success_response(entry, result.value)
+    end
+
+    # Details stay out of the response on purpose: they may hold internal data.
+    def failure_response(failure)
+      Boto::Problem.response(
+        FAILURE_STATUSES.fetch(failure.code, UNPROCESSABLE),
+        detail: failure.message,
+        code: failure.code
+      )
     end
 
     def serialize_result(entry, result)

@@ -8,17 +8,18 @@ module Boto
   module Problem
     CONTENT_TYPE = "application/problem+json"
 
-    def self.response(status, detail: nil, errors: nil, headers: {})
-      body = JSON.generate(compact_body(status, detail, errors))
+    def self.response(status, detail: nil, errors: nil, headers: {}, code: nil)
+      body = JSON.generate(compact_body(status, detail, code, errors))
       [status, { "content-type" => CONTENT_TYPE }.merge(headers), [body]]
     end
 
-    def self.compact_body(status, detail, errors)
+    def self.compact_body(status, detail, code, errors)
       {
         type: "about:blank",
         title: Rack::Utils::HTTP_STATUS_CODES.fetch(status),
         status: status,
         detail: detail,
+        code: code&.to_s,
         errors: errors
       }.compact
     end
