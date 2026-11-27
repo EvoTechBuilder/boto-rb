@@ -63,6 +63,11 @@ module AppTestShop
     def call = raise("kaboom")
   end
 
+  class Todo < Boto::Endpoint
+    get "/todo"
+    def call = raise(NotImplementedError, "AppTestShop::Todo#call")
+  end
+
   class Search < Boto::Endpoint
     get "/search"
     param :q, String
@@ -170,7 +175,7 @@ module Boto
 
     def test_discovers_endpoints_in_namespace
       names = app.endpoints.map(&:name)
-      assert_equal %w[AppTestShop::Boom AppTestShop::Search AppTestShop::Users::Create
+      assert_equal %w[AppTestShop::Boom AppTestShop::Search AppTestShop::Todo AppTestShop::Users::Create
                       AppTestShop::Users::Destroy AppTestShop::Users::Show], names
     end
 
@@ -250,6 +255,13 @@ module Boto
       assert_equal 500, res.status
       refute_includes res.body, "kaboom"
       assert_includes @error_output.string, "RuntimeError: kaboom"
+    end
+
+    # NotImplementedError is a ScriptError, not a StandardError; a generated endpoint still raises it.
+    def test_not_implemented_endpoint_is_500_not_a_crash
+      res = request_for(env_name: "development").get("/todo")
+      assert_equal 500, res.status
+      assert_includes res.body, "NotImplementedError: AppTestShop::Todo#call"
     end
 
     def test_unexpected_error_in_development_shows_message

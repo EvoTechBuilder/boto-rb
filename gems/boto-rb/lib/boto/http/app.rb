@@ -120,7 +120,8 @@ module Boto
       @handler.call(env)
     rescue Boto::Error => e
       e.to_response
-    rescue StandardError => e
+    # NotImplementedError is a ScriptError, so it is named here: an endpoint still to be written answers 500.
+    rescue StandardError, NotImplementedError => e
       internal_error_response(e)
     end
 
