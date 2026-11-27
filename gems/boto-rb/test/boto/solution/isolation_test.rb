@@ -7,7 +7,7 @@ require "tmpdir"
 class Boto::IsolationTest < Minitest::Test
   Violation = Boto::Isolation::Violation
   NamespaceViolation = Boto::Isolation::NamespaceViolation
-  CHECKOUT = "services/orders/operations/checkout.rb"
+  CHECKOUT = "apps/orders/operations/checkout.rb"
 
   SOURCE = <<~BOTO
     solution "shop"
@@ -69,7 +69,7 @@ class Boto::IsolationTest < Minitest::Test
 
   def test_reopening_another_projects_namespace_is_a_violation
     source = "class Billing::Invoice\n  def total = 0\nend\n\nBilling::Report\n"
-    violations = check({ "services/orders/models/invoice_patch.rb" => source }, projects: ["domain"])
+    violations = check({ "apps/orders/models/invoice_patch.rb" => source }, projects: ["domain"])
 
     assert_empty violations
     domain_violations = check({ "libs/domain/models/invoice_patch.rb" => source }).grep(Violation)
@@ -78,9 +78,9 @@ class Boto::IsolationTest < Minitest::Test
   end
 
   def test_top_level_class_in_config_is_a_namespace_violation
-    violations = check({ "services/orders/config/app.rb" => "\nclass Tokens; end\n" })
+    violations = check({ "apps/orders/config/app.rb" => "\nclass Tokens; end\n" })
 
-    assert_equal [NamespaceViolation.new(project: "orders", path: "services/orders/config/app.rb", line: 2,
+    assert_equal [NamespaceViolation.new(project: "orders", path: "apps/orders/config/app.rb", line: 2,
                                          constant: "Tokens", namespace: "Orders")],
                  violations
   end
@@ -101,26 +101,26 @@ class Boto::IsolationTest < Minitest::Test
   def test_test_files_may_declare_prefixed_top_level_constants
     source = "class OrdersHealthTest < Minitest::Test; end\n"
 
-    assert_empty check({ "services/orders/test/x_test.rb" => source })
+    assert_empty check({ "apps/orders/test/x_test.rb" => source })
   end
 
   def test_reference_and_namespace_violations_are_sorted_together
     files = {
       CHECKOUT => "Domain::Customer\nTOKENS = 1\n",
-      "services/orders/config/app.rb" => "class Tokens; end\n"
+      "apps/orders/config/app.rb" => "class Tokens; end\n"
     }
 
     assert_equal [
-      ["services/orders/config/app.rb", 1],
+      ["apps/orders/config/app.rb", 1],
       [CHECKOUT, 1],
       [CHECKOUT, 2]
     ], check(files).map { [_1.path, _1.line] }
   end
 
   def test_files_under_test_are_read
-    violations = check({ "services/orders/test/checkout_test.rb" => "Domain::Customer\n" })
+    violations = check({ "apps/orders/test/checkout_test.rb" => "Domain::Customer\n" })
 
-    assert_equal ["services/orders/test/checkout_test.rb"], violations.map(&:path)
+    assert_equal ["apps/orders/test/checkout_test.rb"], violations.map(&:path)
   end
 
   def test_projects_option_filters_the_result
@@ -137,8 +137,8 @@ class Boto::IsolationTest < Minitest::Test
 
   def test_violations_are_sorted_by_project_path_and_line
     files = {
-      "services/orders/operations/b.rb" => "\nDomain::A\n",
-      "services/orders/operations/a.rb" => "Domain::B\nDomain::C\n",
+      "apps/orders/operations/b.rb" => "\nDomain::A\n",
+      "apps/orders/operations/a.rb" => "Domain::B\nDomain::C\n",
       "libs/domain/models/x.rb" => "Billing::X\n"
     }
 
@@ -146,9 +146,9 @@ class Boto::IsolationTest < Minitest::Test
 
     assert_equal [
       ["domain", "libs/domain/models/x.rb", 1],
-      ["orders", "services/orders/operations/a.rb", 1],
-      ["orders", "services/orders/operations/a.rb", 2],
-      ["orders", "services/orders/operations/b.rb", 2]
+      ["orders", "apps/orders/operations/a.rb", 1],
+      ["orders", "apps/orders/operations/a.rb", 2],
+      ["orders", "apps/orders/operations/b.rb", 2]
     ], keys
   end
 

@@ -4,12 +4,14 @@ module Boto
   class Project < Data.define(:name, :template, :refs, :line)
     TEMPLATE_DIRS = {
       library: "libs",
-      webapi: "services",
-      microservice: "services",
+      webapi: "apps",
+      microservice: "apps",
       worker: "workers",
       web: "apps",
       spa: "apps"
     }.freeze
+    HTTP_TEMPLATES = %i[webapi microservice].freeze
+    LEGACY_HTTP_DIR = "services"
     PATH_SEPARATOR = "/"
     WORD_SEPARATOR = "_"
 
@@ -19,6 +21,13 @@ module Boto
 
     def path
       [TEMPLATE_DIRS.fetch(template), name].join(PATH_SEPARATOR)
+    end
+
+    # Where HTTP projects lived before `apps/`; nil for the other templates.
+    def legacy_path
+      return unless HTTP_TEMPLATES.include?(template)
+
+      [LEGACY_HTTP_DIR, name].join(PATH_SEPARATOR)
     end
 
     def namespace_name

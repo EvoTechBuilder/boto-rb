@@ -71,7 +71,7 @@ end
 
 class Boto::BootIsolationTest < Minitest::Test
   FIXTURE = File.expand_path("../../fixtures/leaky", __dir__)
-  PING = "services/lkorders/endpoints/ping.rb"
+  PING = "apps/lkorders/endpoints/ping.rb"
 
   def setup
     @warnings = StringIO.new
@@ -200,10 +200,37 @@ class Boto::BootLifecycleTest < Minitest::Test
   end
 end
 
+class Boto::BootLayoutTest < Minitest::Test
+  FIXTURE = File.expand_path("../../fixtures/shop", __dir__)
+
+  def setup
+    @root = Dir.mktmpdir("boto-legacy")
+    FileUtils.cp_r(File.join(FIXTURE, "."), @root)
+    File.rename(File.join(@root, "apps"), File.join(@root, "services"))
+    @boot = Boto::Boot.new(Boto::Botofile.load(File.join(@root, "Botofile")), root: @root,
+                                                                              env: {}, warn_output: StringIO.new)
+  end
+
+  def teardown
+    @boot.shutdown
+    FileUtils.remove_entry(@root)
+  end
+
+  def test_load_refuses_legacy_layout_before_loading_code
+    features_before = $LOADED_FEATURES.dup
+
+    error = assert_raises(Boto::LegacyLayoutError) { @boot.load("orders") }
+
+    assert_equal ["orders"], error.projects
+    assert_empty ($LOADED_FEATURES - features_before).select { _1.start_with?(@root) }
+    assert_empty @boot.checked_projects
+  end
+end
+
 class Boto::BootFailureTest < Minitest::Test
   FIXTURE = File.expand_path("../../fixtures/broken", __dir__)
   SHOP = File.expand_path("../../fixtures/shop", __dir__)
-  BROKEN_ENDPOINT = "services/bk_orders/endpoints/boom.rb"
+  BROKEN_ENDPOINT = "apps/bk_orders/endpoints/boom.rb"
   FIXED_ENDPOINT = "# frozen_string_literal: true\n\nmodule BkOrders\n  class Boom; end\nend\n"
 
   def setup

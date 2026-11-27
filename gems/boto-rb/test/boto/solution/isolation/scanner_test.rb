@@ -117,11 +117,11 @@ class Boto::Isolation::ScannerTest < Minitest::Test
 
   def test_syntax_error_raises_with_path_and_line
     error = assert_raises(Scanner::SyntaxError) do
-      Scanner.scan("x = 1\ndef broken(", path: "services/orders/broken.rb")
+      Scanner.scan("x = 1\ndef broken(", path: "apps/orders/broken.rb")
     end
 
-    assert_equal "services/orders/broken.rb", error.path
+    assert_equal "apps/orders/broken.rb", error.path
     assert_equal 2, error.line
-    assert_match(/\Aservices\/orders\/broken\.rb:2: /, error.message)
+    assert_match(/\Aapps\/orders\/broken\.rb:2: /, error.message)
   end
 end

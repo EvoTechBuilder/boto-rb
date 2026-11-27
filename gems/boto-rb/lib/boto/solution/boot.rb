@@ -27,6 +27,7 @@ module Boto
     end
 
     def load(name)
+      Layout.check!(@solution, root: @root)
       verify_isolation(name)
       created = load_order(name).reject { @loaders.key?(_1) }
       load_loaders(load_order(name).map { loader_for(_1) }, created)

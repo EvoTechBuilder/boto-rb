@@ -25,7 +25,7 @@ class Boto::BotofileTest < Minitest::Test
 
     assert_equal "shop", solution.name
     assert_equal %w[domain orders], solution.projects.map(&:name)
-    assert_equal "services/orders", solution.project("orders").path
+    assert_equal "apps/orders", solution.project("orders").path
     assert_equal %w[domain], solution.project("orders").refs
   end
 
