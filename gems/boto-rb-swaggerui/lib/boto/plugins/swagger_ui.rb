@@ -25,6 +25,9 @@ module Boto
       # Asset URLs carry the vendored version, so a new Swagger UI gets new URLs.
       IMMUTABLE = "public, max-age=31536000, immutable"
 
+      # Where the page is served (default /docs), for links such as the gateway panel's.
+      attr_reader :path
+
       def attach(app)
         @openapi = find_openapi!(app)
         @guard = @openapi.guard
