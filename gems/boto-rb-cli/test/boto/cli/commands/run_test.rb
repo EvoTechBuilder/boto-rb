@@ -206,12 +206,14 @@ class Boto::CLI::RunCommandTest < Minitest::Test
   end
 
   def test_invalid_template_declaration_exits_with_a_message
+    # Built before the broken template is active: the shared solution must not depend on test order.
+    solution = self.class.solution_dir
     template_gem = FakeTemplateGem.new
     template_gem.write_declaration("broken", %(Boto::Template.define(:broken) { |t| t.folder "nope" }\n))
     template_gem.activate
     err = StringIO.new
 
-    status = Boto::CLI::Runner.new(out: StringIO.new, err: err, cwd: self.class.solution_dir).run(%w[run])
+    status = Boto::CLI::Runner.new(out: StringIO.new, err: err, cwd: solution).run(%w[run])
 
     assert_equal 1, status
     assert_equal 1, err.string.lines.size
@@ -359,6 +361,7 @@ class Boto::CLI::RunCommandTest < Minitest::Test
 
   # Declares one template per entry ({ name => http }) in a fake gem whose files are the official webapi ones.
   def with_template_gems(declarations)
+    self.class.solution_dir # built before the fake gems are active, so the order of the tests does not matter
     template_gem = FakeTemplateGem.new
     files = Boto::CLI::Generator.official_dir("webapi")
     declarations.each { |name, http| template_gem.declare(name, http: http, files: files) }

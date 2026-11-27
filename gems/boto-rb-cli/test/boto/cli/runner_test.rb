@@ -6,7 +6,7 @@ require "tmpdir"
 require "fileutils"
 
 class Boto::CLI::RunnerTest < Minitest::Test
-  COMMAND_ORDER = %w[new add ref generate graph check run test openapi db templates].freeze
+  COMMAND_ORDER = %w[new add ref generate graph check run test openapi db templates plugin].freeze
 
   def setup
     @out = StringIO.new

@@ -1,0 +1,16 @@
+# frozen_string_literal: true
+
+require_relative "lib/boto/<%= extension %>/version"
+
+Gem::Specification.new do |spec|
+  spec.name = "<%= gem_name %>"
+  spec.version = Boto::<%= module_name %>::VERSION
+  spec.authors = ["TODO"]
+  spec.license = "MIT"
+  spec.summary = "TODO: one line on what <%= gem_name %> adds to Boto."
+  spec.required_ruby_version = ">= 3.4"
+  spec.files = Dir["lib/**/*"].select { |path| File.file?(path) } + ["LICENSE", "README.md"]
+  spec.require_paths = ["lib"]
+
+  spec.add_dependency "boto-rb", "<%= boto_requirement %>"
+end

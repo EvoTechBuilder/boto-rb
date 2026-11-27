@@ -1,0 +1,37 @@
+# <%= gem_name %>
+
+TODO: one paragraph on what this gem adds to Boto.
+
+## Installation
+
+Add it to the Gemfile of the solution (or of the project that uses it):
+
+```ruby
+gem "<%= gem_name %>"
+```
+
+Then run `bundle install`.
+<% if plugin -%>
+
+## Plugin
+
+Enable it in the project's `config/app.rb`:
+
+```ruby
+Boto.configure do |app|
+  app.use :<%= plugin %>
+end
+```
+<% end -%>
+<% if template -%>
+
+## Template
+
+Create a project from it:
+
+```sh
+boto add <%= template %> <name>
+```
+
+The project is created in `<%= folder %>/`<% if http %>, as an HTTP project<% end %>.
+<% end -%>

@@ -1,0 +1,8 @@
+# frozen_string_literal: true
+
+Boto::Template.define :<%= template %> do |t|
+  t.folder "<%= folder %>"
+  t.http <%= http %>
+  t.files File.join(__dir__, "files")
+  t.summary "TODO: what the <%= template %> template generates"
+end

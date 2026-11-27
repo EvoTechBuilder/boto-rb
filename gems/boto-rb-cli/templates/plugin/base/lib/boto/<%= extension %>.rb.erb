@@ -1,0 +1,19 @@
+# frozen_string_literal: true
+
+require "boto"
+require "zeitwerk"
+
+loader = Zeitwerk::Loader.for_gem_extension(Boto)
+# Template declarations run through Boto::Template.define when the registry loads; they are not constants.
+loader.ignore("#{__dir__}/templates")
+<% if shim_plugin -%>
+# lib/boto/<%= shim_plugin %>.rb only requires this file, so Zeitwerk must not expect a constant there.
+loader.ignore("#{__dir__}/<%= shim_plugin %>.rb")
+<% end -%>
+loader.setup
+
+module Boto
+  # Namespace of the gem; its plugins and templates are loaded from lib/boto/.
+  module <%= module_name %>
+  end
+end

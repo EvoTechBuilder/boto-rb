@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "fileutils"
 require "tmpdir"
 
 class Boto::CLI::GeneratorTest < Minitest::Test
@@ -49,6 +50,36 @@ class Boto::CLI::GeneratorTest < Minitest::Test
         assert_equal %w[config.rb], files
         assert_equal %(ns = Shop, refs = ["dominio"]), File.read(File.join(target, "config.rb"))
       end
+    end
+  end
+
+  def test_renders_the_file_name_with_the_locals
+    Dir.mktmpdir do |source|
+      FileUtils.mkdir_p(File.join(source, "lib", "boto"))
+      File.write(File.join(source, "lib", "boto", "<%= extension %>.rb.erb"), "# <%= extension %>\n")
+      Dir.mktmpdir do |target|
+        files = Boto::CLI::Generator.new(source).generate(target, extension: "gateway")
+
+        assert_equal %w[lib/boto/gateway.rb], files
+        assert_equal "# gateway\n", File.read(File.join(target, "lib", "boto", "gateway.rb"))
+      end
+    end
+  end
+
+  def test_refuses_a_rendered_name_that_escapes_the_target
+    Dir.mktmpdir do |root|
+      source = File.join(root, "src")
+      target = File.join(root, "out")
+      Dir.mkdir(source)
+      Dir.mkdir(target)
+      File.write(File.join(source, "<%= path %>"), "x")
+      generator = Boto::CLI::Generator.new(source)
+      ["../evil.rb", File.join(root, "absolute.rb")].each do |path|
+        error = assert_raises(Boto::CLI::Error) { generator.generate(target, path: path) }
+        assert_includes error.message, "escapes the project folder"
+      end
+      refute File.exist?(File.join(root, "evil.rb"))
+      refute File.exist?(File.join(root, "absolute.rb"))
     end
   end
 

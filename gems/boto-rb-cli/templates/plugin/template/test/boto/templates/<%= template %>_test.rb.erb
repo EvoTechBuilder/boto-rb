@@ -1,0 +1,17 @@
+# frozen_string_literal: true
+
+require "test_helper"
+
+class <%= template_class %>TemplateTest < Minitest::Test
+  def setup
+    Boto::Templates.reset!
+  end
+
+  def test_registers_the_template
+    assert Boto::Templates.key?(:<%= template %>)
+
+    template = Boto::Templates.fetch(:<%= template %>)
+    assert_equal "<%= folder %>", template.folder
+    assert_equal <%= http %>, template.http
+  end
+end

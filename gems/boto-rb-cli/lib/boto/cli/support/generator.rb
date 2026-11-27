@@ -41,8 +41,9 @@ module Boto
            .reject { |relative| File.directory?(File.join(@dir, relative)) }
       end
 
+      # The file name is rendered too, so a gem's template can name files after its own values (e.g. lib/boto/<name>.rb).
       def materialize(relative, target_dir, locals)
-        output = relative.delete_suffix(ERB_EXTENSION)
+        output = render(relative.delete_suffix(ERB_EXTENSION), locals)
         target = File.join(target_dir, output)
         ensure_inside!(target, target_dir, output)
         FileUtils.mkdir_p(File.dirname(target))
@@ -55,9 +56,10 @@ module Boto
         output
       end
 
-      # Defensive: a relative path with ".." would write outside the project folder.
+      # Defensive: a rendered name with ".." or an absolute path would write outside the project folder.
+      # File.join alone would turn an absolute name into a relative one, so it is refused by its own check.
       def ensure_inside!(target, target_dir, output)
-        return if self.class.inside?(target, target_dir)
+        return if !File.absolute_path?(output) && self.class.inside?(target, target_dir)
 
         raise Error, %(output path "#{output}" escapes the project folder)
       end

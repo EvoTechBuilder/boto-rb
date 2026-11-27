@@ -1,0 +1,24 @@
+# frozen_string_literal: true
+
+module Boto
+  module Plugins
+    # TODO: say in one or two lines what <%= plugin_class %> does for the app.
+    class <%= plugin_class %> < Boto::Plugin
+      # scope :global  # runs before routing, so it also covers 404, 405 and preflight (default: :endpoint)
+
+      def call(env, app)
+        app.call(env)
+      end
+
+      # def start = nil         # runs once, before the first request
+      # def stop = nil          # runs at shutdown; must tolerate a resource that is already closed
+      # def drain = nil         # the app is shutting down: stop accepting new work
+      # def health_checks = {}  # named checks for /health/ready; a truthy value means ok
+
+      private
+
+      # def configure(option: "default")  # receives the options of app.use :<%= plugin %>
+      # end
+    end
+  end
+end
