@@ -61,7 +61,6 @@ Open source, sob a licença [MIT](LICENSE), mantido pela
   - [CLI](#referência-do-cli)
   - [Gems](#gems)
 - **Projeto**
-  - [Estado e roadmap](#estado-e-roadmap)
   - [Contribuindo](#contribuindo)
   - [Licença](#licença)
 
@@ -418,29 +417,6 @@ O módulo Ruby é sempre `Boto`, e o executável é `boto`. As gems se chamam
 `boto-rb-*` porque o nome `boto` já existia no RubyGems.
 
 <p align="right"><a href="#sumário">↑ voltar ao sumário</a></p>
-
-## Estado e roadmap
-
-O Boto está antes da 1.0: versões minor ainda podem quebrar compatibilidade.
-Toda quebra entra no [CHANGELOG](CHANGELOG.md), com o passo de migração.
-
-**Disponível**
-
-- [x] Solutions, isolamento e grafo de dependências
-- [x] Templates `webapi` e `library`
-- [x] Endpoints, schemas e OpenAPI
-- [x] Plugins de segurança, `:openapi` e `:swagger_ui`
-- [x] Health checks e graceful shutdown
-
-**Próximos passos**
-
-- [ ] Template `microservice`, com OpenTelemetry, Dockerfile e deploy
-- [ ] Template `worker`, para filas, com retry e dead letter
-- [ ] Templates distribuídos como gems (`boto templates install`)
-- [ ] Template `spa` (React ou Vue com Vite), com cliente TypeScript gerado do OpenAPI
-- [ ] Template `web`, com Hotwire e os plugins `:sessions` e `:csrf`
-- [ ] Credentials criptografadas
-- [ ] Imagem Docker por serviço
 
 ## Contribuindo
 
