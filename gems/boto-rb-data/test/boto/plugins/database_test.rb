@@ -2,6 +2,16 @@
 
 require "test_helper"
 
+# Only this namespace has a repository, so the other plugin tests never run the schema check.
+module SchemaCheckShop
+  Thing = Data.define(:id, :price)
+
+  class ThingRepository < Boto::Repository
+    entity Thing
+    table :things
+  end
+end
+
 class DatabasePluginTest < Minitest::Test
   MEMORY_URL = "sqlite::memory:"
   SECRET_URL = "postgres://app:s3cret@127.0.0.1:1/shop"
@@ -93,6 +103,16 @@ class DatabasePluginTest < Minitest::Test
 
     assert_includes plugin.inspect, "postgres://app:***@127.0.0.1:1/shop"
     refute_includes plugin.inspect, "s3cret"
+  end
+
+  def test_start_fails_when_a_repository_has_no_table_and_registers_nothing
+    plugin = build_plugin
+    plugin.attach(app_named(SchemaCheckShop))
+
+    error = assert_raises(Boto::Repository::SchemaMismatch) { plugin.start }
+
+    assert_equal "SchemaCheckShop::ThingRepository: table things does not exist", error.message
+    refute Boto::Database::Connections.registered?(SchemaCheckShop)
   end
 
   def test_each_fiber_gets_its_own_connection

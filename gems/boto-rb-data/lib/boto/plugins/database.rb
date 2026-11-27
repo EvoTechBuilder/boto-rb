@@ -25,7 +25,9 @@ module Boto
 
       def start
         Sequel.extension FIBER_EXTENSION
-        @database = connect
+        database = connect
+        check_repositories(database)
+        @database = database
         Boto::Database::Connections.register(@namespace, @database)
       end
 
@@ -66,6 +68,22 @@ module Boto
         return pool if pool.is_a?(Integer) && pool.positive?
 
         raise ArgumentError, POOL_MESSAGE
+      end
+
+      # Runs before the connection is registered, so a failed check leaves no connection behind.
+      def check_repositories(database)
+        repositories.each { _1.check!(database) }
+      rescue StandardError
+        database.disconnect
+        raise
+      end
+
+      # Only the classes already loaded: the core eager loads the project code before it starts the plugins.
+      def repositories
+        prefix = "#{@namespace.name}::"
+        Boto::Repository.subclasses.select do |repository|
+          repository.name.to_s.start_with?(prefix) && repository.declared?
+        end
       end
 
       def connect
