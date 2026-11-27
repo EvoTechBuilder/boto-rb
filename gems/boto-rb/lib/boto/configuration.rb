@@ -84,10 +84,16 @@ module Boto
     def lookup(name)
       raise ArgumentError, "invalid plugin name #{name.inspect}" unless name.match?(PLUGIN_NAME)
 
-      klass = find_plugin(name) || load_security_gem_and_find(name)
-      raise ArgumentError, %(unknown plugin :#{name} (add gem "boto-rb-security" to the Gemfile)) unless klass
+      klass = find_plugin(name) ||
+              require_and_find(SECURITY_GEM, name) ||
+              require_and_find("boto/#{name}", name)
+      raise ArgumentError, unknown_plugin_message(name) unless klass
 
       check_class(klass)
+    end
+
+    def unknown_plugin_message(name)
+      %(unknown plugin :#{name} (add the gem that provides it to the Gemfile, e.g. "boto-rb-security"))
     end
 
     def find_plugin(name)
@@ -97,17 +103,18 @@ module Boto
       Boto::Plugins.const_get(constant, false) if Boto::Plugins.const_defined?(constant, false)
     end
 
-    def load_security_gem_and_find(name)
-      require SECURITY_GEM
+    # Only a missing feature itself is "not found"; a LoadError from a dependency of that feature propagates.
+    def require_and_find(feature, name)
+      require feature
       find_plugin(name)
     rescue LoadError => error
-      raise unless error.path == SECURITY_GEM
+      raise unless error.path == feature
 
       nil
     end
 
     def camelize(name)
-      name.split("_").map(&:capitalize).join
+      Boto::INFLECTIONS.fetch(name) { name.split("_").map(&:capitalize).join }
     end
   end
 end

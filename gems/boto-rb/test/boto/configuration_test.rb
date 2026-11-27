@@ -36,6 +36,7 @@ module Boto
 
     def teardown
       Boto::Plugins.send(:remove_const, :TestEcho)
+      Boto::Plugins.send(:remove_const, :LookupProbe) if Boto::Plugins.const_defined?(:LookupProbe, false)
       Thread.current[CURRENT_KEY] = nil
     end
 
@@ -74,10 +75,37 @@ module Boto
       assert_match(/Rate-Limit/, error.message)
     end
 
-    def test_unknown_name_points_to_security_gem
+    def test_unknown_name_points_to_gem_that_provides_it
       error = assert_raises(ArgumentError) { @config.use :no_such_plugin }
 
-      assert_equal %(unknown plugin :no_such_plugin (add gem "boto-rb-security" to the Gemfile)), error.message
+      assert_equal %(unknown plugin :no_such_plugin (add the gem that provides it to the Gemfile, e.g. "boto-rb-security")),
+                   error.message
+    end
+
+    def test_use_finds_plugin_file_on_load_path
+      with_feature("lookup_probe", <<~RUBY) do
+        module Boto::Plugins
+          class LookupProbe < Boto::Plugin; end
+        end
+      RUBY
+        @config.use :lookup_probe
+
+        assert_kind_of Boto::Plugins::LookupProbe, @config.plugin(:lookup_probe)
+      end
+    end
+
+    def test_load_error_from_plugin_dependency_propagates
+      with_feature("lookup_broken", %(require "missing_dependency_xyz"\n)) do
+        error = assert_raises(LoadError) { @config.use :lookup_broken }
+
+        assert_equal "missing_dependency_xyz", error.path
+      end
+    end
+
+    def test_inflections_override_camelized_name
+      assert_equal "OpenAPI", Boto::INFLECTIONS.fetch("openapi")
+      assert_equal "OpenAPI", @config.send(:camelize, "openapi")
+      assert_equal "RateLimit", @config.send(:camelize, "rate_limit")
     end
 
     def test_class_must_inherit_from_plugin
@@ -215,6 +243,21 @@ module Boto
       path = File.join(dir, "app.rb")
       File.write(path, source)
       path
+    end
+
+    # Puts boto/<feature>.rb on $LOAD_PATH for the block; undoes the load path and feature cache after.
+    def with_feature(feature, source)
+      Dir.mktmpdir do |dir|
+        Dir.mkdir(File.join(dir, "boto"))
+        File.write(File.join(dir, "boto", "#{feature}.rb"), source)
+        $LOAD_PATH.unshift(dir)
+        begin
+          yield
+        ensure
+          $LOAD_PATH.delete(dir)
+          $LOADED_FEATURES.reject! { |loaded| loaded.end_with?("/boto/#{feature}.rb") }
+        end
+      end
     end
 
     def with_current(config)
