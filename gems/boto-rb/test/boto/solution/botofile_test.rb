@@ -110,11 +110,15 @@ class Boto::BotofileTest < Minitest::Test
   end
 
   def test_unknown_template_reports_line_and_available_templates
-    assert_invalid "Botofile:2: unknown template :foo (available: library, microservice, spa, web, webapi, worker; " \
-                   "is its gem in the Gemfile?)", <<~BOTO
+    error = assert_raises(Boto::Botofile::InvalidError) { Boto::Botofile.parse(<<~BOTO) }
       solution "shop"
       project "domain", template: :foo
     BOTO
+
+    # Template gems in the bundle can add names to the list, so only the official ones are checked.
+    assert_match(/\ABotofile:2: unknown template :foo \(available: .*library, microservice, spa, web, webapi, worker/,
+                 error.message)
+    assert error.message.end_with?("is its gem in the Gemfile?)")
   end
 
   def test_template_declared_by_a_gem_is_accepted

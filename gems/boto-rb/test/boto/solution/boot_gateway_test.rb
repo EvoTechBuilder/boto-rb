@@ -9,7 +9,7 @@ require "support/fake_template_gem"
 # A template with mounts_refs true gets the apps of its HTTP refs in the same process.
 class Boto::BootGatewayTest < Minitest::Test
   GATEWAY_SOURCE = <<~RUBY
-    Boto::Template.define :gateway do |t|
+    Boto::Template.define :edge do |t|
       t.folder "apps"
       t.http true
       t.mounts_refs true
@@ -20,7 +20,7 @@ class Boto::BootGatewayTest < Minitest::Test
 
   def setup
     @template_gem = FakeTemplateGem.new
-    @template_gem.write("gateway", GATEWAY_SOURCE)
+    @template_gem.write("edge", GATEWAY_SOURCE)
     @template_gem.activate
     @root = Dir.mktmpdir("boto-gateway")
     FileUtils.mkdir_p(%w[apps libs].map { File.join(@root, _1) })
@@ -54,7 +54,7 @@ class Boto::BootGatewayTest < Minitest::Test
     boot_with_refs(%w[dominio])
 
     error = assert_raises(Boto::App::BootError) { @boot.app("borda", env_name: ENV_NAME) }
-    assert_equal 'gateway borda: ref "dominio" is not an HTTP project', error.message
+    assert_equal 'edge borda: ref "dominio" is not an HTTP project', error.message
   end
 
   private
@@ -65,7 +65,7 @@ class Boto::BootGatewayTest < Minitest::Test
       project "catalogo", template: :webapi
       project "pedidos", template: :webapi
       project "dominio", template: :library
-      project "borda", template: :gateway, refs: #{refs.inspect}
+      project "borda", template: :edge, refs: #{refs.inspect}
     BOTOFILE
     @boot = Boto::Boot.new(Boto::Botofile.load(File.join(@root, "Botofile")), root: @root, env: {},
                                                                               warn_output: StringIO.new)

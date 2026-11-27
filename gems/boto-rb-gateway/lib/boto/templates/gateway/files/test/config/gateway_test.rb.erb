@@ -1,0 +1,10 @@
+# frozen_string_literal: true
+
+require "test_helper"
+
+class <%= namespace %>GatewayTest < Minitest::Test
+  def test_live_responds_ok_without_token
+    response = Rack::MockRequest.new(APP).get("/health/live")
+    assert_equal 200, response.status
+  end
+end

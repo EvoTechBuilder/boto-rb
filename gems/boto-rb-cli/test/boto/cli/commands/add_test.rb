@@ -212,7 +212,9 @@ class Boto::CLI::AddCommandTest < Minitest::Test
     help = Boto::CLI::Commands::Add.help
 
     assert_includes help, "Usage: boto add <template> <name> [--refs a,b]"
-    assert_includes help, "Templates: demo, library, webapi"
+    # Other gems in the bundle (boto-rb-gateway) add their templates too, so check the ones this test owns.
+    templates = help[/Templates: (.*)$/, 1].split(", ")
+    assert_empty %w[demo library webapi] - templates
     refute_includes help, "worker"
   end
 

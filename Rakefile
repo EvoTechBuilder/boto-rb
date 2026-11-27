@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-GEM_DIRS = %w[gems/boto-rb gems/boto-rb-cli gems/boto-rb-security gems/boto-rb-redis gems/boto-rb-swaggerui gems/boto-rb-data].freeze
+GEM_DIRS = %w[gems/boto-rb gems/boto-rb-cli gems/boto-rb-security gems/boto-rb-redis gems/boto-rb-swaggerui gems/boto-rb-data gems/boto-rb-gateway].freeze
 
 task default: :test
 

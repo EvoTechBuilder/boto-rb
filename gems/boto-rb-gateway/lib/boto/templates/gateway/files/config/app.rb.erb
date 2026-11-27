@@ -1,0 +1,7 @@
+# frozen_string_literal: true
+
+# Plugins for <%= name %>: the gateway serves each referenced HTTP service under its own prefix.
+Boto.configure do |app|
+  app.use :health
+  app.use :gateway
+end

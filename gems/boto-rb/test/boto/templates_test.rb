@@ -34,8 +34,11 @@ class Boto::TemplatesTest < Minitest::Test
     assert_includes error.message, expected_message_part
   end
 
+  # Gems in the bundle (boto-rb-gateway in this repo) add templates too, so these tests look at the official ones.
+  OFFICIAL = %i[library microservice spa web webapi worker].freeze
+
   def test_official_templates_are_declared
-    assert_equal %i[library microservice spa web webapi worker], Boto::Templates.all.map(&:name)
+    assert_equal OFFICIAL, Boto::Templates.all.select { |t| t.source == "boto-rb" }.map(&:name)
   end
 
   def test_only_http_templates_are_http
@@ -48,7 +51,7 @@ class Boto::TemplatesTest < Minitest::Test
   end
 
   def test_official_templates_come_from_boto_rb
-    assert_equal ["boto-rb"], Boto::Templates.all.map(&:source).uniq
+    assert_equal ["boto-rb"], OFFICIAL.map { |name| Boto::Templates.fetch(name).source }.uniq
     assert_equal "libs", Boto::Templates.fetch(:library).folder
     assert_equal "workers", Boto::Templates.fetch(:worker).folder
     assert_nil Boto::Templates.fetch(:webapi).files
@@ -69,8 +72,9 @@ class Boto::TemplatesTest < Minitest::Test
   def test_unknown_template_lists_available_and_suggests_gem
     error = assert_raises(Boto::Templates::UnknownTemplateError) { Boto::Templates.fetch(:foo) }
 
-    assert_equal "unknown template :foo (available: library, microservice, spa, web, webapi, worker; " \
-                 "is its gem in the Gemfile?)", error.message
+    assert_match(/\Aunknown template :foo \(available: .*library, microservice, spa, web, webapi, worker.*; /,
+                 error.message)
+    assert error.message.end_with?("is its gem in the Gemfile?)")
     assert_kind_of KeyError, error
   end
 

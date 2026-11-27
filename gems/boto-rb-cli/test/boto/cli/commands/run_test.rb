@@ -179,7 +179,9 @@ class Boto::CLI::RunCommandTest < Minitest::Test
       dir = self.class.create_solution(root, [["library", LIBRARY]])
 
       error = assert_raises(Boto::CLI::Error) { run_command([], cwd: dir) }
-      assert_equal "no servable projects (microservice, web, webapi)", error.message
+      # The list comes from every http template in the bundle, so other gems may add names to it.
+      assert_match(/\Ano servable projects \(.*\bwebapi\b.*\)\z/, error.message)
+      refute_includes error.message, "library"
     end
   end
 

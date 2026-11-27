@@ -1,0 +1,9 @@
+# frozen_string_literal: true
+
+require "minitest/autorun"
+require "rack/mock"
+require "boto"
+
+SOLUTION_ROOT = File.expand_path("../../..", __dir__)
+BOOT = Boto::Boot.new(Boto::Botofile.load(File.join(SOLUTION_ROOT, "Botofile")), root: SOLUTION_ROOT)
+APP = BOOT.app("<%= name %>", env_name: "test")

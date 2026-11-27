@@ -8,6 +8,7 @@ gemspec path: "gems/boto-rb-security"
 gemspec path: "gems/boto-rb-redis"
 gemspec path: "gems/boto-rb-swaggerui"
 gemspec path: "gems/boto-rb-data"
+gemspec path: "gems/boto-rb-gateway"
 
 gem "rake", "~> 13.0"
 gem "minitest", "~> 6.0"

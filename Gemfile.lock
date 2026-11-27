@@ -13,6 +13,12 @@ PATH
       sequel (~> 5.0)
 
 PATH
+  remote: gems/boto-rb-gateway
+  specs:
+    boto-rb-gateway (0.17.0)
+      boto-rb (= 0.17.0)
+
+PATH
   remote: gems/boto-rb-redis
   specs:
     boto-rb-redis (0.17.0)
@@ -170,6 +176,7 @@ DEPENDENCIES
   boto-rb!
   boto-rb-cli!
   boto-rb-data!
+  boto-rb-gateway!
   boto-rb-redis!
   boto-rb-security!
   boto-rb-swaggerui!
@@ -191,6 +198,7 @@ CHECKSUMS
   boto-rb (0.17.0)
   boto-rb-cli (0.17.0)
   boto-rb-data (0.17.0)
+  boto-rb-gateway (0.17.0)
   boto-rb-redis (0.17.0)
   boto-rb-security (0.17.0)
   boto-rb-swaggerui (0.17.0)
