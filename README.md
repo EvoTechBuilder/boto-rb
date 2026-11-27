@@ -1,6 +1,9 @@
 <div align="center">
 
-# Boto
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/boto-logo-dark.svg">
+  <img src="docs/assets/boto-logo.svg" alt="Boto" height="72">
+</picture>
 
 **Framework Ruby para APIs e microservices, organizado em solutions.**
 
