@@ -39,12 +39,15 @@ module Boto
     AUTH_PLUGIN = :auth
     OPENAPI_PLUGIN = :openapi
 
-    attr_reader :endpoints, :title, :services
+    attr_reader :endpoints, :title, :services, :port, :env
 
     # services: the apps of the referenced HTTP projects, by project name, when this app is a gateway.
+    # port: the port the project runs on under `boto run`, nil otherwise. env: the project's Boto::Env.
     def initialize(namespace:, plugins: [], env_name: ENV.fetch("BOTO_ENV", "production"), error_output: $stderr,
-                   services: EMPTY)
+                   services: EMPTY, port: nil, env: nil)
       @env_name = env_name
+      @port = port
+      @env = env
       @error_output = error_output
       @services = services.dup.freeze
       @title = namespace.name.freeze

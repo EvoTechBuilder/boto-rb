@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "pathname"
 require "set"
 
 module Boto
@@ -19,14 +20,19 @@ module Boto
     SKIP_WARNING = "Boto: project isolation check skipped (BOTO_SKIP_ISOLATION=1)"
     UNLOAD_WARNING = "Boto: failed to unload project %<name>s (%<error>s): %<message>s"
     NOT_HTTP_REF_MESSAGE = "%<template>s %<name>s: ref %<ref>s is not an HTTP project"
+    PORT_KEY = "PORT"
+    RUN_SOURCE = "boto run"
+    NO_LAYER = {}.freeze
 
     # process_env: the variables set before any .env was read. A process that boots again (the dev reload) passes
     # the snapshot it took first, so solution values a previous boot wrote to ENV do not count as process values.
-    def initialize(solution, root:, env: ENV, process_env: nil, warn_output: $stderr)
+    # ports: project name => port. The port overrides PORT for that project, even over the process value.
+    def initialize(solution, root:, env: ENV, process_env: nil, warn_output: $stderr, ports: {})
       @solution = solution
       @root = root
       @env = env
       @process_env = process_env&.to_h&.dup&.freeze
+      @ports = ports.dup.freeze
       @warn_output = warn_output
       @loaders = {}
       @apps_by_key = {}
@@ -80,7 +86,8 @@ module Boto
       namespace = load(name) { config = configuration(name, env_name: env_name) }
       context = ProjectContext.new(name: name, env_name: env_name, env: config.env)
       namespace.extend(ProjectApp::Namespace).bind_app(context)
-      app = App.new(**app_options, **mounts, env_name: env_name, namespace: namespace, plugins: config.plugins)
+      app = App.new(**app_options, **mounts, env_name: env_name, namespace: namespace, plugins: config.plugins,
+                    port: @ports[name], env: config.env)
       app.start
       app
     end
@@ -178,11 +185,41 @@ module Boto
       [File.join(dir, CONFIG_FILE), File.join(dir, ENVIRONMENTS_DIR, "#{env_name}.rb")]
     end
 
-    # Precedence is process > project > solution, so the process snapshot is taken before solution values reach ENV.
+    # Precedence is port > process > project > solution. The process snapshot is taken before solution values reach ENV.
     def project_env(name, env_name)
       load_solution_env(env_name)
-      project_layer = Env::Files.read(project_dir(name), env_name: env_name)
-      Env.new(@process_env, project_layer, @solution_env)
+      project_values, project_paths = Env::Files.read_with_origin(project_dir(name), env_name: env_name)
+      port = port_layer(name)
+      Env.new(port, @process_env, project_values, @solution_env,
+              sources: sources_for(port, project_values, project_paths),
+              file_keys: @solution_paths.keys | project_paths.keys | port.keys)
+    end
+
+    def port_layer(name)
+      port = @ports[name]
+      return NO_LAYER unless port
+
+      { PORT_KEY => port.to_s }
+    end
+
+    # Later merges win: solution files, then project files, then the process, then the port layer on top.
+    def sources_for(port, project_values, project_paths)
+      sources = @solution_paths.transform_values { relative_path(_1) }
+      sources.merge!(project_paths.transform_values { relative_path(_1) })
+      sources.merge!(@process_env.keys.to_h { [_1, Env::PROCESS_SOURCE] })
+      sources[PORT_KEY] = port_source(port, project_values, project_paths) if port.key?(PORT_KEY)
+      sources
+    end
+
+    # A file that already declares this exact port stays the origin; any other port was chosen by the run.
+    def port_source(port, project_values, project_paths)
+      return RUN_SOURCE unless project_values[PORT_KEY] == port[PORT_KEY]
+
+      relative_path(project_paths[PORT_KEY])
+    end
+
+    def relative_path(path)
+      Pathname.new(path).relative_path_from(Pathname.new(File.expand_path(@root))).to_s
     end
 
     # Solution values reach @env (ENV by default) for gems that read it directly, without overwriting it.
@@ -190,7 +227,7 @@ module Boto
       return if @solution_env
 
       @process_env ||= @env.to_h.dup.freeze
-      @solution_env = Env::Files.read(@root, env_name: env_name)
+      @solution_env, @solution_paths = Env::Files.read_with_origin(@root, env_name: env_name)
       @solution_env.each { |key, value| @env[key] = value unless @env.key?(key) }
     end
   end

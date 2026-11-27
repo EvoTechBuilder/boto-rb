@@ -80,4 +80,27 @@ class Boto::EnvTest < Minitest::Test
     Boto::Env.new(ENV.to_h)
     refute_predicate ENV, :frozen?
   end
+
+  def test_source_names_the_origin_of_each_key
+    env = Boto::Env.new({ "A" => "1" }, { "B" => "2" }, sources: { "A" => "process", "B" => "apps/x/.env" })
+    assert_equal ["process", "apps/x/.env"], [env.source("A"), env.source(:B)]
+  end
+
+  def test_source_is_nil_for_unknown_key
+    assert_nil Boto::Env.new({ "A" => "1" }, sources: { "A" => "process" }).source("MISSING")
+  end
+
+  def test_source_is_nil_without_sources
+    assert_nil Boto::Env.new({ "A" => "1" }).source("A")
+  end
+
+  def test_file_keys_are_sorted_and_frozen
+    env = Boto::Env.new({ "A" => "1" }, file_keys: %w[B A])
+    assert_equal %w[A B], env.file_keys
+    assert_predicate env.file_keys, :frozen?
+  end
+
+  def test_file_keys_are_empty_by_default
+    assert_empty Boto::Env.new({ "A" => "1" }).file_keys
+  end
 end

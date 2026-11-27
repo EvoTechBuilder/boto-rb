@@ -13,10 +13,18 @@ module Boto
       end
 
       # Merges the files so the highest precedence one wins each key.
-      def self.read(dir, env_name:)
-        self.for(dir, env_name:).reverse.each_with_object({}) do |path, merged|
-          merged.merge!(Parser.parse(File.read(path), path:))
-        end.freeze
+      def self.read(dir, env_name:) = read_with_origin(dir, env_name:).first
+
+      # Same values as #read, plus the winning file path of each key: [values, { key => path }].
+      def self.read_with_origin(dir, env_name:)
+        values = {}
+        origins = {}
+        self.for(dir, env_name:).reverse_each do |path|
+          parsed = Parser.parse(File.read(path), path:)
+          values.merge!(parsed)
+          parsed.each_key { origins[_1] = path }
+        end
+        [values.freeze, origins.freeze]
       end
 
       # .env.local stays out of tests so the suite does not depend on the developer's machine.

@@ -438,5 +438,18 @@ module Boto
       assert_predicate gateway.services, :frozen?
       refute_same services, gateway.services
     end
+
+    def test_port_and_env_are_nil_by_default
+      assert_nil app.port
+      assert_nil app.env
+    end
+
+    def test_port_and_env_are_the_ones_given
+      env = Boto::Env.new({ "PORT" => "4101" })
+      built = Boto::App.new(namespace: AppTestShop, error_output: @error_output, port: 4101, env: env)
+
+      assert_equal 4101, built.port
+      assert_same env, built.env
+    end
   end
 end

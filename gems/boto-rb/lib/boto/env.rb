@@ -3,8 +3,14 @@
 module Boto
   # Read-only view over stacked layers of variables. The strongest layer (first) wins.
   class Env
-    def initialize(*layers)
+    PROCESS_SOURCE = "process"
+
+    # sources: key => where its effective value came from (PROCESS_SOURCE or a file path).
+    # file_keys: keys defined by some .env file, even when a higher layer overrides them.
+    def initialize(*layers, sources: {}, file_keys: [])
       @values = merge_layers(layers).freeze
+      @sources = sources.to_h { |key, source| [key.to_s, source] }.freeze
+      @file_keys = file_keys.map(&:to_s).sort.freeze
       freeze
     end
 
@@ -13,6 +19,10 @@ module Boto
     def [](key) = @values[key.to_s]
 
     def key?(key) = @values.key?(key.to_s)
+
+    def source(key) = key?(key) ? @sources[key.to_s] : nil
+
+    attr_reader :file_keys
 
     def to_h = @values
 

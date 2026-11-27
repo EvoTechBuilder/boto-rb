@@ -68,6 +68,21 @@ class Boto::Env::FilesTest < Minitest::Test
     assert_equal({ "A" => "base" }, Boto::Env::Files.read(@dir, env_name: "test"))
   end
 
+  def test_read_with_origin_names_the_winning_file_of_each_key
+    write(".env", "A=base\nB=base\n")
+    write(".env.local", "B=local\n")
+    values, origins = Boto::Env::Files.read_with_origin(@dir, env_name: "development")
+    assert_equal({ "A" => "base", "B" => "local" }, values)
+    assert_equal({ "A" => File.join(@dir, ".env"), "B" => File.join(@dir, ".env.local") }, origins)
+  end
+
+  def test_read_with_origin_returns_frozen_hashes
+    write(".env", "A=1\n")
+    values, origins = Boto::Env::Files.read_with_origin(@dir, env_name: "development")
+    assert_predicate values, :frozen?
+    assert_predicate origins, :frozen?
+  end
+
   def test_read_returns_frozen_hash
     write(".env", "A=1\n")
     assert_predicate Boto::Env::Files.read(@dir, env_name: "development"), :frozen?
