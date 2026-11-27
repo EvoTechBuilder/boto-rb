@@ -13,7 +13,7 @@ module Boto
         data = parsed(PanelFakes.page)
 
         assert_equal %w[gateway env solution_env services], data.keys
-        assert_equal "PanelFakes::Gateway", data["gateway"]
+        assert_equal "gateway", data["gateway"]
         assert_equal "development", data["env"]
       end
 

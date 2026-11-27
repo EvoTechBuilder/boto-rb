@@ -7,9 +7,14 @@ module Boto
     Page = Data.define(:gateway, :env_name, :host, :base, :solution_env, :services) do
       def self.build(gateway_app:, mounts:, env_name:, host:, base:)
         solution_keys = EnvRows.solution_keys(gateway_app.env)
-        new(gateway: gateway_app.title, env_name: env_name, host: host, base: base,
+        new(gateway: project_name(gateway_app.title), env_name: env_name, host: host, base: base,
             solution_env: EnvRows.solution(gateway_app.env),
             services: mounts.entries.map { |name, prefix, app| ServiceInfo.build(name, prefix, app, solution_keys, host: host) })
+      end
+
+      # The namespace is the project name in CamelCase (Borda, LojaBorda); the panel shows the project name.
+      def self.project_name(namespace)
+        namespace.split("::").last.gsub(/([a-z\d])([A-Z])/, '\\1_\\2').downcase
       end
 
       def link(path) = "#{base}#{path}"

@@ -9,7 +9,7 @@ module Boto
       def test_shows_gateway_environment_host_and_summary
         html = render(PanelFakes.page)
 
-        assert_includes html, "gateway PanelFakes::Gateway"
+        assert_includes html, "gateway gateway"
         assert_includes html, "development"
         assert_includes html, "localhost:3000"
         assert_includes html, "Health checked in-process at page load"
