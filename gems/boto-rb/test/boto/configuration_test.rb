@@ -348,6 +348,16 @@ module Boto
       assert_equal "configuration is already built", error.message
     end
 
+    def test_build_only_builds_just_the_named_plugin
+      @config.use(ConfigurationTestPlugins::Resolving, value: -> { raise "other secrets must not be read" })
+      log = []
+      @config.use(ConfigurationTestPlugins::Counting, log: log)
+
+      assert_instance_of ConfigurationTestPlugins::Counting, @config.build_only(:counting)
+      assert_equal 1, log.size
+      assert_nil @config.build_only(:missing)
+    end
+
     def test_env_is_the_object_given_to_configuration
       env = Object.new
       config = Boto::Configuration.new(env_name: "test", env: env)

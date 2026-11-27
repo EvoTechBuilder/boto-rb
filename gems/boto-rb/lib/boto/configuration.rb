@@ -93,6 +93,13 @@ module Boto
       plugins.find { |instance| instance.class.plugin_name == name.to_sym }
     end
 
+    # Builds only the named plugin, or nil when it is not declared. Tools such as boto db read one plugin without
+    # building the others, whose secrets (API tokens, for instance) the task does not need.
+    def build_only(name)
+      declaration = @declarations[name.to_sym]
+      declaration && build(declaration)
+    end
+
     private
 
     # Re-declaring in a later phase merges options (the later file wins per key); in the same phase it is a mistake.
