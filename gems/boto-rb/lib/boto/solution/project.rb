@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module Boto
-  class Project < Data.define(:name, :template, :refs, :line)
+  class Project < Data.define(:name, :template, :refs, :line, :generators)
     TEMPLATE_DIRS = {
       library: "libs",
       webapi: "apps",
@@ -14,6 +14,10 @@ module Boto
     LEGACY_HTTP_DIR = "services"
     PATH_SEPARATOR = "/"
     WORD_SEPARATOR = "_"
+
+    def initialize(name:, template:, refs:, line:, generators: {})
+      super(name: name, template: template, refs: refs, line: line, generators: generators.dup.freeze)
+    end
 
     def self.namespace_for(name)
       name.split(WORD_SEPARATOR).map(&:capitalize).join

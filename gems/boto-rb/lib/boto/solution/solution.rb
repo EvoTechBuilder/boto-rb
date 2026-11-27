@@ -15,18 +15,25 @@ module Boto
 
     VISITING = :visiting
     VISITED = :visited
+    GENERATE_TESTS_DEFAULT = true
 
     attr_reader :name, :projects
 
-    def initialize(name:, projects:)
+    def initialize(name:, projects:, generators: {})
       @name = name.dup.freeze
       @projects = projects.dup.freeze
+      @generators = generators.dup.freeze
       @index = projects.to_h { |item| [item.name, item] }.freeze
       freeze
     end
 
     def project(name)
       @index.fetch(name) { raise KeyError, "unknown project \"#{name}\"" }
+    end
+
+    # A project's own setting wins over the solution default.
+    def generate_tests?(project_name)
+      project(project_name).generators.fetch(:tests) { @generators.fetch(:tests, GENERATE_TESTS_DEFAULT) }
     end
 
     def topological_order

@@ -74,4 +74,21 @@ class Boto::SolutionTest < Minitest::Test
   def test_solution_is_frozen
     assert_predicate diamond, :frozen?
   end
+
+  def test_generate_tests_defaults_to_true_without_generators
+    assert diamond.generate_tests?("a")
+  end
+
+  def test_generate_tests_uses_solution_default
+    result = Boto::Solution.new(name: "shop", projects: [project("a")], generators: { tests: false })
+
+    refute result.generate_tests?("a")
+  end
+
+  def test_project_generators_override_solution_default
+    overridden = Boto::Project.new(name: "a", template: :library, refs: [], line: 1, generators: { tests: true })
+    result = Boto::Solution.new(name: "shop", projects: [overridden], generators: { tests: false })
+
+    assert result.generate_tests?("a")
+  end
 end

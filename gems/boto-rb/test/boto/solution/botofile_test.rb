@@ -146,6 +146,92 @@ class Boto::BotofileTest < Minitest::Test
     BOTO
   end
 
+  def test_generators_default_to_true_without_declaration
+    solution = Boto::Botofile.parse(VALID)
+
+    assert solution.generate_tests?("domain")
+  end
+
+  def test_solution_generators_apply_to_every_project
+    source = <<~BOTO
+      solution "shop"
+      generators tests: false
+      project "domain", template: :library
+      project "orders", template: :webapi, refs: %w[domain]
+    BOTO
+    solution = Boto::Botofile.parse(source)
+
+    refute solution.generate_tests?("domain")
+    refute solution.generate_tests?("orders")
+  end
+
+  def test_project_generators_override_solution_default
+    source = <<~BOTO
+      solution "shop"
+      generators tests: false
+      project "catalogo", template: :webapi, generators: { tests: true }
+      project "dominio", template: :library
+    BOTO
+    solution = Boto::Botofile.parse(source)
+
+    assert solution.generate_tests?("catalogo")
+    refute solution.generate_tests?("dominio")
+  end
+
+  def test_project_generators_false_with_default_solution
+    source = <<~BOTO
+      solution "shop"
+      project "dominio", template: :library, generators: { tests: false }
+      project "orders", template: :webapi
+    BOTO
+    solution = Boto::Botofile.parse(source)
+
+    refute solution.generate_tests?("dominio")
+    assert solution.generate_tests?("orders")
+  end
+
+  def test_generators_value_must_be_boolean_and_reports_line
+    assert_invalid "Botofile:2: generators tests: must be true or false", <<~BOTO
+      solution "shop"
+      generators tests: "no"
+    BOTO
+  end
+
+  def test_generators_declared_twice_reports_line
+    assert_invalid "Botofile:3: generators declared twice", <<~BOTO
+      solution "shop"
+      generators tests: false
+      generators tests: true
+    BOTO
+  end
+
+  def test_unknown_project_generators_option_reports_line
+    assert_invalid %(Botofile:2: unknown generators option "orm"), <<~BOTO
+      solution "shop"
+      project "orders", template: :webapi, generators: { orm: :x }
+    BOTO
+  end
+
+  def test_project_generators_value_must_be_boolean_and_reports_line
+    assert_invalid "Botofile:2: generators tests: must be true or false", <<~BOTO
+      solution "shop"
+      project "orders", template: :webapi, generators: { tests: 1 }
+    BOTO
+  end
+
+  def test_project_generators_must_be_a_hash_and_reports_line
+    assert_invalid "Botofile:2: generators must be a Hash", <<~BOTO
+      solution "shop"
+      project "orders", template: :webapi, generators: "x"
+    BOTO
+  end
+
+  def test_existing_fixture_botofiles_are_still_valid
+    Dir.glob(File.expand_path("../../fixtures/*/Botofile", __dir__)).each do |path|
+      assert_kind_of Boto::Solution, Boto::Botofile.load(path), path
+    end
+  end
+
   def test_load_reads_file_and_uses_its_path_in_errors
     Dir.mktmpdir do |dir|
       path = File.join(dir, "Botofile")

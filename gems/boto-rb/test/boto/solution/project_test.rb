@@ -45,4 +45,18 @@ class Boto::ProjectTest < Minitest::Test
   def test_namespace_name_camelizes_underscored_name
     assert_equal "OrderItems", build("order_items").namespace_name
   end
+
+  def test_generators_default_to_empty_frozen_hash
+    assert_equal({}, build("domain").generators)
+    assert_predicate build("domain").generators, :frozen?
+  end
+
+  def test_generators_are_kept_frozen_copy
+    options = { tests: false }
+    project = Boto::Project.new(name: "domain", template: :library, refs: [], line: 1, generators: options)
+
+    assert_equal({ tests: false }, project.generators)
+    assert_predicate project.generators, :frozen?
+    refute_predicate options, :frozen?
+  end
 end

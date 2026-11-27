@@ -7,6 +7,9 @@ module Boto
     NAME_FORMAT = /\A[a-z][a-z0-9_]*\z/
     DEFAULT_PATH = "Botofile"
     FIRST_LINE = 1
+    GENERATOR_OPTIONS = %i[tests].freeze
+    BOOLEAN_VALUES = [true, false].freeze
+    DEFAULT_GENERATORS = {}.freeze
 
     def self.load(path)
       parse(File.read(path), path: path)
@@ -23,7 +26,16 @@ module Boto
       def initialize(path)
         @path = path
         @solution_name = nil
+        @generators = ::Boto::Botofile::DEFAULT_GENERATORS
         @projects = []
+      end
+
+      def generators(tests:)
+        line = ::Kernel.caller_locations(1, 1).first.lineno
+        invalid!("generators declared twice", line) unless @generators.empty?
+        check_generator_value(:tests, tests, line)
+        @generators = { tests: tests }.freeze
+        nil
       end
 
       def solution(name)
@@ -35,19 +47,20 @@ module Boto
         nil
       end
 
-      def project(name, template:, refs: [])
+      def project(name, template:, refs: [], generators: ::Boto::Botofile::DEFAULT_GENERATORS)
         line = ::Kernel.caller_locations(1, 1).first.lineno
         name = frozen_string(name)
         refs = normalize_refs(refs)
         check_project(name, template, refs, line)
-        @projects << ::Boto::Project.new(name: name, template: template, refs: refs, line: line)
+        generators = normalize_project_generators(generators, line)
+        @projects << ::Boto::Project.new(name: name, template: template, refs: refs, line: line, generators: generators)
         nil
       end
 
       def to_solution
         invalid!("solution name is missing") unless @solution_name
         check_references
-        solution = ::Boto::Solution.new(name: @solution_name, projects: @projects)
+        solution = ::Boto::Solution.new(name: @solution_name, projects: @projects, generators: @generators)
         solution.topological_order
         solution
       rescue ::Boto::Solution::CycleError => error
@@ -98,6 +111,21 @@ module Boto
           unknown = project.refs.find { |ref| !names.include?(ref) }
           invalid!(%(unknown reference "#{unknown}"), project.line) if unknown
         end
+      end
+
+      def check_generator_value(option, value, line)
+        return if ::Boto::Botofile::BOOLEAN_VALUES.include?(value)
+
+        invalid!("generators #{option}: must be true or false", line)
+      end
+
+      def normalize_project_generators(options, line)
+        invalid!("generators must be a Hash", line) unless ::Hash === options
+        options.each do |option, value|
+          invalid!(%(unknown generators option "#{option}"), line) unless ::Boto::Botofile::GENERATOR_OPTIONS.include?(option)
+          check_generator_value(option, value, line)
+        end
+        options.dup.freeze
       end
     end
     private_constant :DSL
