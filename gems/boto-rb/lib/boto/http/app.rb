@@ -240,7 +240,7 @@ module Boto
       verb = env["REQUEST_METHOD"]
       path = request_path(env)
       match = @router.match(verb, path)
-      return unmatched_response(verb, path) unless match
+      return unmatched_response(verb, path, env) unless match
 
       respond(match, env)
     rescue Boto::Error => e
@@ -261,15 +261,15 @@ module Boto
       return nil unless @env_name == DEVELOPMENT
       return nil if plugin_named?(@global_plugins, OPENAPI_PLUGIN)
 
-      JSON.generate(Boto::OpenAPI.generate(self, title: title, version: OPENAPI_VERSION)).freeze
+      Boto::OpenAPI::PrefixedDocument.new(Boto::OpenAPI.generate(self, title: title, version: OPENAPI_VERSION))
     end
 
     def openapi_request?(verb, path)
       !@openapi_json.nil? && (verb == GET || verb == HEAD) && path == OPENAPI_PATH
     end
 
-    def openapi_response
-      [200, { "content-type" => JSON_HEADERS_TYPE }, [@openapi_json]]
+    def openapi_response(env)
+      [200, { "content-type" => JSON_HEADERS_TYPE }, [@openapi_json.json_for(env["SCRIPT_NAME"])]]
     end
 
     def request_path(env)
@@ -278,8 +278,8 @@ module Boto
     end
 
     # Runs only when no route matched, so a user endpoint on OPENAPI_PATH wins and matched requests pay nothing.
-    def unmatched_response(verb, path)
-      return openapi_response if openapi_request?(verb, path)
+    def unmatched_response(verb, path, env)
+      return openapi_response(env) if openapi_request?(verb, path)
 
       allowed = @router.allowed_verbs(path)
       return Boto::Error::NotFound.new.to_response if allowed.empty?

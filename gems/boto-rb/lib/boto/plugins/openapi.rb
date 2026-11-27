@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "json"
-
 module Boto
   module Plugins
     # Serves the project's OpenAPI document in every environment. It runs before routing, so the
@@ -41,7 +39,7 @@ module Boto
       # Generated once: every response hands out the same frozen string.
       def start
         document = Boto::OpenAPI.generate(@app, title: title, version: @version, description: @description)
-        @document = JSON.generate(document).freeze
+        @document = Boto::OpenAPI::PrefixedDocument.new(document)
       end
 
       def call(env, app)
@@ -58,7 +56,7 @@ module Boto
         @auth_required = validate_auth(auth)
         @title = validate_title(title)
         @description = validate_description(description)
-        @responder = ->(_env) { [OK, { "content-type" => JSON_TYPE }, [@document]] }
+        @responder = ->(env) { [OK, { "content-type" => JSON_TYPE }, [@document.json_for(env["SCRIPT_NAME"])]] }
       end
 
       def validate_path(path)

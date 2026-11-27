@@ -388,6 +388,29 @@ module Boto
       assert_same first_body[0], second_body[0]
     end
 
+    def test_openapi_without_script_name_has_no_servers
+      document = json(openapi_body(nil))
+      refute_includes document.keys, "servers"
+    end
+
+    def test_openapi_with_empty_script_name_has_no_servers
+      document = json(openapi_body(""))
+      refute_includes document.keys, "servers"
+    end
+
+    def test_openapi_with_script_name_points_servers_at_the_prefix
+      document = json(openapi_body("/catalogo"))
+      assert_equal [{ "url" => "/catalogo" }], document["servers"]
+      assert_equal json(openapi_body(nil))["paths"], document["paths"]
+    end
+
+    def test_openapi_with_same_script_name_reuses_the_body
+      application = app(env_name: "development")
+      first_body = application.call(openapi_env("/catalogo"))[2]
+      second_body = application.call(openapi_env("/catalogo"))[2]
+      assert_same first_body[0], second_body[0]
+    end
+
     def test_query_with_json_body_returns_serialized_list
       res = query_json("/users/search", { name: "ana" })
       assert_equal 200, res.status
@@ -419,6 +442,16 @@ module Boto
 
     def query_json(path, body, namespace: AppTestQuery)
       request_for(namespace: namespace).request("QUERY", path, input: JSON.generate(body), "CONTENT_TYPE" => JSON_TYPE)
+    end
+
+    def openapi_env(script_name = nil)
+      return Rack::MockRequest.env_for("/openapi.json") if script_name.nil?
+
+      Rack::MockRequest.env_for("/openapi.json", "SCRIPT_NAME" => script_name)
+    end
+
+    def openapi_body(script_name)
+      app(env_name: "development").call(openapi_env(script_name))[2].first
     end
 
     def post_json(path, body, namespace: AppTestShop)

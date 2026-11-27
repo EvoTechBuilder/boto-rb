@@ -214,6 +214,30 @@ module Boto
         assert_equal 403, get(application, "/openapi.json").status
       end
 
+      def test_script_name_adds_servers_with_the_prefix_and_keeps_paths
+        application = app
+        document = JSON.parse(get(application, "/openapi.json", "SCRIPT_NAME" => "/catalogo").body)
+        assert_equal [{ "url" => "/catalogo" }], document["servers"]
+        assert_equal JSON.parse(get(application, "/openapi.json").body)["paths"], document["paths"]
+      end
+
+      def test_empty_script_name_is_the_same_as_none
+        assert_equal get(app, "/openapi.json").body, get(app, "/openapi.json", "SCRIPT_NAME" => "").body
+      end
+
+      def test_script_name_with_custom_path_adds_servers
+        application = app(plugins: [plugin(path: "/docs/openapi.json")])
+        document = JSON.parse(get(application, "/docs/openapi.json", "SCRIPT_NAME" => "/catalogo").body)
+        assert_equal [{ "url" => "/catalogo" }], document["servers"]
+      end
+
+      def test_same_script_name_hands_out_the_same_string
+        application = app
+        first = application.call(Rack::MockRequest.env_for("/openapi.json", "SCRIPT_NAME" => "/catalogo"))
+        second = application.call(Rack::MockRequest.env_for("/openapi.json", "SCRIPT_NAME" => "/catalogo"))
+        assert_same first[2].first, second[2].first
+      end
+
       def test_order_puts_openapi_and_swagger_ui_between_csrf_and_auth
         order = Boto::Plugin::ORDER
         assert order.index(:csrf) < order.index(:openapi)
