@@ -8,7 +8,7 @@ module Boto
       class Run < Command
         SUMMARY = "Run the solution's services in one process"
         USAGE = "Usage: boto run [project] [--port N] [--host H]"
-        POSITION = 6
+        POSITION = 7
         SERVABLE_TEMPLATES = %i[webapi microservice].freeze
         DEFAULT_PORT = 3000
         DEFAULT_ENV = "development"

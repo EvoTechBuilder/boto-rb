@@ -1,0 +1,11 @@
+# frozen_string_literal: true
+
+class <%= constant %> < Boto::Schema
+<% if declarations.empty? -%>
+  # field :name, String
+<% else -%>
+<% declarations.each do |declaration| -%>
+  <%= declaration %>
+<% end -%>
+<% end -%>
+end

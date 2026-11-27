@@ -6,6 +6,8 @@ module Boto
   module CLI
     class Runner
       COMMAND_FORMAT = /\A[a-z]+\z/
+      # Short names typed by hand; they resolve to the command they stand for, in help too.
+      ALIASES = { "g" => "generate" }.freeze
       HELP_FLAGS = %w[-h --help].freeze
       VERSION_FLAGS = %w[-v --version version].freeze
       HELP_COMMAND = "help"
@@ -97,6 +99,7 @@ module Boto
       def command_name(command_class) = command_class.name.split("::").last.downcase
 
       def find_command(name)
+        name = ALIASES.fetch(name, name)
         return unless COMMAND_FORMAT.match?(name)
 
         const = name.capitalize

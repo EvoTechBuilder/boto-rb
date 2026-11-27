@@ -10,7 +10,7 @@ module Boto
       class Test < Command
         SUMMARY = "Run the tests of the solution's projects"
         USAGE = "Usage: boto test [project] [--affected] [--base REF]"
-        POSITION = 7
+        POSITION = 8
         CONFLICT_MESSAGE = "a project cannot be combined with --affected"
         DEFAULT_BASE = "main"
         OPTIONS = [

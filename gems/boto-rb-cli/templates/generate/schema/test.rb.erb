@@ -1,0 +1,13 @@
+# frozen_string_literal: true
+
+require "test_helper"
+
+class <%= test_class %> < Minitest::Test
+  def test_coerces_a_valid_input
+    flunk "write a valid input for <%= constant %>.coerce and assert the result"
+  end
+
+  def test_rejects_an_invalid_input
+    flunk "assert_raises(Boto::Types::Invalid) { <%= constant %>.coerce(...) } with an invalid input"
+  end
+end

@@ -9,7 +9,7 @@ module Boto
       class Openapi < Command
         SUMMARY = "Print or write the OpenAPI document of a project"
         USAGE = "Usage: boto openapi <project> [-o FILE] [--api-version V]"
-        POSITION = 8
+        POSITION = 9
         DEFAULT_API_VERSION = "0.1.0"
         SERVABLE_TEMPLATES = %i[webapi microservice].freeze
         # Documentation needs the routes, not production secrets, so the app boots as in development.

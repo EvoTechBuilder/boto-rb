@@ -1,0 +1,9 @@
+# frozen_string_literal: true
+
+require "test_helper"
+
+class <%= test_class %> < Minitest::Test
+  def test_builds_with_its_attributes
+    flunk "build <%= constant %> and assert its attributes"
+  end
+end
