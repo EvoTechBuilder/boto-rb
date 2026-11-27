@@ -4,6 +4,7 @@ require "test_helper"
 require "fileutils"
 require "json"
 require "stringio"
+require "support/fake_template_gem"
 require "tmpdir"
 
 # Named outside Commands: any constant there is listed as a command by the runner.
@@ -84,6 +85,22 @@ class Boto::CLI::OpenapiCommandTest < Minitest::Test
     assert_includes error.message, "--bogus"
   end
 
+  def test_http_gem_template_is_documented
+    with_gem_project(http: true) do |dir|
+      out = StringIO.new
+      assert_equal 0, run_command(["gemdoc"], out: out, cwd: dir)
+
+      assert_equal "gemdoc", JSON.parse(out.string).dig("info", "title")
+    end
+  end
+
+  def test_non_http_gem_template_has_no_endpoints
+    with_gem_project(http: false) do |dir|
+      error = assert_raises(Boto::CLI::Error) { run_command(["gemdoc"], cwd: dir) }
+      assert_equal %(project "gemdoc" (gemjobs) has no endpoints), error.message
+    end
+  end
+
   def test_runner_help_lists_the_command
     out = StringIO.new
     Boto::CLI::Runner.new(out: out, err: StringIO.new, cwd: self.class.solution_dir).run(["help"])
@@ -95,5 +112,20 @@ class Boto::CLI::OpenapiCommandTest < Minitest::Test
 
   def run_command(argv, out: StringIO.new, cwd: self.class.solution_dir)
     Boto::CLI::Commands::Openapi.new(argv, out: out, err: StringIO.new, cwd: cwd).call
+  end
+
+  # A fresh solution with one project from a fake gem template ("gemjobs" when not http), named "gemdoc".
+  def with_gem_project(http:)
+    template = http ? "gemweb" : "gemjobs"
+    template_gem = FakeTemplateGem.new
+    template_gem.declare(template, http: http, files: Boto::CLI::Generator.official_dir("webapi"))
+    template_gem.activate
+    Dir.mktmpdir do |root|
+      dir = self.class.create_solution(root)
+      Boto::CLI::Commands::Add.new([template, "gemdoc"], cwd: dir, out: StringIO.new, err: StringIO.new).call
+      yield dir
+    end
+  ensure
+    template_gem&.cleanup
   end
 end

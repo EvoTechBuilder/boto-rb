@@ -57,6 +57,8 @@ module Boto
 
       private
 
+      def http_template_names = Boto::Templates.all.select(&:http).map(&:name)
+
       def solution
         path = File.join(cwd, BOTOFILE_NAME)
         raise Error, "Botofile not found in #{cwd}" unless File.file?(path)

@@ -84,7 +84,7 @@ module Boto
       def option(key) = @options.fetch(key)
 
       def invalid!(reason)
-        raise ArgumentError, "#{@path}: #{reason}"
+        raise ::Boto::Templates::InvalidTemplateError, "#{@path}: #{reason}"
       end
     end
   end

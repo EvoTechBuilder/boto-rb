@@ -12,7 +12,7 @@ module Boto
         def call
           name = name_argument
           ensure_available!(name)
-          files = Generator.new(TEMPLATE).generate(
+          files = Generator.new(Generator.official_dir(TEMPLATE)).generate(
             File.join(cwd, name),
             name: name, ruby_version: RUBY_VERSION, boto_version: Boto::CLI::VERSION
           )

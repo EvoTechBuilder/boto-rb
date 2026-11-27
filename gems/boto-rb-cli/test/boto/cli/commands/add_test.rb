@@ -4,10 +4,23 @@ require "test_helper"
 require "fileutils"
 require "rack/mock"
 require "stringio"
+require "support/fake_template_gem"
 require "tmpdir"
 
 # Named outside Commands: any constant there is listed as a command by the runner.
 class Boto::CLI::AddCommandTest < Minitest::Test
+  def setup
+    @gem = FakeTemplateGem.new
+    @gem.write_file("demo", "config/app.rb.erb",
+                    "namespace=<%= namespace %> refs=<%= refs.inspect %> template=<%= template.inspect %>\n")
+    @gem.declare("demo", http: true)
+    @gem.activate
+  end
+
+  def teardown
+    @gem.cleanup
+  end
+
   def test_webapi_generates_endpoint_and_helper
     with_solution do |dir|
       out = StringIO.new
@@ -124,11 +137,83 @@ class Boto::CLI::AddCommandTest < Minitest::Test
     end
   end
 
-  def test_unknown_template_raises
+  def test_unknown_template_lists_the_registry
+    with_solution do |dir|
+      error = assert_raises(Boto::CLI::Error) { add_command(%w[nope x], cwd: dir).call }
+      assert_equal Boto::Templates.unknown_message("nope"), error.message
+    end
+  end
+
+  def test_template_without_files_raises
     with_solution do |dir|
       error = assert_raises(Boto::CLI::Error) { add_command(%w[worker x], cwd: dir).call }
-      assert_equal %(unknown template "worker" (available: webapi, library)), error.message
+      assert_equal "template :worker has no files yet", error.message
+      refute File.exist?(File.join(dir, "workers/x"))
     end
+  end
+
+  def test_gem_template_generates_files_and_declares_project
+    with_solution do |dir|
+      out = StringIO.new
+      assert_equal 0, add_command(%w[demo x], cwd: dir, out: out).call
+
+      assert_equal "namespace=X refs=[] template=:demo\n", read(dir, "apps/x/config/app.rb")
+      assert_includes out.string, "create apps/x/config/app.rb"
+      assert_includes read(dir, "Botofile"), %(project "x", template: :demo)
+    end
+  end
+
+  def test_refs_are_written_to_the_botofile_and_the_templates
+    with_solution do |dir|
+      add_command(%w[library dominio], cwd: dir).call
+      add_command(%w[library faturas], cwd: dir).call
+
+      add_command(%w[demo pedidos --refs dominio,faturas], cwd: dir).call
+
+      assert_includes read(dir, "Botofile"), %(project "pedidos", template: :demo, refs: %w[dominio faturas])
+      assert_equal "namespace=Pedidos refs=[\"dominio\", \"faturas\"] template=:demo\n",
+                   read(dir, "apps/pedidos/config/app.rb")
+      assert_equal %w[dominio faturas pedidos], projects(dir)
+    end
+  end
+
+  def test_unknown_ref_raises_and_writes_nothing
+    with_solution do |dir|
+      botofile = read(dir, "Botofile")
+
+      error = assert_raises(Boto::CLI::Error) { add_command(%w[demo x --refs ghost], cwd: dir).call }
+
+      assert_equal %(unknown project "ghost"), error.message
+      assert_equal botofile, read(dir, "Botofile")
+      refute File.exist?(File.join(dir, "apps/x"))
+    end
+  end
+
+  def test_empty_ref_in_list_raises
+    with_solution do |dir|
+      error = assert_raises(Boto::CLI::Error) { add_command(%w[demo x --refs a,,b], cwd: dir).call }
+      assert_equal %(invalid refs "a,,b"), error.message
+    end
+  end
+
+  def test_invalid_botofile_line_writes_nothing
+    with_solution do |dir|
+      add_command(%w[library dominio], cwd: dir).call
+      botofile = read(dir, "Botofile")
+
+      assert_raises(Boto::Botofile::InvalidError) { add_command(%w[demo x --refs dominio,dominio], cwd: dir).call }
+
+      assert_equal botofile, read(dir, "Botofile")
+      refute File.exist?(File.join(dir, "apps/x"))
+    end
+  end
+
+  def test_help_lists_only_templates_with_files
+    help = Boto::CLI::Commands::Add.help
+
+    assert_includes help, "Usage: boto add <template> <name> [--refs a,b]"
+    assert_includes help, "Templates: demo, library, webapi"
+    refute_includes help, "worker"
   end
 
   def test_invalid_name_raises
@@ -162,7 +247,7 @@ class Boto::CLI::AddCommandTest < Minitest::Test
     with_solution do |dir|
       [[], ["webapi"]].each do |argv|
         error = assert_raises(Boto::CLI::Error) { add_command(argv, cwd: dir).call }
-        assert_equal "Usage: boto add <webapi|library> <name>", error.message
+        assert_equal Boto::CLI::Commands::Add::USAGE, error.message
       end
     end
   end

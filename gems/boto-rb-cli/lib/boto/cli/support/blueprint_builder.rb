@@ -10,7 +10,6 @@ module Boto
       KINDS = [*Blueprint::KINDS.keys, REPOSITORY_KIND, MIGRATION_KIND].freeze
       ENDPOINT_USAGE = "Usage: boto generate endpoint <project> <name> <verb> <path> [param:type ...] " \
                        "[--body NAME] [--returns NAME]"
-      LIBRARY_TEMPLATE = :library
       NO_FIELD_KINDS = ["operation", REPOSITORY_KIND, MIGRATION_KIND].freeze
       TYPE_HINT = "use string, integer, float, boolean, date, time, [type] or the name of a schema in schemas/"
 
@@ -100,9 +99,9 @@ module Boto
       end
 
       def ensure_http!
-        return unless @project.template == LIBRARY_TEMPLATE
+        return if Boto::Templates.http?(@project.template)
 
-        raise Error, "endpoints are only generated for HTTP projects (#{@project.name} is a library)"
+        raise Error, "endpoints are only generated for HTTP projects (#{@project.name} uses :#{@project.template})"
       end
     end
   end

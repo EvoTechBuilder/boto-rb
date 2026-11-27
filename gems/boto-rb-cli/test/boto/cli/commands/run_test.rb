@@ -6,6 +6,7 @@ require "fileutils"
 require "json"
 require "rack/mock"
 require "stringio"
+require "support/fake_template_gem"
 require "tmpdir"
 
 # Named outside Commands: any constant there is listed as a command by the runner.
@@ -178,8 +179,45 @@ class Boto::CLI::RunCommandTest < Minitest::Test
       dir = self.class.create_solution(root, [["library", LIBRARY]])
 
       error = assert_raises(Boto::CLI::Error) { run_command([], cwd: dir) }
-      assert_equal "no servable projects (webapi, microservice)", error.message
+      assert_equal "no servable projects (microservice, web, webapi)", error.message
     end
+  end
+
+  def test_serves_a_project_from_an_http_gem_template
+    with_template_gems("gemweb" => true) do
+      Dir.mktmpdir do |root|
+        dir = self.class.create_solution(root, [["gemweb", "gemrun"]])
+
+        assert_equal 0, run_command(["gemrun"], cwd: dir)
+        assert_equal [3000], @server.apps_by_port.keys
+      end
+    end
+  end
+
+  def test_refuses_a_non_http_gem_template
+    with_template_gems("gemjobs" => false) do
+      Dir.mktmpdir do |root|
+        dir = self.class.create_solution(root, [["gemjobs", "gemrun"]])
+
+        error = assert_raises(Boto::CLI::Error) { run_command(["gemrun"], cwd: dir) }
+        assert_equal %(project "gemrun" (gemjobs) cannot be served), error.message
+      end
+    end
+  end
+
+  def test_invalid_template_declaration_exits_with_a_message
+    template_gem = FakeTemplateGem.new
+    template_gem.write_declaration("broken", %(Boto::Template.define(:broken) { |t| t.folder "nope" }\n))
+    template_gem.activate
+    err = StringIO.new
+
+    status = Boto::CLI::Runner.new(out: StringIO.new, err: err, cwd: self.class.solution_dir).run(%w[run])
+
+    assert_equal 1, status
+    assert_equal 1, err.string.lines.size
+    assert_match(/\Aboto: .*folder must be one of apps, libs, workers/, err.string)
+  ensure
+    template_gem&.cleanup
   end
 
   def test_interrupt_stops_the_server_and_succeeds
@@ -317,6 +355,17 @@ class Boto::CLI::RunCommandTest < Minitest::Test
         config.use Boto::CLI::RunCommandTest::LifecycleRecorder
       end
     RUBY
+  end
+
+  # Declares one template per entry ({ name => http }) in a fake gem whose files are the official webapi ones.
+  def with_template_gems(declarations)
+    template_gem = FakeTemplateGem.new
+    files = Boto::CLI::Generator.official_dir("webapi")
+    declarations.each { |name, http| template_gem.declare(name, http: http, files: files) }
+    template_gem.activate
+    yield
+  ensure
+    template_gem&.cleanup
   end
 
   def run_command(argv, cwd: self.class.solution_dir, out: StringIO.new, server_class: FakeServer, env: {})

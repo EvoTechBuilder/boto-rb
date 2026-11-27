@@ -3,6 +3,7 @@
 require "test_helper"
 require "fileutils"
 require "stringio"
+require "support/fake_template_gem"
 require "tmpdir"
 
 # Named outside Commands: any constant there is listed as a command by the runner.
@@ -359,7 +360,21 @@ class Boto::CLI::GenerateCommandTest < Minitest::Test
 
     error = assert_raises(Boto::CLI::Error) { generate(%w[endpoint dominio products/show get /products/:id]) }
 
-    assert_equal "endpoints are only generated for HTTP projects (dominio is a library)", error.message
+    assert_equal "endpoints are only generated for HTTP projects (dominio uses :library)", error.message
+  end
+
+  def test_endpoint_is_refused_for_a_non_http_gem_template
+    template_gem = FakeTemplateGem.new
+    template_gem.write_file("batch", ".keep", "")
+    template_gem.declare("batch", http: false)
+    template_gem.activate
+    Boto::CLI::Commands::Add.new(["batch", "jobs"], cwd: @dir, out: @out, err: @err).call
+
+    error = assert_raises(Boto::CLI::Error) { generate(%w[endpoint jobs products/show get /products/:id]) }
+
+    assert_equal "endpoints are only generated for HTTP projects (jobs uses :batch)", error.message
+  ensure
+    template_gem&.cleanup
   end
 
   def test_operation_writes_the_module_and_its_test

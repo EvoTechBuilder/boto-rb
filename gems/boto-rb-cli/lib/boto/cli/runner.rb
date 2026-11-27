@@ -6,6 +6,11 @@ module Boto
   module CLI
     class Runner
       COMMAND_FORMAT = /\A[a-z]+\z/
+      # Raised while the template registry loads, from a template.rb the user's gems ship.
+      TEMPLATE_ERRORS = [
+        Boto::Templates::UnknownTemplateError, Boto::Templates::DuplicateTemplateError,
+        Boto::Templates::InvalidTemplateError
+      ].freeze
       # Short names typed by hand; they resolve to the command they stand for, in help too.
       ALIASES = { "g" => "generate" }.freeze
       HELP_FLAGS = %w[-h --help].freeze
@@ -37,7 +42,7 @@ module Boto
         return run_help(rest.first) if name == HELP_COMMAND
 
         run_command(name, rest)
-      rescue Error, Botofile::InvalidError, IsolationError, LegacyLayoutError => error
+      rescue Error, Botofile::InvalidError, IsolationError, LegacyLayoutError, *TEMPLATE_ERRORS => error
         @err.puts "boto: #{error.message}"
         Command::FAILURE
       end

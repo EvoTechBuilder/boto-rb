@@ -9,7 +9,6 @@ module Boto
         SUMMARY = "Run the solution's services in one process"
         USAGE = "Usage: boto run [project] [--port N] [--host H]"
         POSITION = 7
-        SERVABLE_TEMPLATES = %i[webapi microservice].freeze
         DEFAULT_PORT = 3000
         DEFAULT_ENV = "development"
         ENV_VARIABLE = "BOTO_ENV"
@@ -100,7 +99,7 @@ module Boto
           return [named_project(plan, name)] if name
 
           servable = plan.topological_order.select { |project| servable?(project) }
-          raise Error, "no servable projects (#{SERVABLE_TEMPLATES.join(", ")})" if servable.empty?
+          raise Error, "no servable projects (#{http_template_names.join(", ")})" if servable.empty?
 
           servable
         end
@@ -114,7 +113,7 @@ module Boto
         end
 
         def servable?(project)
-          SERVABLE_TEMPLATES.include?(project.template)
+          Boto::Templates.http?(project.template)
         end
 
         # Ports follow the topological order, so a dependency always gets the lower port.

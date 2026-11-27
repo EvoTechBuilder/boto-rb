@@ -7,6 +7,8 @@ module Boto
     class DuplicateTemplateError < Error; end
     class ClosedRegistryError < Error; end
     class UnknownTemplateError < KeyError; end
+    # Still an ArgumentError, so callers that rescue the generic error keep working.
+    class InvalidTemplateError < ArgumentError; end
 
     GEM_PATTERN = "boto/templates/*/template.rb"
     # Loading runs declarations that call back into the registry, so the lock must not be taken there.
