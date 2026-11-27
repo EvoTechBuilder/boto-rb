@@ -4,6 +4,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-26
+
 ### Added
 
 - `boto run` reloads code changes in development: the first request after a change in `endpoints/`, `schemas/`, `operations/`, `models/` or `config/` of any project rebuilds the solution in the same process (isolation check, `config/app.rb`, plugins and routes included). A failed reload answers `500` problem JSON with the error until the next change. A `Botofile` that adds, removes or retemplates a project, or a `Gemfile` change, prints a restart notice instead. `--no-reload` turns it off; outside development it is always off.
