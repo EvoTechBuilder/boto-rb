@@ -57,6 +57,8 @@ Open source, sob a licença [MIT](LICENSE), mantido pela
   - [Configurando plugins](#plugins)
   - [Plugins disponíveis](#plugins-disponíveis)
   - [Ordem de execução](#ordem-de-execução)
+  - [Configuração por ambiente](#configuração-por-ambiente)
+  - [Variáveis e arquivos `.env`](#variáveis-e-arquivos-env)
   - [OpenAPI e Swagger UI](#openapi-e-swagger-ui)
 - **Operação**
   - [Rodando a solution](#rodando-a-solution)
@@ -344,9 +346,65 @@ end
 ```
 
 > [!NOTE]
-> Segredos entram como lambdas (`-> { ENV.fetch(...) }`), lidas uma vez no
+> Segredos entram como lambdas (`-> { app.env.fetch(...) }`), lidas uma vez no
 > boot. Opções inválidas e segredos ausentes fazem o boot falhar com uma
 > mensagem clara, não o primeiro request.
+
+### Configuração por ambiente
+
+O `config/app.rb` vale para todos os ambientes, e o
+`config/environments/<BOTO_ENV>.rb` ajusta o que muda. Um `app.use` no arquivo
+do ambiente mescla as opções com o geral, e `app.remove` tira um plugin:
+
+```ruby
+# config/app.rb
+Boto.configure do |app|
+  app.use :auth, strategy: :bearer, tokens: -> { app.env.fetch("API_TOKENS").split(",") }
+  app.use :rate_limit, limit: 300, period: 60
+end
+
+# config/environments/development.rb
+Boto.configure do |app|
+  app.use :auth, tokens: %w[dev-token]   # só troca os tokens; strategy continua :bearer
+  app.use :swagger_ui                    # plugin só do dev
+end
+
+# config/environments/test.rb
+Boto.configure do |app|
+  app.use :auth, tokens: %w[test-token]
+  app.remove :rate_limit
+end
+```
+
+Os plugins são criados no fim, já com as opções finais. Por isso a lambda de
+produção do `app.rb` nem roda em development quando o ambiente a substitui.
+
+### Variáveis e arquivos `.env`
+
+O Boto lê os arquivos `.env` sozinho. Vence o primeiro que tiver a chave:
+
+1. as variáveis já exportadas no processo (shell, CI, orquestrador);
+2. `.env.<env>.local`;
+3. `.env.local` (não é lido no `test`);
+4. `.env.<env>`;
+5. `.env`.
+
+- **`.env` da solution (raiz):** compartilhados, também vão para o `ENV`, sem
+  sobrescrever.
+- **`.env` de cada projeto (`apps/<projeto>/`):** ficam só no `app.env`
+  daquele projeto. Assim `catalogo` e `pedidos` podem ter cada um o seu
+  `DATABASE_URL`, mesmo no mesmo `boto run`.
+- **`app.env` em qualquer lugar do projeto:**
+  ```ruby
+  app.use :cors, origins: app.env.fetch("CORS_ORIGINS", "").split(",")      # config
+  def call = { url: app.env.fetch("FRONTEND_URL") }              # endpoint ou operation
+  Catalogo.app.env.fetch("FRONTEND_URL")                         # qualquer código do projeto
+  ```
+- **Formato:** `CHAVE=valor`, `export`, comentários, aspas simples (literal)
+  e duplas (`\n`, `\t`). Não há interpolação nem `$(comando)`: ler um `.env`
+  nunca executa nada.
+- **Git:** o `.gitignore` do `boto new` ignora todos os `.env*`, exceto o
+  `.env.example`.
 
 ### Plugins disponíveis
 

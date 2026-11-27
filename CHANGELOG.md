@@ -4,6 +4,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- `config/environments/<env>.rb`: read after `config/app.rb` for the current `BOTO_ENV`. `app.use` of a plugin already declared in `config/app.rb` merges its options, a new plugin is added, and `app.remove :name` drops one. Plugins are built once, with the final options, so a production-only lambda in `config/app.rb` does not run when the environment file replaces it.
+- `.env` files are read at boot with this precedence: process variables, `.env.<env>.local`, `.env.local` (skipped in test), `.env.<env>`, `.env`. The solution's files also reach `ENV` without overwriting it; each project's files stay in its own `app.env`, so two projects can have different values for the same key in one `boto run`. The parser takes `KEY=value`, `export`, comments and quotes, with no interpolation or command substitution.
+- `app.env` in `config/` files, `#app` in endpoints and operations, and `<Project>.app` anywhere in the project (`env`, `env_name`, `name`).
+- `boto new` ignores every `.env*` file except `.env.example`. Existing solutions can add these lines to `.gitignore`:
+  ```
+  .env
+  .env.local
+  .env.*
+  !.env.example
+  ```
+
+### Changed
+
+- The `webapi` template writes `config/environments/{development,test,production}.rb` instead of `if app.env_name == ...` in `config/app.rb`, and its `test_helper.rb` no longer sets `API_TOKENS`.
+- `BOTO_ENV` must match `[a-z][a-z0-9_]*`; any other value fails the boot.
+
 ## [0.15.0] - 2026-11-27
 
 ### Added

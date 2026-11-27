@@ -98,9 +98,10 @@ que o move para `apps/`.
 apps/pedidos/
 ├── pedidos.gemspec      # gerenciado pelo Boto
 ├── config/
-│   ├── app.rb           # plugins
-│   ├── settings.rb      # config tipada via env
+│   ├── app.rb           # plugins (todos os ambientes)
+│   ├── environments/    # development.rb, test.rb, production.rb: mesclam com o app.rb
 │   └── credentials.yml.enc
+├── .env*                # variáveis do projeto (só no app.env dele); fora do git
 ├── endpoints/           # um endpoint por classe
 ├── schemas/             # contratos de entrada/saída
 ├── operations/          # regras de negócio: subclasses de Boto::Operation, .call devolve Result
