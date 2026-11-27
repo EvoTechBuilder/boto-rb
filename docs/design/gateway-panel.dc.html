@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Boto gateway panel</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#f6f6f7}
+a{color:#1f1f24}a:hover{color:#cc342d}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #f6f6f7; color: #1f1f24; font-family: 'Avenir Next', Avenir, 'Segoe UI Variable Display', 'Segoe UI', system-ui, sans-serif; font-size: 15px; line-height: 1.5">
+
+  <header style="background: #1f1f24; color: #ffffff">
+    <div style="max-width: 1120px; margin: 0 auto; padding: 14px 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+      <div style="display: flex; align-items: center; gap: 12px">
+        <svg width="28" height="28" viewBox="0 0 64 64" aria-hidden="true"><polygon points="16,10 48,10 60,24 4,24" fill="#e0473f"></polygon><polygon points="4,24 60,24 32,56" fill="#cc342d"></polygon><path d="M16 10 L24 24 L32 56 L40 24 L48 10" stroke="#ffffff" stroke-opacity="0.45" stroke-width="1.5" stroke-linecap="round" fill="none"></path></svg>
+        <span style="font-size: 20px; font-weight: 700; letter-spacing: -0.3px">Boto</span>
+        <span style="color: #a1a1aa">/</span>
+        <span style="font-size: 16px; font-weight: 600">gateway borda</span>
+        <span style="font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; background: #3f3f46; color: #fde68a">development</span>
+      </div>
+      <nav aria-label="Panel links" style="display: flex; flex-wrap: wrap; align-items: center; gap: 20px; font-size: 14px">
+        <span style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; color: #d4d4d8">localhost:3000</span>
+        <a href="#" style="color: #ffffff">services.json</a>
+      </nav>
+    </div>
+  </header>
+
+  <main style="max-width: 1120px; margin: 0 auto; padding: 32px 24px 48px; display: flex; flex-direction: column; gap: 28px">
+
+    <section aria-label="Summary" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px">
+      <div style="background: #ffffff; border: 1px solid #e4e4e7; border-radius: 12px; padding: 16px 20px">
+        <div style="font-size: 13px; color: #52525b">Services</div>
+        <div style="font-size: 28px; font-weight: 700">3</div>
+      </div>
+      <div style="background: #ffffff; border: 1px solid #e4e4e7; border-radius: 12px; padding: 16px 20px">
+        <div style="font-size: 13px; color: #52525b">Ready</div>
+        <div style="font-size: 28px; font-weight: 700; color: #166534">1</div>
+      </div>
+      <div style="background: #ffffff; border: 1px solid #e4e4e7; border-radius: 12px; padding: 16px 20px">
+        <div style="font-size: 13px; color: #52525b">Not ready</div>
+        <div style="font-size: 28px; font-weight: 700; color: #b42318">1</div>
+      </div>
+      <div style="background: #ffffff; border: 1px solid #e4e4e7; border-radius: 12px; padding: 16px 20px">
+        <div style="font-size: 13px; color: #52525b">Routes</div>
+        <div style="font-size: 28px; font-weight: 700">11</div>
+      </div>
+    </section>
+
+    <section aria-labelledby="solution-env-title" style="background: #ffffff; border: 1px solid #e4e4e7; border-radius: 14px; overflow: hidden">
+      <details open="">
+        <summary style="padding: 16px 22px; cursor: pointer; display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px">
+          <h2 id="solution-env-title" style="display: inline; margin: 0; font-size: 19px; font-weight: 700">Solution environment</h2>
+          <span style="font-size: 13px; color: #52525b">{{ solutionEnvCount }} · loaded into ENV, shared by every project</span>
+        </summary>
+        <div style="padding: 0 22px 16px; overflow-x: auto">
+          <table style="width: 100%; border-collapse: collapse; font-size: 14px">
+            <thead>
+              <tr style="text-align: left; color: #52525b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.6px">
+                <th scope="col" style="padding: 6px 12px 6px 0; font-weight: 600">Name</th>
+                <th scope="col" style="padding: 6px 12px 6px 0; font-weight: 600">Value</th>
+                <th scope="col" style="padding: 6px 0; font-weight: 600">Source</th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{ solutionEnv }}" as="v" hint-placeholder-count="3">
+                <tr style="border-top: 1px solid #f0f0f1">
+                  <td style="padding: 9px 12px 9px 0; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-weight: 600; white-space: nowrap">{{ v.name }}</td>
+                  <td style="padding: 9px 12px 9px 0; font-family: ui-monospace, 'SF Mono', Menlo, monospace; white-space: nowrap">
+                    <span>{{ v.value }}</span>
+                    <sc-if value="{{ v.masked }}" hint-placeholder-val="{{ false }}"><span style="margin-left: 8px; font-family: 'Avenir Next', Avenir, 'Segoe UI', system-ui, sans-serif; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: #f4f4f5; color: #52525b; border: 1px solid #e4e4e7">masked</span></sc-if>
+                  </td>
+                  <td style="padding: 9px 0; font-family: ui-monospace, 'SF Mono', Menlo, monospace; color: #52525b; white-space: nowrap">{{ v.source }}</td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </section>
+
+    <section aria-labelledby="services-title" style="display: flex; flex-direction: column; gap: 20px">
+      <div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px">
+        <h1 id="services-title" style="margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.3px">Services</h1>
+        <span style="font-size: 13px; color: #52525b">Health checked in-process at page load</span>
+      </div>
+
+      <sc-for list="{{ services }}" as="s" hint-placeholder-count="3">
+        <article style="background: #ffffff; border: 1px solid #e4e4e7; border-radius: 14px; overflow: hidden">
+          <div style="padding: 18px 22px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid #f0f0f1">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+              <h2 style="margin: 0; font-size: 19px; font-weight: 700">{{ s.name }}</h2>
+              <span style="font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; background: #f4f4f5; color: #3f3f46; border: 1px solid #e4e4e7">{{ s.template }}</span>
+              <code style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 14px; padding: 2px 8px; border-radius: 6px; background: #fdf2f1; color: #9f2a24">{{ s.prefix }}</code>
+              <a href="#" style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 14px">{{ s.portUrl }}</a>
+              <span style="font-size: 12px; color: #52525b">{{ s.portNote }}</span>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; font-size: 14px">
+              <sc-if value="{{ s.ready }}" hint-placeholder-val="{{ true }}">
+                <span style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: #166534"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="#16a34a"></circle><path d="M5 8.2 L7.1 10.2 L11 6" stroke="#ffffff" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>Ready</span>
+              </sc-if>
+              <sc-if value="{{ s.failing }}" hint-placeholder-val="{{ false }}">
+                <span style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: #b42318"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="#dc2626"></circle><path d="M5.5 5.5 L10.5 10.5 M10.5 5.5 L5.5 10.5" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"></path></svg>Not ready</span>
+              </sc-if>
+              <sc-if value="{{ s.noHealth }}" hint-placeholder-val="{{ false }}">
+                <span style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: #52525b"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" stroke="#71717a" stroke-width="1.6" fill="none"></circle><path d="M5.5 8 H10.5" stroke="#71717a" stroke-width="1.6" stroke-linecap="round"></path></svg>No health check</span>
+              </sc-if>
+              <a href="#" style="font-weight: 600">OpenAPI</a>
+              <sc-if value="{{ s.swagger }}" hint-placeholder-val="{{ true }}">
+                <a href="#" style="font-weight: 600">Swagger</a>
+              </sc-if>
+            </div>
+          </div>
+
+          <sc-if value="{{ s.failing }}" hint-placeholder-val="{{ false }}">
+            <div style="margin: 14px 22px 0; padding: 10px 14px; border-radius: 8px; background: #fef3f2; border: 1px solid #fecdca; color: #912018; font-size: 14px; font-family: ui-monospace, 'SF Mono', Menlo, monospace">{{ s.healthDetail }}</div>
+          </sc-if>
+
+          <div style="padding: 8px 22px 16px; overflow-x: auto">
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px">
+              <caption style="text-align: left; padding: 8px 0; font-size: 13px; color: #52525b">{{ s.routeCount }}</caption>
+              <thead>
+                <tr style="text-align: left; color: #52525b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.6px">
+                  <th scope="col" style="padding: 6px 12px 6px 0; width: 90px; font-weight: 600">Method</th>
+                  <th scope="col" style="padding: 6px 12px 6px 0; font-weight: 600">Path</th>
+                  <th scope="col" style="padding: 6px 0; font-weight: 600">Endpoint</th>
+                </tr>
+              </thead>
+              <tbody>
+                <sc-for list="{{ s.routes }}" as="r" hint-placeholder-count="3">
+                  <tr style="border-top: 1px solid #f0f0f1">
+                    <td style="padding: 9px 12px 9px 0"><span style="display: inline-block; min-width: 58px; text-align: center; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: {{ r.bg }}; color: {{ r.fg }}">{{ r.verb }}</span></td>
+                    <td style="padding: 9px 12px 9px 0; font-family: ui-monospace, 'SF Mono', Menlo, monospace; white-space: nowrap"><span style="color: #71717a">{{ s.prefix }}</span>{{ r.path }}</td>
+                    <td style="padding: 9px 0; font-family: ui-monospace, 'SF Mono', Menlo, monospace; color: #52525b; white-space: nowrap">{{ r.endpoint }}</td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+
+          <details open="{{ s.envOpen }}" style="border-top: 1px solid #f0f0f1">
+            <summary style="padding: 12px 22px; cursor: pointer; font-size: 14px; font-weight: 600">Environment <span style="font-weight: 400; color: #52525b">· {{ s.envCount }} · app.env, this project only</span></summary>
+            <div style="padding: 0 22px 16px; overflow-x: auto">
+              <table style="width: 100%; border-collapse: collapse; font-size: 14px">
+                <thead>
+                  <tr style="text-align: left; color: #52525b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.6px">
+                    <th scope="col" style="padding: 6px 12px 6px 0; font-weight: 600">Name</th>
+                    <th scope="col" style="padding: 6px 12px 6px 0; font-weight: 600">Value</th>
+                    <th scope="col" style="padding: 6px 0; font-weight: 600">Source</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <sc-for list="{{ s.env }}" as="v" hint-placeholder-count="2">
+                    <tr style="border-top: 1px solid #f0f0f1">
+                      <td style="padding: 9px 12px 9px 0; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-weight: 600; white-space: nowrap">{{ v.name }}</td>
+                      <td style="padding: 9px 12px 9px 0; font-family: ui-monospace, 'SF Mono', Menlo, monospace; white-space: nowrap">
+                        <span>{{ v.value }}</span>
+                        <sc-if value="{{ v.masked }}" hint-placeholder-val="{{ false }}"><span style="margin-left: 8px; font-family: 'Avenir Next', Avenir, 'Segoe UI', system-ui, sans-serif; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: #f4f4f5; color: #52525b; border: 1px solid #e4e4e7">masked</span></sc-if>
+                      </td>
+                      <td style="padding: 9px 0; font-family: ui-monospace, 'SF Mono', Menlo, monospace; color: #52525b; white-space: nowrap">{{ v.source }}</td>
+                    </tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </article>
+      </sc-for>
+    </section>
+
+    <footer style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; font-size: 13px; color: #52525b; border-top: 1px solid #e4e4e7; padding-top: 16px">
+      <span>boto-rb-gateway 0.18.0</span>
+      <span>This panel is on in development only</span>
+    </footer>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const verbs = {
+      GET: ['#e0ecff', '#1e40af'],
+      POST: ['#dcfce7', '#166534'],
+      PUT: ['#ffedd5', '#9a3412'],
+      PATCH: ['#ffedd5', '#9a3412'],
+      DELETE: ['#fee2e2', '#991b1b'],
+      QUERY: ['#ede9fe', '#5b21b6']
+    };
+    const route = (verb, path, endpoint) => ({ verb, path, endpoint, bg: verbs[verb][0], fg: verbs[verb][1] });
+    const variables = (n) => n === 1 ? '1 variable' : n + ' variables';
+    const env = (name, value, source, masked = false) => ({ name, value, source, masked });
+    const service = (s) => ({
+      ...s,
+      ready: s.health === 'ready',
+      failing: s.health === 'failing',
+      noHealth: s.health === 'none',
+      routeCount: s.routes.length === 1 ? '1 route' : s.routes.length + ' routes',
+      envCount: variables(s.env.length),
+      portUrl: 'localhost:' + s.port,
+      portNote: s.randomPort ? 'random port' : 'fixed PORT'
+    });
+    const solutionEnv = [
+      env('BOTO_ENV', 'development', 'process'),
+      env('FRONTEND_URL', 'http://localhost:5173', '.env'),
+      env('REDIS_URL', 'redis://localhost:6379/0', '.env.development'),
+      env('SENTRY_DSN', '••••••••', '.env.local', true)
+    ];
+    return {
+      solutionEnv,
+      solutionEnvCount: variables(solutionEnv.length),
+      services: [
+        service({
+          name: 'catalogo', template: 'webapi', prefix: '/catalogo', health: 'ready', swagger: true, envOpen: true, port: 4101,
+          env: [
+            env('PORT', '4101', '.env'),
+            env('DATABASE_URL', 'postgres://catalogo:••••••••@localhost/catalogo_dev', '.env.development', true),
+            env('PAGE_SIZE', '20', '.env'),
+            env('IMAGES_BUCKET', 'catalogo-dev', '.env.development.local')
+          ],
+          routes: [
+            route('GET', '/products', 'Catalogo::Products::Index'),
+            route('GET', '/products/:id', 'Catalogo::Products::Show'),
+            route('POST', '/products', 'Catalogo::Products::Create'),
+            route('PATCH', '/products/:id', 'Catalogo::Products::Update'),
+            route('DELETE', '/products/:id', 'Catalogo::Products::Destroy'),
+            route('QUERY', '/products/search', 'Catalogo::Products::Search')
+          ]
+        }),
+        service({
+          name: 'users', template: 'webapi', prefix: '/contas', health: 'failing', swagger: false,
+          healthDetail: 'database: Sequel::DatabaseConnectionError (connection refused)', envOpen: false, port: 53817, randomPort: true,
+          env: [
+            env('PORT', '53817', 'boto run (PORT=0)'),
+            env('DATABASE_URL', 'postgres://users:••••••••@localhost:5433/users_dev', '.env.development', true),
+            env('JWT_SECRET', '••••••••', '.env.local', true)
+          ],
+          routes: [
+            route('POST', '/sessions', 'Users::Sessions::Create'),
+            route('GET', '/users/:id', 'Users::Users::Show'),
+            route('PUT', '/users/:id', 'Users::Users::Update')
+          ]
+        }),
+        service({
+          name: 'pedidos', template: 'webapi', prefix: '/pedidos', health: 'none', swagger: false, envOpen: false, port: 61042, randomPort: true,
+          env: [
+            env('PORT', '61042', 'boto run'),
+            env('PAYMENT_API_URL', 'https://sandbox.payments.example', '.env.development'),
+            env('PAYMENT_API_KEY', '••••••••', '.env.local', true)
+          ],
+          routes: [
+            route('GET', '/orders/:id', 'Pedidos::Orders::Show'),
+            route('POST', '/orders', 'Pedidos::Orders::Create')
+          ]
+        })
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>
