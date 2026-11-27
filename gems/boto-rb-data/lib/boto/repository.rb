@@ -5,8 +5,16 @@ module Boto
   # direct subclass of Boto::Repository, because the boot check finds them through Class#subclasses.
   class Repository
     extend Reading
+    extend Writing
+
+    DEFAULT_CLOCK = -> { Time.now }
 
     class << self
+      # Replaced in tests, so timestamps can be checked without waiting on the real time.
+      attr_writer :clock
+
+      def clock = @clock || DEFAULT_CLOCK
+
       # Defines find_by_<member> for every member here, at boot, so no request reflects on the entity.
       def entity(entity_class)
         @mapper = Boto::Database::EntityMapper.new(entity_class)
