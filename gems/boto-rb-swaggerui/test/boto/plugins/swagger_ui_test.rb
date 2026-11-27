@@ -43,7 +43,7 @@ module Boto
       HTML = "text/html; charset=utf-8"
       IMMUTABLE = "public, max-age=31536000, immutable"
       NO_CACHE = "no-cache"
-      ASSETS_VERSION = Boto::SwaggerUi::Assets.load.version
+      ASSETS_VERSION = "#{Boto::SwaggerUi::Assets.load.version}-#{Boto::SwaggerUi::VERSION}"
       ASSET_HEADERS = {
         "swagger-ui.css" => [CSS, IMMUTABLE],
         "swagger-ui-bundle.js" => [JS, IMMUTABLE],
@@ -144,6 +144,10 @@ module Boto
 
       def test_page_title_defaults_to_the_namespace
         assert_includes get(app, "/docs").body, "<title>SwaggerUiFakes::Shop</title>"
+      end
+
+      def test_asset_urls_carry_the_swagger_ui_and_gem_versions
+        assert_includes get(app, "/docs").body, "/docs/assets/5.36.0-#{Boto::SwaggerUi::VERSION}/boto.css"
       end
 
       def test_brand_assets_are_served_immutable

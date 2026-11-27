@@ -8,6 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - `app.use :openapi` takes `title:` (default: the project namespace) and `description:` (left out when not given) for the document's `info`.
 - The `:swagger_ui` page shows the Swagger UI topbar (document URL and Explore) with a ruby drawn for Boto and the Boto name instead of the Swagger logo, and takes its title from the `:openapi` `title:`. `swagger-ui-standalone-preset.js` (swagger-ui-dist 5.36.0) is now vendored too.
+- The Boto name on the `:swagger_ui` topbar uses a display font that ships with the OS (Avenir Next, Segoe UI Variable Display, Montserrat...), with no font download.
+
+### Fixed
+
+- `:swagger_ui` asset URLs carry the gem version next to the Swagger UI version (`/docs/assets/5.36.0-0.12.0/`), so a new `boto.css` or `ruby.svg` reaches browsers that cached the old one as immutable.
 
 ## [0.12.0] - 2026-11-26
 

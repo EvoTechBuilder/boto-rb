@@ -7,5 +7,8 @@
   background: url("ruby.svg") no-repeat center / contain;
 }
 .swagger-ui .topbar .topbar-wrapper .link::after {
-  content: "Boto"; color: #fff; font-family: sans-serif; font-size: 1.75em; font-weight: 600;
+  content: "Boto"; color: #fff; font-size: 1.9em; font-weight: 700; letter-spacing: -0.01em; line-height: 1;
+  /* Display faces that ship with each OS, so the page needs no font download. */
+  font-family: "Avenir Next", Avenir, "Segoe UI Variable Display", "Segoe UI", Montserrat, Nunito, ui-rounded,
+               system-ui, sans-serif;
 }

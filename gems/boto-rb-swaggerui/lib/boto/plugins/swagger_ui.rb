@@ -93,7 +93,8 @@ module Boto
 
       def build_table(title, document_url)
         assets = Boto::SwaggerUi::Assets.load
-        base = "#{@path}#{ASSETS_SEGMENT}#{assets.version}"
+        # The gem version is in the URL too: boto.css and ruby.svg change with the gem, not with Swagger UI.
+        base = "#{@path}#{ASSETS_SEGMENT}#{assets.version}-#{Boto::SwaggerUi::VERSION}"
         page = Boto::SwaggerUi::Page.new(title: title, document_url: document_url, assets_path: base)
         table = { @path => [HTML_TYPE, page.html, NO_CACHE] }
         table["#{base}/#{Boto::SwaggerUi::Page::INITIALIZER_NAME}"] = [JS_TYPE, page.initializer_js, NO_CACHE]
