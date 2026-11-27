@@ -1,8 +1,28 @@
+<div align="center">
+
 # Boto
 
-Framework Ruby para APIs e microservices, organizado em **solutions**. Open
-source (MIT), criado pela [Evo Tech Builder](https://github.com/EvoTechBuilder).
-O nome vem do boto, o golfinho da Amazônia.
+**Framework Ruby para APIs e microservices, organizado em solutions.**
+
+[![Gem](https://img.shields.io/gem/v/boto-rb-cli?label=boto-rb-cli&color=cc342d)](https://rubygems.org/gems/boto-rb-cli)
+[![CI](https://github.com/EvoTechBuilder/boto-rb/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/EvoTechBuilder/boto-rb/actions/workflows/ci.yml)
+[![Ruby](https://img.shields.io/badge/ruby-%3E%3D%203.4-cc342d)](https://www.ruby-lang.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
+[Primeiros passos](#primeiros-passos) ·
+[Endpoints](#endpoints) ·
+[Plugins](#plugins) ·
+[CLI](#referência-do-cli) ·
+[Changelog](CHANGELOG.md)
+
+</div>
+
+---
+
+O Boto organiza um sistema Ruby em **projetos isolados** (APIs, bibliotecas e,
+em breve, workers e frontends) dentro de uma mesma **solution**, com
+referências explícitas entre eles. No desenvolvimento, tudo roda num processo
+só. Em produção, cada serviço roda separado, sem mudar o código.
 
 ```bash
 gem install boto-rb-cli
@@ -12,49 +32,83 @@ boto add webapi pedidos
 boto run
 ```
 
+Open source, sob a licença [MIT](LICENSE), mantido pela
+[Evo Tech Builder](https://github.com/EvoTechBuilder).
+
+## Sumário
+
+- **Visão geral**
+  - [Por que o Boto](#por-que-o-boto)
+  - [Requisitos](#requisitos)
+  - [Primeiros passos](#primeiros-passos)
+- **Conceitos**
+  - [Botofile](#botofile)
+  - [Estrutura de pastas](#estrutura-de-pastas)
+  - [Namespaces e isolamento](#namespaces-e-isolamento)
+- **Construindo uma API**
+  - [Endpoints](#endpoints)
+  - [Schemas](#schemas)
+  - [Erros](#erros)
+- **Plugins**
+  - [Configurando plugins](#plugins)
+  - [Plugins disponíveis](#plugins-disponíveis)
+  - [Ordem de execução](#ordem-de-execução)
+  - [OpenAPI e Swagger UI](#openapi-e-swagger-ui)
+- **Operação**
+  - [Rodando a solution](#rodando-a-solution)
+  - [Testes](#testes)
+- **Referência**
+  - [CLI](#referência-do-cli)
+  - [Gems](#gems)
+- **Projeto**
+  - [Estado e roadmap](#estado-e-roadmap)
+  - [Contribuindo](#contribuindo)
+  - [Licença](#licença)
+
 ## Por que o Boto
 
-Uma *solution* reúne vários projetos (APIs, workers, bibliotecas) com
-referências explícitas entre eles. Sem isso, um sistema Ruby costuma virar
-um monólito, ou cada serviço vive num repositório com cópias do código
-compartilhado. O Boto organiza o sistema assim:
+Uma *solution* reúne vários projetos com referências explícitas entre eles.
+Sem isso, um sistema Ruby costuma virar um monólito, ou cada serviço vive num
+repositório com cópias do código compartilhado.
 
-- **Uma solution, vários projetos.** O `Botofile` declara os projetos e quem
-  referencia quem.
-- **Isolamento de verdade.** Um projeto só enxerga o código dos projetos que
-  referencia. Usar outro é erro, apontado pelo `boto check`.
-- **Um processo no dev, serviços separados em produção.** O `boto run` sobe a
-  solution inteira num processo só, sem mudar o código.
-- **Contratos declarados uma vez.** O mesmo schema valida a entrada, serializa
-  a saída e gera o OpenAPI.
-- **Rápido.** Rack 3, Falcon (async, fibers), roteador radix compilado no boot
-  e poucas alocações por request. Um benchmark contra Roda e Sinatra roda no
-  CI e falha em caso de regressão (veja [benchmarks/](benchmarks/README.md)).
+| | |
+|---|---|
+| **Uma solution, vários projetos** | O [`Botofile`](#botofile) declara os projetos e quem referencia quem. |
+| **Isolamento de verdade** | Um projeto só enxerga o código dos projetos que referencia. O `boto check` aponta qualquer violação. |
+| **Um processo no dev, serviços em produção** | O `boto run` sobe a solution inteira num processo, sem mudar o código. |
+| **Contratos declarados uma vez** | O mesmo [schema](#schemas) valida a entrada, serializa a saída e gera o [OpenAPI](https://www.openapis.org/). |
+| **Desempenho** | [Rack 3](https://github.com/rack/rack), [Falcon](https://github.com/socketry/falcon) (async, fibers), roteador radix compilado no boot e poucas alocações por request. O CI compara com Roda e Sinatra e falha em caso de regressão ([benchmarks](benchmarks/README.md)). |
+
+<p align="right"><a href="#sumário">↑ voltar ao sumário</a></p>
 
 ## Requisitos
 
-- Ruby **3.4** ou mais novo. O Boto suporta as versões mantidas pelo core
-  team do Ruby.
-- Bundler.
+- [Ruby](https://www.ruby-lang.org/) **3.4** ou mais novo. O Boto acompanha as
+  versões mantidas pelo core team do Ruby.
+- [Bundler](https://bundler.io/).
 
 ## Primeiros passos
 
 ```bash
 gem install boto-rb-cli
-boto new loja            # cria a solution: Botofile, Gemfile, .ruby-version, .gitignore
+
+boto new loja            # cria a solution: Botofile, Gemfile, .ruby-version e .gitignore
 cd loja
 bundle install
 
-boto add library dominio # libs/dominio
-boto add webapi pedidos  # apps/pedidos
+boto add library dominio # cria libs/dominio
+boto add webapi pedidos  # cria apps/pedidos
 boto ref pedidos dominio # pedidos passa a enxergar Dominio::
 
 boto run                 # sobe os serviços HTTP em http://127.0.0.1:3000, 3001...
 boto test                # roda os testes de todos os projetos
 ```
 
-As pastas `apps/`, `libs/` e `workers/` nascem no primeiro `boto add` de um
-projeto daquele tipo.
+> [!TIP]
+> As pastas `apps/`, `libs/` e `workers/` não vêm vazias no `boto new`: cada
+> uma nasce no primeiro `boto add` de um projeto daquele tipo.
+
+<p align="right"><a href="#sumário">↑ voltar ao sumário</a></p>
 
 ## Conceitos
 
@@ -70,8 +124,8 @@ project "dominio", template: :library
 project "pedidos", template: :webapi, refs: %w[dominio]
 ```
 
-O Boto valida o arquivo: uma referência a um projeto que não existe ou um
-ciclo entre projetos é erro. O `boto graph` mostra o grafo.
+O Boto valida o arquivo: uma referência a um projeto que não existe, ou um
+ciclo entre projetos, é erro. O `boto graph` mostra o grafo de dependências.
 
 ### Estrutura de pastas
 
@@ -79,31 +133,34 @@ ciclo entre projetos é erro. O `boto graph` mostra o grafo.
 loja/
 ├── Botofile
 ├── Gemfile
-├── apps/        # projetos webapi
+├── apps/                     # projetos webapi
 │   └── pedidos/
-│       ├── config/app.rb   # plugins do projeto
-│       ├── endpoints/      # um endpoint por classe
-│       ├── schemas/        # contratos de entrada e saída
-│       ├── operations/     # regras de negócio (casos de uso)
-│       ├── models/         # persistência
-│       └── test/           # testes do projeto
-└── libs/        # projetos library (schemas/, operations/, models/ e test/)
+│       ├── config/app.rb     # plugins do projeto
+│       ├── endpoints/        # um endpoint por classe
+│       ├── schemas/          # contratos de entrada e saída
+│       ├── operations/       # regras de negócio (casos de uso)
+│       ├── models/           # persistência
+│       └── test/             # testes do projeto
+└── libs/                     # projetos library: schemas/, operations/, models/ e test/
 ```
 
 ### Namespaces e isolamento
 
-Cada projeto tem um namespace derivado do nome, e o Zeitwerk carrega
-`endpoints/`, `schemas/`, `operations/` e `models/` sob ele:
+Cada projeto tem um namespace derivado do nome. O
+[Zeitwerk](https://github.com/fxn/zeitwerk) carrega `endpoints/`, `schemas/`,
+`operations/` e `models/` sob ele:
 
 | Arquivo | Constante |
 |---|---|
 | `apps/pedidos/endpoints/users/show.rb` | `Pedidos::Users::Show` |
 | `apps/pedidos/schemas/user_schema.rb` | `Pedidos::UserSchema` |
-| `libs/dominio/operations/find_user.rb` | `Dominio::FindUser` |
+| `libs/dominio/operations/search_users.rb` | `Dominio::SearchUsers` |
 
 Isso evita colisões quando a solution roda num processo só e reforça o
 isolamento: `pedidos` usa `Dominio::` porque referencia `dominio`. O
-`boto check` aponta um projeto que use o namespace de outro sem referência.
+`boto check` aponta o uso do namespace de um projeto sem a referência.
+
+<p align="right"><a href="#sumário">↑ voltar ao sumário</a></p>
 
 ## Endpoints
 
@@ -129,25 +186,25 @@ class Pedidos::Users::Show < Boto::Endpoint
 end
 ```
 
-- **Verbos:** `get`, `post`, `put`, `patch`, `delete` e `query`. `HEAD`
-  responde a partir do `get`. O `query` é o método HTTP QUERY: seguro e
-  idempotente como o GET, mas com a consulta no corpo, para buscas que não
-  cabem na query string.
-- **Params:** os do path vêm da rota, e os demais da query string ou do corpo
-  JSON. Opções: `required: false`, `default:`, `min:`, `max:`, `enum:` e
-  `pattern:`. Listas são declaradas com colchetes (`[Integer]`).
-  Só os params declarados chegam ao `call`, já convertidos para o tipo.
-- **Corpo com schema:** `body CreateUserSchema` chega ao `call` como `body:`,
-  já validado.
-- **Retorno:** `returns UserSchema` ou `returns [UserSchema]` serializa a
-  saída. Sem `returns`, o retorno vira JSON direto, e `nil` vira `204`.
-- **Status:** `status 201` muda o status de sucesso.
-- **Erros:** `not_found`, `bad_request` e `unprocessable` respondem com
-  `application/problem+json`. Param inválido responde `422`, rota inexistente
-  `404`, e verbo não suportado `405` com o header `Allow`. `errors 404, 409`
-  documenta outros status no OpenAPI.
+| Declaração | O que faz |
+|---|---|
+| `get`, `post`, `put`, `patch`, `delete`, `query` | Verbo e rota. O `HEAD` responde a partir do `get`. |
+| `param :nome, Tipo, ...` | Param tipado. Os do path vêm da rota; os demais, da query string ou do corpo JSON. Opções: `required: false`, `default:`, `min:`, `max:`, `enum:` e `pattern:`. Listas usam colchetes: `[Integer]`. |
+| `body Schema` | Corpo validado pelo schema, entregue ao `call` como `body:`. |
+| `returns Schema` / `returns [Schema]` | Serializa a saída. Sem `returns`, o retorno vira JSON direto, e `nil` vira `204`. |
+| `status 201` | Status de sucesso. |
+| `summary "..."` / `errors 404, 409` | Documentação no OpenAPI. |
+| `skip :plugin` / `authenticate :estratégia, ...` | Exceções aos [plugins](#plugins) do projeto. |
+
+Só os params declarados chegam ao `call`, já convertidos para o tipo.
+
+**O verbo `query`** corresponde ao método HTTP
+[QUERY](https://datatracker.ietf.org/doc/draft-ietf-httpbis-safe-method-w-body/):
+seguro e idempotente como o GET, mas com a consulta no corpo. Serve para
+buscas que não cabem na query string.
 
 ```ruby
+# apps/pedidos/endpoints/users/search.rb
 class Pedidos::Users::Search < Boto::Endpoint
   query "/users/search"
   body Pedidos::UserFilterSchema
@@ -156,6 +213,8 @@ class Pedidos::Users::Search < Boto::Endpoint
   def call(body:) = Dominio::SearchUsers.call(body)
 end
 ```
+
+<p align="right"><a href="#sumário">↑ voltar ao sumário</a></p>
 
 ## Schemas
 
@@ -171,17 +230,38 @@ class Pedidos::UserSchema < Boto::Schema
 end
 ```
 
-- **Tipos:** `String`, `Integer`, `Float`, `Boto::Boolean`, `Date`, `Time`,
-  listas (`[Tipo]`) e outros schemas.
-- **Restrições:** `min:` e `max:`, que valem para valores, tamanho de texto ou
-  número de itens; `enum:`; `pattern:`, sempre ancorado com `\A` e `\z`; `required: false`.
-- **Usos do mesmo schema:** validar a entrada (`body`), serializar a saída
-  (`returns`) e gerar os componentes do OpenAPI.
+| | |
+|---|---|
+| **Tipos** | `String`, `Integer`, `Float`, `Boto::Boolean`, `Date`, `Time`, listas (`[Tipo]`) e outros schemas. |
+| **Restrições** | `min:` e `max:` (valor, tamanho do texto ou número de itens), `enum:`, `pattern:` (sempre ancorado com `\A` e `\z`) e `required: false`. |
+| **Usos** | Validar a entrada (`body`), serializar a saída (`returns`) e gerar os componentes do OpenAPI. |
+
+## Erros
+
+As respostas de erro seguem o formato *Problem Details*
+([RFC 9457](https://www.rfc-editor.org/rfc/rfc9457)), com
+`content-type: application/problem+json`:
+
+```json
+{ "type": "about:blank", "title": "Unprocessable Content", "status": 422,
+  "errors": [{ "param": "id", "message": "must be greater than or equal to 1" }] }
+```
+
+| Situação | Status |
+|---|---|
+| Param ou corpo inválido | `422`, com a lista de `errors` |
+| Rota inexistente | `404` |
+| Verbo não suportado | `405`, com o header `Allow` |
+| `not_found`, `bad_request`, `unprocessable` no endpoint | `404`, `400`, `422` |
+| Exceção não tratada | `500`, com detalhes só em development |
+
+<p align="right"><a href="#sumário">↑ voltar ao sumário</a></p>
 
 ## Plugins
 
 Recursos transversais são plugins ligados no projeto, em `config/app.rb`, e
-nunca dentro dos endpoints. O núcleo é mínimo.
+nunca dentro dos endpoints. O núcleo é mínimo, e o `app.use :nome` acha o
+plugin de qualquer gem do Gemfile, sem `require` manual.
 
 ```ruby
 # apps/pedidos/config/app.rb
@@ -208,54 +288,60 @@ class Pedidos::Webhooks::Pagamento < Boto::Endpoint
 end
 ```
 
+> [!NOTE]
+> Segredos entram como lambdas (`-> { ENV.fetch(...) }`), lidas uma vez no
+> boot. Opções inválidas e segredos ausentes fazem o boot falhar com uma
+> mensagem clara, não o primeiro request.
+
 ### Plugins disponíveis
 
 | Plugin | Gem | O que faz |
 |---|---|---|
-| `:health` | `boto-rb` | `GET /health/live` e `GET /health/ready`. O ready roda os `checks:` do projeto e os dos plugins, como o Redis do rate limit, e responde `503` durante o shutdown. Não exige credencial. |
-| `:openapi` | `boto-rb` | Serve o documento OpenAPI em qualquer ambiente. Opções: `path:` (`/openapi.json`), `version:` (`"0.0.0"`) e `auth:` (`true`). Por padrão, exige o `:auth` do projeto. |
-| `:swagger_ui` | `boto-rb-swaggerui` | Swagger UI em `/docs` (`path:`), com os arquivos embutidos na gem, sem CDN. Precisa do `:openapi`. |
-| `:hosts` | `boto-rb-security` | Só aceita os hosts de `allow:`, contra DNS rebinding. |
-| `:cors` | `boto-rb-security` | CORS com `origins:`, `methods:`, `headers:`, `expose:`, `credentials:` e `max_age:`. Responde o preflight. |
-| `:auth` | `boto-rb-security` | Estratégias `:basic`, `:bearer`, `:api_key`, `:jwt` e `:signature` (webhooks). |
-| `:rate_limit` | `boto-rb-security` | Limite por chave (`limit:` e `period:`), em memória. Com o `boto-rb-redis`, a contagem é compartilhada entre processos. |
+| `:health` | [`boto-rb`](gems/boto-rb) | `GET /health/live` e `GET /health/ready`. O ready roda os `checks:` do projeto e os dos plugins (como o Redis do rate limit) e responde `503` durante o shutdown. Não exige credencial. |
+| `:openapi` | [`boto-rb`](gems/boto-rb) | Serve o documento OpenAPI em qualquer ambiente: `path:` (`/openapi.json`), `version:` (`"0.0.0"`) e `auth:` (`true`, protegido pelo `:auth` do projeto). |
+| `:swagger_ui` | [`boto-rb-swaggerui`](gems/boto-rb-swaggerui) | [Swagger UI](https://swagger.io/tools/swagger-ui/) em `/docs` (`path:`), com os arquivos embutidos na gem, sem CDN. Precisa do `:openapi`. |
+| `:hosts` | [`boto-rb-security`](gems/boto-rb-security) | Só aceita os hosts de `allow:`, contra DNS rebinding. |
+| `:cors` | [`boto-rb-security`](gems/boto-rb-security) | [CORS](https://developer.mozilla.org/docs/Web/HTTP/CORS) com `origins:`, `methods:`, `headers:`, `expose:`, `credentials:` e `max_age:`. Responde o preflight. |
+| `:auth` | [`boto-rb-security`](gems/boto-rb-security) | Estratégias `:basic`, `:bearer`, `:api_key`, `:jwt` e `:signature` (webhooks). |
+| `:rate_limit` | [`boto-rb-security`](gems/boto-rb-security) | Limite por chave (`limit:` e `period:`), em memória. Com o [`boto-rb-redis`](gems/boto-rb-redis), a contagem é compartilhada entre processos. |
 
-O `app.use :nome` acha o plugin de qualquer gem do Gemfile, sem `require`
-manual.
+### Ordem de execução
 
-**A ordem é fixa**, não importa a ordem das linhas no `config/app.rb`:
-`health → hosts → cors → secure_headers → sessions → csrf → openapi →
-swagger_ui → auth → rate_limit`. Assim, o CORS responde o preflight antes do
-`:auth` e os probes de health não exigem credencial.
+A ordem é fixa, não importa a ordem das linhas no `config/app.rb`:
 
-- **Plugins globais:** rodam antes do roteamento e valem também para `404`,
+```
+health → hosts → cors → secure_headers → sessions → csrf → openapi → swagger_ui → auth → rate_limit
+```
+
+- **Plugins globais** rodam antes do roteamento e valem também para `404`,
   `405` e preflight.
-- **Plugins de endpoint (`:auth` e `:rate_limit`):** rodam depois do
-  roteamento e aceitam `skip`.
-
-**Segredos:** vêm de lambdas (`-> { ENV.fetch(...) }`), lidas uma vez no boot.
-Opções inválidas e segredos ausentes fazem o boot falhar com uma mensagem
-clara, não o primeiro request.
+- **Plugins de endpoint** (`:auth` e `:rate_limit`) rodam depois do roteamento
+  e aceitam `skip`.
+- Por isso o CORS responde o preflight antes do `:auth`, e os probes de health
+  não exigem credencial.
 
 ### OpenAPI e Swagger UI
 
-- **Em development,** o `boto run` serve o documento em `GET /openapi.json`.
-- **Em produção, para gerar o arquivo:**
-  ```bash
-  boto openapi pedidos -o openapi.json --api-version 1.4.0
-  ```
-- **Em produção, para servir pelo próprio serviço,** com a UI:
-  ```ruby
-  # Gemfile: gem "boto-rb-swaggerui"
-  app.use :openapi, auth: false   # ou proteja com app.use :auth, strategy: :basic
-  app.use :swagger_ui             # GET /docs
-  ```
+| Onde | Como |
+|---|---|
+| **Development** | O `boto run` serve o documento em `GET /openapi.json`, sem configuração. |
+| **Arquivo** | `boto openapi pedidos -o openapi.json --api-version 1.4.0` |
+| **Produção, pelo serviço** | `app.use :openapi` e, para a UI, `app.use :swagger_ui` |
 
-O navegador não envia bearer token nem API key sozinho. Por isso o
-`:swagger_ui` só aceita um documento público ou protegido por `:basic`. O boot
-explica isso se a configuração não servir.
+```ruby
+# Gemfile: gem "boto-rb-swaggerui"
+app.use :openapi, auth: false   # ou proteja com app.use :auth, strategy: :basic
+app.use :swagger_ui             # GET /docs
+```
 
-## Rodando
+> [!IMPORTANT]
+> O navegador não envia bearer token nem API key sozinho. Por isso o
+> `:swagger_ui` só aceita um documento público ou protegido por `:basic`, e o
+> boot explica isso quando a configuração não serve.
+
+<p align="right"><a href="#sumário">↑ voltar ao sumário</a></p>
+
+## Rodando a solution
 
 ```bash
 boto run                     # todos os serviços HTTP, a partir da porta 3000
@@ -271,16 +357,16 @@ boto run pedidos --port 4000 # só um projeto
 
 ## Testes
 
-Os testes ficam dentro de cada projeto, com Minitest, e o `boto test` roda
-todos:
+Os testes ficam dentro de cada projeto, com
+[Minitest](https://github.com/minitest/minitest), e o `boto test` roda todos:
 
 ```bash
-boto test                    # todos os projetos
-boto test pedidos            # um projeto
-boto test --affected         # só os projetos afetados desde a main
+boto test               # todos os projetos
+boto test pedidos       # um projeto
+boto test --affected    # só os projetos afetados desde a main
 ```
 
-**Endpoint testado chamando `call` direto,** sem servidor:
+**Endpoint testado chamando `call` direto**, sem servidor:
 
 ```ruby
 # apps/pedidos/test/endpoints/users/show_test.rb
@@ -293,7 +379,7 @@ class Pedidos::Users::ShowTest < Minitest::Test
 end
 ```
 
-**Pilha completa (roteamento, params, plugins):** o `test_helper.rb` gerado
+**Pilha completa** (roteamento, params e plugins): o `test_helper.rb` gerado
 expõe o app do projeto como `APP`, para usar com `Rack::MockRequest`:
 
 ```ruby
@@ -301,55 +387,60 @@ response = Rack::MockRequest.new(APP).get("/users/1", "HTTP_AUTHORIZATION" => "B
 assert_equal 200, response.status
 ```
 
+<p align="right"><a href="#sumário">↑ voltar ao sumário</a></p>
+
 ## Referência do CLI
 
 | Comando | O que faz |
 |---|---|
 | `boto new <nome>` | Cria uma solution. Não existe projeto avulso. |
-| `boto add <webapi\|library> <nome>` | Adiciona um projeto e registra no Botofile. |
-| `boto ref <projeto> <referência>` | Adiciona uma referência; recusa ciclos. |
+| `boto add <webapi\|library> <nome>` | Adiciona um projeto e o registra no Botofile. |
+| `boto ref <projeto> <referência>` | Adiciona uma referência e recusa ciclos. |
 | `boto graph` | Mostra o grafo de dependências. |
 | `boto check [projeto]` | Confere o isolamento entre projetos. |
 | `boto run [projeto]` | Sobe os serviços num processo (`--port`, `--host`, `--shutdown-timeout`, `--drain-delay`). |
 | `boto test [projeto]` | Roda os testes (`--affected`, `--base REF`). |
 | `boto openapi <projeto>` | Imprime ou grava (`-o`) o documento OpenAPI (`--api-version`). |
 
-`boto help <comando>` mostra as opções, e `boto -v` mostra a versão.
+`boto help <comando>` mostra as opções, e `boto -v`, a versão.
 
 ## Gems
 
 | Gem | Conteúdo |
 |---|---|
-| [`boto-rb`](gems/boto-rb) | Core: endpoints, roteador, params, schemas, OpenAPI, Botofile, isolamento, plugins `:health` e `:openapi`. |
-| [`boto-rb-cli`](gems/boto-rb-cli) | O comando `boto` e os templates oficiais. |
-| [`boto-rb-security`](gems/boto-rb-security) | `:hosts`, `:cors`, `:auth` e `:rate_limit`. |
-| [`boto-rb-redis`](gems/boto-rb-redis) | Store Redis do `:rate_limit`. |
+| [`boto-rb`](https://rubygems.org/gems/boto-rb) | Core: endpoints, roteador, params, schemas, OpenAPI, Botofile, isolamento e os plugins `:health` e `:openapi`. |
+| [`boto-rb-cli`](https://rubygems.org/gems/boto-rb-cli) | O comando `boto` e os templates oficiais. |
+| [`boto-rb-security`](https://rubygems.org/gems/boto-rb-security) | `:hosts`, `:cors`, `:auth` e `:rate_limit`. |
+| [`boto-rb-redis`](https://rubygems.org/gems/boto-rb-redis) | Store Redis do `:rate_limit`. |
 | [`boto-rb-swaggerui`](gems/boto-rb-swaggerui) | Plugin `:swagger_ui`. |
 
-O módulo Ruby é sempre `Boto`, e o executável é `boto`. O nome `boto` no
-RubyGems já era de outro projeto, por isso as gems se chamam `boto-rb-*`.
+O módulo Ruby é sempre `Boto`, e o executável é `boto`. As gems se chamam
+`boto-rb-*` porque o nome `boto` já existia no RubyGems.
 
-## Estado do projeto
+<p align="right"><a href="#sumário">↑ voltar ao sumário</a></p>
 
-O Boto está antes da 1.0: versões minor ainda podem quebrar compatibilidade,
-sempre registrada no [CHANGELOG](CHANGELOG.md), com o passo de migração.
+## Estado e roadmap
 
-**Já existe:**
-- solutions, isolamento e grafo;
-- templates `webapi` e `library`;
-- endpoints, schemas e OpenAPI;
-- os plugins da tabela acima;
-- health checks e graceful shutdown.
+O Boto está antes da 1.0: versões minor ainda podem quebrar compatibilidade.
+Toda quebra entra no [CHANGELOG](CHANGELOG.md), com o passo de migração.
 
-**Próximos passos:**
-- template `microservice`, com OpenTelemetry, Dockerfile e deploy;
-- template `worker`, para filas, com retry e dead letter;
-- templates distribuídos como gems (`boto templates install`);
-- template `spa` (React ou Vue com Vite), com cliente TypeScript gerado do
-  OpenAPI;
-- template `web`, com Hotwire e os plugins `:sessions` e `:csrf`;
-- credentials criptografadas;
-- imagens Docker por serviço.
+**Disponível**
+
+- [x] Solutions, isolamento e grafo de dependências
+- [x] Templates `webapi` e `library`
+- [x] Endpoints, schemas e OpenAPI
+- [x] Plugins de segurança, `:openapi` e `:swagger_ui`
+- [x] Health checks e graceful shutdown
+
+**Próximos passos**
+
+- [ ] Template `microservice`, com OpenTelemetry, Dockerfile e deploy
+- [ ] Template `worker`, para filas, com retry e dead letter
+- [ ] Templates distribuídos como gems (`boto templates install`)
+- [ ] Template `spa` (React ou Vue com Vite), com cliente TypeScript gerado do OpenAPI
+- [ ] Template `web`, com Hotwire e os plugins `:sessions` e `:csrf`
+- [ ] Credentials criptografadas
+- [ ] Imagem Docker por serviço
 
 ## Contribuindo
 
@@ -357,18 +448,22 @@ sempre registrada no [CHANGELOG](CHANGELOG.md), com o passo de migração.
 git clone https://github.com/EvoTechBuilder/boto-rb.git
 cd boto-rb
 bundle install
-bundle exec rake test        # suítes de todas as gems
+bundle exec rake test   # suítes de todas as gems
 ```
 
-- **Testes:** Minitest. A CI roda Ruby 3.4, 4.0 e `ruby-head`, cada um com e
-  sem YJIT.
+- **CI:** Ruby 3.4, 4.0 e `ruby-head`, cada um com e sem YJIT.
 - **Redis:** os testes do `boto-rb-redis` usam um Redis real (`REDIS_URL`) e
   são pulados sem ele.
 - **Commits:** seguem [Conventional Commits](https://www.conventionalcommits.org/).
 - **Mudanças maiores:** começam por uma proposta em
   [docs/proposals/](docs/proposals).
+- **Versões:** [Semantic Versioning](https://semver.org/), com o histórico no
+  [CHANGELOG](CHANGELOG.md).
 
 ## Licença
 
-[MIT](LICENSE). O Swagger UI embutido no `boto-rb-swaggerui` mantém a licença
-Apache-2.0 dele.
+Distribuído sob a licença [MIT](LICENSE). O Swagger UI embutido no
+`boto-rb-swaggerui` mantém a licença
+[Apache-2.0](gems/boto-rb-swaggerui/vendor/swagger-ui/LICENSE) dele.
+
+<p align="right"><a href="#sumário">↑ voltar ao sumário</a></p>
