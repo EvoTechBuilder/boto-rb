@@ -14,10 +14,10 @@ boto run
 
 ## Por que o Boto
 
-No .NET, uma *solution* reúne vários projetos (APIs, workers, bibliotecas)
-com referências explícitas entre eles. O Ruby não tem nada equivalente: ou
-tudo vira um monólito, ou cada serviço vive num repositório com cópias do
-código compartilhado. O Boto traz esse modelo para o Ruby:
+Uma *solution* reúne vários projetos (APIs, workers, bibliotecas) com
+referências explícitas entre eles. Sem isso, um sistema Ruby costuma virar
+um monólito, ou cada serviço vive num repositório com cópias do código
+compartilhado. O Boto organiza o sistema assim:
 
 - **Uma solution, vários projetos.** O `Botofile` declara os projetos e quem
   referencia quem.
@@ -60,8 +60,8 @@ projeto daquele tipo.
 
 ### Botofile
 
-É a solution, como o `.sln` do .NET. Cada projeto declara o template e as
-referências:
+O arquivo na raiz que descreve a solution. Cada projeto declara o template e
+as referências:
 
 ```ruby
 solution "loja"
