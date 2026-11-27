@@ -17,7 +17,7 @@ class Boto::CLI::GeneratorTest < Minitest::Test
 
       assert_includes files, ".gitignore"
       assert_includes files, ".ruby-version"
-      assert_includes files, "libs/.keep"
+      assert_equal %w[.gitignore .ruby-version Botofile Gemfile], files.sort
       assert_equal "4.0.0", File.read(File.join(target, ".ruby-version")).strip
       assert_includes File.read(File.join(target, "Botofile")), %(solution "shop")
       assert_equal files.sort, files

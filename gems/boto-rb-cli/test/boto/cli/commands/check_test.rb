@@ -33,7 +33,7 @@ class Boto::CLI::CheckCommandTest < Minitest::Test
       def customer = Domain::Customer
     end
   RUBY
-  ORDERS_PATH = "services/orders/endpoints/order.rb"
+  ORDERS_PATH = "apps/orders/endpoints/order.rb"
 
   def test_clean_solution_succeeds
     Dir.mktmpdir do |cwd|
@@ -98,6 +98,21 @@ class Boto::CLI::CheckCommandTest < Minitest::Test
     end
   end
 
+  def test_legacy_services_folder_exits_one_with_fix
+    Dir.mktmpdir do |cwd|
+      write_solution(cwd)
+      FileUtils.mkdir_p(File.join(cwd, "services"))
+      FileUtils.mv(File.join(cwd, "apps/billing"), File.join(cwd, "services/billing"))
+      out = StringIO.new
+      err = StringIO.new
+
+      assert_equal 1, Boto::CLI::Runner.new(out: out, err: err, cwd: cwd).run(["check"])
+      assert_empty out.string
+      assert_match(/\Aboto: project "billing" is in services\/billing/, err.string)
+      assert_includes err.string, "Fix: git mv services/billing apps/billing"
+    end
+  end
+
   def test_help_lists_check
     Dir.mktmpdir do |cwd|
       out = StringIO.new
@@ -112,7 +127,7 @@ class Boto::CLI::CheckCommandTest < Minitest::Test
   def write_solution(cwd, orders: ORDERS_SOURCE)
     write(cwd, "Botofile", BOTOFILE)
     write(cwd, "libs/domain/endpoints/customer.rb", DOMAIN_SOURCE)
-    write(cwd, "services/billing/endpoints/invoice.rb", BILLING_SOURCE)
+    write(cwd, "apps/billing/endpoints/invoice.rb", BILLING_SOURCE)
     write(cwd, ORDERS_PATH, orders)
   end
 

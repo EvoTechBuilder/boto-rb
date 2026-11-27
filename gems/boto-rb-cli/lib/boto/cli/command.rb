@@ -60,7 +60,9 @@ module Boto
         path = File.join(cwd, BOTOFILE_NAME)
         raise Error, "Botofile not found in #{cwd}" unless File.file?(path)
 
-        Botofile.load(path)
+        loaded = Botofile.load(path)
+        Boto::Layout.check!(loaded, root: cwd)
+        loaded
       end
 
       # Builds the parser from the command's OPTIONS, so the parser and the help cannot diverge.

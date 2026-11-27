@@ -18,6 +18,14 @@ class Boto::CLI::NewCommandTest < Minitest::Test
     end
   end
 
+  def test_creates_only_root_files
+    Dir.mktmpdir do |cwd|
+      new_command(["shop"], cwd: cwd).call
+
+      assert_equal %w[.gitignore .ruby-version Botofile Gemfile], Dir.children(File.join(cwd, "shop")).sort
+    end
+  end
+
   def test_generates_gemfile_with_boto_security
     Dir.mktmpdir do |cwd|
       new_command(["shop"], cwd: cwd).call

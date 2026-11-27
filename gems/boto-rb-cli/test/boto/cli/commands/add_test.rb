@@ -13,12 +13,12 @@ class Boto::CLI::AddCommandTest < Minitest::Test
       assert_equal 0, add_command(%w[webapi api], cwd: dir, out: out).call
 
       %w[endpoints schemas test/endpoints test/schemas].each do |folder|
-        assert File.file?(File.join(dir, "services/api", folder, ".keep")), folder
+        assert File.file?(File.join(dir, "apps/api", folder, ".keep")), folder
       end
-      refute File.exist?(File.join(dir, "services/api/endpoints/health.rb"))
-      refute File.exist?(File.join(dir, "services/api/schemas/health_schema.rb"))
-      assert_includes read(dir, "services/api/test/test_helper.rb"), %(BOOT.app("api"))
-      assert_includes out.string, "create services/api/test/config/health_test.rb"
+      refute File.exist?(File.join(dir, "apps/api/endpoints/health.rb"))
+      refute File.exist?(File.join(dir, "apps/api/schemas/health_schema.rb"))
+      assert_includes read(dir, "apps/api/test/test_helper.rb"), %(BOOT.app("api"))
+      assert_includes out.string, "create apps/api/test/config/health_test.rb"
       assert_includes out.string, "update Botofile"
     end
   end
@@ -27,10 +27,10 @@ class Boto::CLI::AddCommandTest < Minitest::Test
     with_solution do |dir|
       add_command(%w[webapi api], cwd: dir).call
 
-      app_config = read(dir, "services/api/config/app.rb")
+      app_config = read(dir, "apps/api/config/app.rb")
       assert_includes app_config, "app.use :auth"
       assert_includes app_config, "app.use :health"
-      assert_includes read(dir, "services/api/test/config/health_test.rb"), "/health/live"
+      assert_includes read(dir, "apps/api/test/config/health_test.rb"), "/health/live"
     end
   end
 
@@ -46,7 +46,7 @@ class Boto::CLI::AddCommandTest < Minitest::Test
     with_solution do |dir|
       add_command(%w[webapi api], cwd: dir).call
 
-      assert_no_template_leftovers(File.join(dir, "services", "api"))
+      assert_no_template_leftovers(File.join(dir, "apps", "api"))
     end
   end
 
@@ -64,11 +64,21 @@ class Boto::CLI::AddCommandTest < Minitest::Test
     end
   end
 
+  def test_library_creates_libs_folder_on_add
+    with_solution do |dir|
+      refute File.directory?(File.join(dir, "libs"))
+
+      add_command(%w[library dominio], cwd: dir).call
+
+      assert File.directory?(File.join(dir, "libs/dominio"))
+    end
+  end
+
   def test_underscored_name_gets_camel_case_namespace
     with_solution do |dir|
       add_command(%w[webapi order_items], cwd: dir).call
 
-      assert_includes read(dir, "services/order_items/test/config/health_test.rb"), "class OrderItemsHealthTest"
+      assert_includes read(dir, "apps/order_items/test/config/health_test.rb"), "class OrderItemsHealthTest"
     end
   end
 
@@ -99,10 +109,10 @@ class Boto::CLI::AddCommandTest < Minitest::Test
 
   def test_existing_target_directory_raises
     with_solution do |dir|
-      FileUtils.mkdir_p(File.join(dir, "services", "api"))
+      FileUtils.mkdir_p(File.join(dir, "apps", "api"))
 
       error = assert_raises(Boto::CLI::Error) { add_command(%w[webapi api], cwd: dir).call }
-      assert_equal %(directory "services/api" already exists), error.message
+      assert_equal %(directory "apps/api" already exists), error.message
     end
   end
 

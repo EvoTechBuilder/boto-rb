@@ -109,8 +109,8 @@ class Boto::CLI::RunnerTest < Minitest::Test
       project "billing", template: :library
       project "orders", template: :webapi
     BOTO
-    FileUtils.mkdir_p(File.join(@cwd, "services/orders/endpoints"))
-    File.write(File.join(@cwd, "services/orders/endpoints/receipt.rb"), "Billing::Invoice\n")
+    FileUtils.mkdir_p(File.join(@cwd, "apps/orders/endpoints"))
+    File.write(File.join(@cwd, "apps/orders/endpoints/receipt.rb"), "Billing::Invoice\n")
 
     status = runner.run(%w[run])
 

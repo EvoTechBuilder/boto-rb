@@ -8,7 +8,7 @@ class Boto::CLI::AffectedProjectsTest < Minitest::Test
   end
 
   def test_service_change_affects_only_itself
-    assert_equal %w[billing], affected(["services/billing/app.rb"])
+    assert_equal %w[billing], affected(["apps/billing/app.rb"])
   end
 
   def test_file_outside_projects_affects_nothing

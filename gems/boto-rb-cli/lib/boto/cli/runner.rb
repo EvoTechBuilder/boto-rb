@@ -35,7 +35,7 @@ module Boto
         return run_help(rest.first) if name == HELP_COMMAND
 
         run_command(name, rest)
-      rescue Error, Botofile::InvalidError, IsolationError => error
+      rescue Error, Botofile::InvalidError, IsolationError, LegacyLayoutError => error
         @err.puts "boto: #{error.message}"
         Command::FAILURE
       end

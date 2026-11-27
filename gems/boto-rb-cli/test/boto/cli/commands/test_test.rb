@@ -15,7 +15,7 @@ class Boto::CLI::TestCommandTest < Minitest::Test
     project "billing", template: :webapi, refs: ["orders"]
     project "tools", template: :library
   BOTO
-  TESTED_PATHS = %w[libs/domain services/billing].freeze
+  TESTED_PATHS = %w[libs/domain apps/billing].freeze
 
   def setup
     @calls = []
@@ -26,7 +26,7 @@ class Boto::CLI::TestCommandTest < Minitest::Test
     with_solution do |cwd|
       out = StringIO.new
       assert_equal 0, build_command([], cwd: cwd, out: out).call
-      assert_equal [File.join(cwd, "libs/domain"), File.join(cwd, "services/billing")], chdirs
+      assert_equal [File.join(cwd, "libs/domain"), File.join(cwd, "apps/billing")], chdirs
       assert_includes out.string, "-- skip orders (no test/)"
       assert_includes out.string, "== domain"
       assert_includes out.string, "2 projects tested, 0 failed"
@@ -37,7 +37,7 @@ class Boto::CLI::TestCommandTest < Minitest::Test
     with_solution do |cwd|
       out = StringIO.new
       assert_equal 0, build_command(["billing"], cwd: cwd, out: out).call
-      assert_equal [File.join(cwd, "services/billing")], chdirs
+      assert_equal [File.join(cwd, "apps/billing")], chdirs
       refute_includes out.string, "== domain"
     end
   end
@@ -46,7 +46,7 @@ class Boto::CLI::TestCommandTest < Minitest::Test
     with_solution do |cwd|
       assert_equal 0, build_command(["--affected"], cwd: cwd, changed: ["libs/domain/lib/a.rb"]).call
       assert_equal [["main", cwd]], @changed_calls
-      assert_equal [File.join(cwd, "libs/domain"), File.join(cwd, "services/billing")], chdirs
+      assert_equal [File.join(cwd, "libs/domain"), File.join(cwd, "apps/billing")], chdirs
     end
   end
 

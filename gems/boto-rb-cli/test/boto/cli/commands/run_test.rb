@@ -229,7 +229,7 @@ class Boto::CLI::RunCommandTest < Minitest::Test
 
   # Appends to the template's config/app.rb, which already declares the security plugins.
   def declare_lifecycle_recorder(dir)
-    path = File.join(dir, "services", LIFECYCLE, "config", "app.rb")
+    path = File.join(dir, "apps", LIFECYCLE, "config", "app.rb")
     File.write(path, <<~RUBY, mode: "a")
       Boto.configure do |config|
         config.use Boto::CLI::RunCommandTest::LifecycleRecorder
