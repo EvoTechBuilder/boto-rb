@@ -1,0 +1,18 @@
+# frozen_string_literal: true
+
+class <%= constant %> < Boto::Endpoint
+  <%= verb %> "<%= path %>"
+<% params.each do |param| -%>
+  param :<%= param.name %>, <%= param.type_source %>
+<% end -%>
+<% if body_source -%>
+  body <%= body_source %>
+<% end -%>
+<% if returns_source -%>
+  returns <%= returns_source %>
+<% end -%>
+
+  def call<%= signature %>
+    raise NotImplementedError, "<%= constant %>#call"
+  end
+end

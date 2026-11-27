@@ -105,6 +105,31 @@ class Boto::CLI::FieldSpecTest < Minitest::Test
     assert_invalid "price:Float"
   end
 
+  def test_scalar_types_have_no_schema_reference
+    assert_nil parse("price:float").schema_reference
+    assert_nil parse("tags:[string]").schema_reference
+  end
+
+  def test_schema_reference_is_the_schema_file_of_a_name
+    assert_equal "category_schema", parse("category:category").schema_reference
+    assert_equal "category_schema", parse("categories:[category]").schema_reference
+    assert_equal "line_item_schema", parse("item:line_item").schema_reference
+  end
+
+  def test_schema_reference_does_not_duplicate_schema_suffix
+    assert_equal "product_schema", parse("item:product_schema").schema_reference
+  end
+
+  def test_unknown_type_name_is_a_schema_reference
+    assert_equal "decimal_schema", parse("price:decimal").schema_reference
+  end
+
+  def test_scalar_fields
+    assert_predicate parse("id:integer"), :scalar?
+    refute_predicate parse("tags:[string]"), :scalar?
+    refute_predicate parse("category:category"), :scalar?
+  end
+
   private
 
   def parse(spec) = Boto::CLI::FieldSpec.parse(spec, namespace: NAMESPACE)

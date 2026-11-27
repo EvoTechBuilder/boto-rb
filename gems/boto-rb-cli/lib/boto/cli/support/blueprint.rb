@@ -14,9 +14,15 @@ module Boto
       TEST_SUFFIX = "_test"
       TEST_CLASS_SUFFIX = "Test"
       # The dispatch by kind: the folder of the files under the project, and the suffix of the names (nil for none).
+      # flat_message: the kind's names are single words, so a folder in the name is refused with this message.
       KINDS = {
         "schema" => { folder: "schemas", suffix: "schema" },
-        "model" => { folder: "models", suffix: nil }
+        "model" => { folder: "models", suffix: nil },
+        "endpoint" => { folder: "endpoints", suffix: nil },
+        "operation" => {
+          folder: "operations", suffix: nil,
+          flat_message: "operation names are verbs without folders, e.g. create_product"
+        }
       }.freeze
 
       attr_reader :kind, :item, :fields
@@ -28,6 +34,8 @@ module Boto
         @fields = fields
       end
 
+      def constant = item.constant
+
       def files(with_test:)
         return [source_file] unless with_test
 
@@ -37,6 +45,9 @@ module Boto
       private
 
       def named(name, namespace)
+        flat_message = @settings[:flat_message]
+        raise Error, flat_message if flat_message && name.include?("/")
+
         constant_name = ConstantName.new(name, namespace: namespace)
         suffix = @settings[:suffix]
         suffix ? constant_name.with_suffix(suffix) : constant_name

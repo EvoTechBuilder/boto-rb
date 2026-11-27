@@ -7,23 +7,30 @@ module Boto
     module Commands
       class Generate < Command
         SUMMARY = "Generate a schema, model, endpoint or operation with its test"
-        USAGE = "Usage: boto generate <schema|model> <project> <name> [field:type ...] [--skip-tests] [--force]"
+        USAGE = "Usage: boto generate <schema|model|endpoint|operation> <project> <name> [args] " \
+                "[--skip-tests] [--force]"
         POSITION = 4
         OPTIONS = [
           Option.new(key: :skip_tests, flags: %w[--skip-tests], description: "Do not generate the test file"),
-          Option.new(key: :force, flags: %w[--force], description: "Overwrite files that already exist")
+          Option.new(key: :force, flags: %w[--force], description: "Overwrite files that already exist"),
+          Option.new(key: :body, flags: %w[--body], argument: "NAME",
+                     description: "Schema of the request body (endpoint)"),
+          Option.new(key: :returns, flags: %w[--returns], argument: "NAME",
+                     description: "Schema of the response, [NAME] for a list (endpoint)")
         ].freeze
 
         def call
           options = {}
-          kind, project_name, name, *field_specs = parse_arguments(options)
+          kind, project_name, name, *args = parse_arguments(options)
           raise Error, USAGE if [kind, project_name, name].any?(&:nil?)
 
           ensure_kind!(kind)
           plan = solution
           project = find_project(plan, project_name)
-          files = blueprint(kind, name, field_specs, project).files(with_test: with_test?(plan, project, options))
+          blueprint = build_blueprint(project, kind, name, args, options)
+          files = blueprint.files(with_test: with_test?(plan, project, options))
           ensure_writable!(project, files, force: options[:force])
+          ensure_no_clash!(project, files, blueprint.constant)
           write_files(project, files)
           SUCCESS
         end
@@ -49,10 +56,9 @@ module Boto
           project
         end
 
-        def blueprint(kind, name, field_specs, project)
-          namespace = project.namespace_name
-          fields = field_specs.map { |spec| FieldSpec.parse(spec, namespace: namespace) }
-          Blueprint.new(kind, name: name, fields: fields, namespace: namespace)
+        def build_blueprint(project, kind, name, args, options)
+          folder = ProjectFolder.new(project_dir(project))
+          BlueprintBuilder.new(project: project, folder: folder).build(kind, name, args, options)
         end
 
         def with_test?(plan, project, options)
@@ -69,6 +75,15 @@ module Boto
           return unless existing
 
           raise Error, %(#{shown_path(project, existing)} already exists (use --force to overwrite))
+        end
+
+        # Runs even with --force: --force replaces only this command's own file, never a file in another folder.
+        def ensure_no_clash!(project, files, constant)
+          folder = ProjectFolder.new(project_dir(project))
+          files.each do |file|
+            clash = folder.clashing_path(file)
+            raise Error, "#{constant} already exists in #{File.join(project.path, clash)}" if clash
+          end
         end
 
         def write_files(project, files)

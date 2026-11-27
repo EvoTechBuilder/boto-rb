@@ -1,0 +1,10 @@
+# frozen_string_literal: true
+
+require "test_helper"
+
+class <%= test_class %> < Minitest::Test
+  def test_<%= test_name %>
+    response = <%= request_call %>
+    flunk "assert the response of <%= http_verb %> <%= path %> (status #{response.status})"
+  end
+end

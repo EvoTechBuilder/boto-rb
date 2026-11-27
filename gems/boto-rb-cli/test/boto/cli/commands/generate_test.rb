@@ -14,6 +14,13 @@ class Boto::CLI::GenerateCommandTest < Minitest::Test
   SCHEMA_TEST_PATH = "apps/catalogo/test/schemas/product_schema_test.rb"
   MODEL_PATH = "apps/catalogo/models/product.rb"
   MODEL_TEST_PATH = "apps/catalogo/test/models/product_test.rb"
+  ENDPOINT_PATH = "apps/catalogo/endpoints/products/show.rb"
+  ENDPOINT_TEST_PATH = "apps/catalogo/test/endpoints/products/show_test.rb"
+  CREATE_ENDPOINT_PATH = "apps/catalogo/endpoints/products/create.rb"
+  CREATE_ENDPOINT_TEST_PATH = "apps/catalogo/test/endpoints/products/create_test.rb"
+  SEARCH_ENDPOINT_TEST_PATH = "apps/catalogo/test/endpoints/products/search_test.rb"
+  OPERATION_PATH = "apps/catalogo/operations/create_product.rb"
+  OPERATION_TEST_PATH = "apps/catalogo/test/operations/create_product_test.rb"
 
   def setup
     @root = Dir.mktmpdir
@@ -171,9 +178,270 @@ class Boto::CLI::GenerateCommandTest < Minitest::Test
   end
 
   def test_unknown_generator_lists_the_available_ones
-    error = assert_raises(Boto::CLI::Error) { generate(%w[endpoint catalogo show]) }
+    error = assert_raises(Boto::CLI::Error) { generate(%w[widget catalogo show]) }
 
-    assert_equal %(unknown generator "endpoint" (available: schema, model)), error.message
+    assert_equal %(unknown generator "widget" (available: schema, model, endpoint, operation)), error.message
+  end
+
+  def test_unknown_field_type_is_refused_before_anything_is_written
+    error = assert_raises(Boto::CLI::Error) { generate(%w[schema catalogo product price:decimal]) }
+
+    assert_equal %(unknown type "decimal" for field "price" (use string, integer, float, boolean, date, time, [type] or the name of a schema in schemas/)), error.message
+    refute File.exist?(File.join(@dir, SCHEMA_PATH))
+  end
+
+  def test_field_referencing_an_existing_schema_is_accepted
+    generate(%w[schema catalogo category --skip-tests])
+    generate(%w[schema catalogo product category:category categories:[category]])
+
+    assert_includes read(SCHEMA_PATH), "field :category, Catalogo::CategorySchema"
+    assert_includes read(SCHEMA_PATH), "field :categories, [Catalogo::CategorySchema]"
+  end
+
+  def test_endpoint_writes_the_route_with_its_typed_path_param_and_schema
+    generate(%w[schema catalogo product --skip-tests])
+    generate(%w[endpoint catalogo products/show get /products/:id id:integer --returns product])
+
+    assert_equal <<~RUBY, read(ENDPOINT_PATH)
+      # frozen_string_literal: true
+
+      class Catalogo::Products::Show < Boto::Endpoint
+        get "/products/:id"
+        param :id, Integer
+        returns Catalogo::ProductSchema
+
+        def call(id:)
+          raise NotImplementedError, "Catalogo::Products::Show#call"
+        end
+      end
+    RUBY
+  end
+
+  def test_endpoint_path_param_defaults_to_string
+    generate(%w[endpoint catalogo products/show get /products/:id])
+
+    assert_includes read(ENDPOINT_PATH), %(  param :id, String\n)
+  end
+
+  def test_endpoint_with_body_and_list_response
+    generate(%w[schema catalogo product --skip-tests])
+    generate(%w[schema catalogo create_product --skip-tests])
+    generate(%w[endpoint catalogo products/create post /products --body create_product --returns [product]])
+
+    assert_equal <<~RUBY, read(CREATE_ENDPOINT_PATH)
+      # frozen_string_literal: true
+
+      class Catalogo::Products::Create < Boto::Endpoint
+        post "/products"
+        body Catalogo::CreateProductSchema
+        returns [Catalogo::ProductSchema]
+
+        def call(body:)
+          raise NotImplementedError, "Catalogo::Products::Create#call"
+        end
+      end
+    RUBY
+  end
+
+  def test_endpoint_without_params_or_schemas_has_a_bare_call
+    generate(%w[endpoint catalogo ping get /ping])
+
+    assert_equal <<~RUBY, read("apps/catalogo/endpoints/ping.rb")
+      # frozen_string_literal: true
+
+      class Catalogo::Ping < Boto::Endpoint
+        get "/ping"
+
+        def call
+          raise NotImplementedError, "Catalogo::Ping#call"
+        end
+      end
+    RUBY
+  end
+
+  def test_endpoint_test_sends_the_bearer_token_when_auth_is_enabled
+    generate(%w[endpoint catalogo products/show get /products/:id id:integer])
+
+    assert_equal <<~RUBY, read(ENDPOINT_TEST_PATH)
+      # frozen_string_literal: true
+
+      require "test_helper"
+
+      class Catalogo::Products::ShowTest < Minitest::Test
+        def test_get_products_id
+          response = Rack::MockRequest.new(APP).get("/products/1", "HTTP_AUTHORIZATION" => "Bearer test-token")
+          flunk "assert the response of GET /products/:id (status \#{response.status})"
+        end
+      end
+    RUBY
+  end
+
+  def test_endpoint_test_has_no_token_without_the_auth_plugin
+    File.write(File.join(@dir, "apps/catalogo/config/app.rb"), "Boto.configure do |app|\nend\n")
+
+    generate(%w[endpoint catalogo ping get /ping])
+
+    assert_includes read("apps/catalogo/test/endpoints/ping_test.rb"),
+                    %(response = Rack::MockRequest.new(APP).get("/ping")\n)
+  end
+
+  def test_endpoint_test_sends_input_for_writing_and_query_verbs
+    generate(%w[schema catalogo create_product --skip-tests])
+    generate(%w[endpoint catalogo products/create post /products --body create_product])
+    generate(%w[endpoint catalogo products/search query /products/search])
+
+    assert_includes read(CREATE_ENDPOINT_TEST_PATH),
+                    %(Rack::MockRequest.new(APP).post("/products", input: "{}", "CONTENT_TYPE" => "application/json", "HTTP_AUTHORIZATION" => "Bearer test-token"))
+    assert_includes read(SEARCH_ENDPOINT_TEST_PATH),
+                    %(Rack::MockRequest.new(APP).request("QUERY", "/products/search", input: "{}", "HTTP_AUTHORIZATION" => "Bearer test-token"))
+  end
+
+  def test_endpoint_refuses_an_unknown_body_schema_before_writing
+    error = assert_raises(Boto::CLI::Error) { generate(%w[endpoint catalogo products/create post /products --body prodcut]) }
+
+    assert_equal %(unknown schema "prodcut" for --body (no schemas/prodcut_schema.rb in catalogo)), error.message
+    refute File.exist?(File.join(@dir, CREATE_ENDPOINT_PATH))
+    assert_empty @out.string
+  end
+
+  def test_endpoint_refuses_an_unknown_list_schema_for_returns_before_writing
+    error = assert_raises(Boto::CLI::Error) { generate(%w[endpoint catalogo products/show get /products/:id --returns [prodcut]]) }
+
+    assert_equal %(unknown schema "prodcut" for --returns (no schemas/prodcut_schema.rb in catalogo)), error.message
+    refute File.exist?(File.join(@dir, ENDPOINT_PATH))
+    assert_empty @out.string
+  end
+
+  def test_operation_refuses_fields
+    error = assert_raises(Boto::CLI::Error) { generate(%w[operation catalogo create_product name:string]) }
+
+    assert_equal "operation takes no fields", error.message
+    refute File.exist?(File.join(@dir, OPERATION_PATH))
+  end
+
+  def test_body_and_returns_are_refused_outside_endpoints
+    schema_error = assert_raises(Boto::CLI::Error) { generate(%w[schema catalogo product --body create_product]) }
+    operation_error = assert_raises(Boto::CLI::Error) { generate(%w[operation catalogo create_product --returns product]) }
+
+    assert_equal "--body and --returns only apply to endpoint", schema_error.message
+    assert_equal "--body and --returns only apply to endpoint", operation_error.message
+    refute File.exist?(File.join(@dir, SCHEMA_PATH))
+    refute File.exist?(File.join(@dir, OPERATION_PATH))
+  end
+
+  def test_endpoint_refuses_an_unknown_verb
+    error = assert_raises(Boto::CLI::Error) { generate(%w[endpoint catalogo products/show GET /products/:id]) }
+
+    assert_equal %(unknown verb "GET" (available: get, post, put, patch, delete, query)), error.message
+  end
+
+  def test_endpoint_refuses_a_path_without_a_leading_slash
+    error = assert_raises(Boto::CLI::Error) { generate(%w[endpoint catalogo products/show get products/:id]) }
+
+    assert_equal %(invalid path "products/:id" (start with / and use letters, digits, _ - / : .)), error.message
+  end
+
+  def test_endpoint_refuses_a_field_that_is_not_a_path_param
+    error = assert_raises(Boto::CLI::Error) { generate(%w[endpoint catalogo products/show get /products/:id price:float]) }
+
+    assert_equal %(field "price" is not a path param of /products/:id), error.message
+  end
+
+  def test_endpoint_refuses_a_non_scalar_path_param
+    generate(%w[schema catalogo product --skip-tests])
+    error = assert_raises(Boto::CLI::Error) { generate(%w[endpoint catalogo products/show get /products/:id id:product]) }
+
+    assert_equal %(path param "id" must be a scalar type (string, integer, float, boolean, date, time)), error.message
+  end
+
+  def test_endpoint_is_refused_for_a_library
+    add_library("dominio")
+
+    error = assert_raises(Boto::CLI::Error) { generate(%w[endpoint dominio products/show get /products/:id]) }
+
+    assert_equal "endpoints are only generated for HTTP projects (dominio is a library)", error.message
+  end
+
+  def test_operation_writes_the_module_and_its_test
+    generate(%w[operation catalogo create_product])
+
+    assert_equal "create #{OPERATION_PATH}\ncreate #{OPERATION_TEST_PATH}\n", @out.string
+    assert_equal <<~RUBY, read(OPERATION_PATH)
+      # frozen_string_literal: true
+
+      module Catalogo::CreateProduct
+        def self.call(input)
+          raise NotImplementedError, "Catalogo::CreateProduct.call"
+        end
+      end
+    RUBY
+    assert_equal <<~RUBY, read(OPERATION_TEST_PATH)
+      # frozen_string_literal: true
+
+      require "test_helper"
+
+      class Catalogo::CreateProductTest < Minitest::Test
+        def test_call
+          flunk "call Catalogo::CreateProduct and assert the result"
+        end
+      end
+    RUBY
+  end
+
+  def test_operation_refuses_a_name_with_a_folder
+    error = assert_raises(Boto::CLI::Error) { generate(%w[operation catalogo products/create]) }
+
+    assert_equal "operation names are verbs without folders, e.g. create_product", error.message
+    assert_empty @out.string
+  end
+
+  def test_operation_is_allowed_in_a_library
+    add_library("dominio")
+
+    generate(%w[operation dominio create_product --skip-tests])
+
+    assert File.exist?(File.join(@dir, "libs/dominio/operations/create_product.rb"))
+  end
+
+  def test_operation_is_refused_when_a_model_has_the_same_constant
+    generate(%w[model catalogo create_product --skip-tests])
+
+    error = assert_raises(Boto::CLI::Error) { generate(%w[operation catalogo create_product]) }
+
+    assert_equal "Catalogo::CreateProduct already exists in apps/catalogo/models/create_product.rb", error.message
+    refute File.exist?(File.join(@dir, OPERATION_PATH))
+  end
+
+  def test_endpoint_is_refused_when_an_operation_has_the_same_constant
+    generate(%w[operation catalogo create_product --skip-tests])
+
+    error = assert_raises(Boto::CLI::Error) { generate(%w[endpoint catalogo create_product get /x]) }
+
+    assert_equal "Catalogo::CreateProduct already exists in apps/catalogo/operations/create_product.rb", error.message
+  end
+
+  def test_force_replaces_the_operation_but_not_a_clash_in_another_folder
+    generate(%w[operation catalogo create_product --skip-tests])
+    generate(%w[operation catalogo create_product --force])
+    File.delete(File.join(@dir, OPERATION_PATH))
+    generate(%w[model catalogo create_product --skip-tests])
+
+    error = assert_raises(Boto::CLI::Error) { generate(%w[operation catalogo create_product --force]) }
+
+    assert_equal "Catalogo::CreateProduct already exists in apps/catalogo/models/create_product.rb", error.message
+  end
+
+  def test_generated_endpoint_and_operation_load_with_the_project
+    generate(%w[schema catalogo product id:integer --skip-tests])
+    generate(%w[operation catalogo create_product --skip-tests])
+    generate(%w[endpoint catalogo products/show get /products/:id id:integer --returns product --skip-tests])
+    boot = Boto::Boot.new(Boto::Botofile.load(File.join(@dir, "Botofile")), root: @dir, warn_output: StringIO.new)
+
+    app = boot.app(PROJECT, env_name: "development")
+
+    assert_includes app.endpoints, Catalogo::Products::Show
+  ensure
+    boot&.shutdown
   end
 
   def test_missing_arguments_show_usage
@@ -238,6 +506,10 @@ class Boto::CLI::GenerateCommandTest < Minitest::Test
 
   def generate(argv)
     Boto::CLI::Commands::Generate.new(argv, out: @out, err: @err, cwd: @dir).call
+  end
+
+  def add_library(name)
+    Boto::CLI::Commands::Add.new(["library", name], cwd: @dir, out: @out, err: @err).call
   end
 
   def runner
