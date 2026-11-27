@@ -4,6 +4,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- `boto run` reloads code changes in development: the first request after a change in `endpoints/`, `schemas/`, `operations/`, `models/` or `config/` of any project rebuilds the solution in the same process (isolation check, `config/app.rb`, plugins and routes included). A failed reload answers `500` problem JSON with the error until the next change. A `Botofile` that adds, removes or retemplates a project, or a `Gemfile` change, prints a restart notice instead. `--no-reload` turns it off; outside development it is always off.
+
+### Fixed
+
+- `Boto::ProjectLoader#unload` removes the constants it eager-loaded (Zeitwerk reloading is enabled), so a failed boot no longer leaks them and a reboot loads the current code.
+
 ## [0.11.2] - 2026-11-26
 
 Same code as 0.11.1, which reached RubyGems for every gem except `boto-rb-swaggerui`. This is the first published version of `boto-rb-swaggerui`.

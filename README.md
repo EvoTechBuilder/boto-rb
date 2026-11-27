@@ -349,6 +349,12 @@ boto run pedidos --port 4000 # só um projeto
 
 - **Ambiente:** o `boto run` sobe com `BOTO_ENV=development`. Fora dele, o
   padrão é `production`.
+- **Reload automático:** em development, o primeiro request depois de salvar
+  um arquivo em `endpoints/`, `schemas/`, `operations/`, `models/` ou
+  `config/` já usa o código novo, sem reiniciar o processo. Se o código novo
+  não carregar, a resposta é um `500` com o erro, e o servidor segue de pé
+  até a correção. `--no-reload` desliga. Mudanças no `Gemfile`, ou no
+  `Botofile` que adicionam ou removem projetos, pedem reiniciar.
 - **Graceful shutdown:** no `SIGTERM` ou `SIGINT`, o readiness passa a
   responder `503`. Depois de `--drain-delay`, o servidor para de aceitar
   conexões e espera até `--shutdown-timeout` segundos (25 por padrão) pelos
@@ -397,7 +403,7 @@ assert_equal 200, response.status
 | `boto ref <projeto> <referência>` | Adiciona uma referência e recusa ciclos. |
 | `boto graph` | Mostra o grafo de dependências. |
 | `boto check [projeto]` | Confere o isolamento entre projetos. |
-| `boto run [projeto]` | Sobe os serviços num processo (`--port`, `--host`, `--shutdown-timeout`, `--drain-delay`). |
+| `boto run [projeto]` | Sobe os serviços num processo, com reload em development (`--port`, `--host`, `--no-reload`, `--shutdown-timeout`, `--drain-delay`). |
 | `boto test [projeto]` | Roda os testes (`--affected`, `--base REF`). |
 | `boto openapi <projeto>` | Imprime ou grava (`-o`) o documento OpenAPI (`--api-version`). |
 
