@@ -177,7 +177,7 @@ jobs:
       - name: Build gems
         run: |
           version="${GITHUB_REF_NAME#v}"
-          for gem in boto-rb boto-rb-security boto-rb-redis boto-rb-cli; do
+          for gem in boto-rb boto-rb-security boto-rb-redis boto-rb-swaggerui boto-rb-cli; do
             (cd "gems/$gem" && gem build "$gem.gemspec")
             test -f "gems/$gem/$gem-$version.gem" || { echo "::error::$gem is not at version $version"; exit 1; }
           done
@@ -187,6 +187,6 @@ jobs:
       - name: Push gems
         run: |
           version="${GITHUB_REF_NAME#v}"
-          for gem in boto-rb boto-rb-security boto-rb-redis boto-rb-cli; do
+          for gem in boto-rb boto-rb-security boto-rb-redis boto-rb-swaggerui boto-rb-cli; do
             gem push "gems/$gem/$gem-$version.gem"
           done

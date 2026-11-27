@@ -130,6 +130,7 @@ boto/
 │   ├── boto-rb-cli/      # inclui templates/ oficiais
 │   ├── boto-rb-security/ # plugins de segurança (hosts, cors, auth, rate_limit...)
 │   ├── boto-rb-redis/    # store Redis do rate_limit
+│   ├── boto-rb-swaggerui/ # plugin :swagger_ui (Swagger UI embutido)
 │   └── boto-rb-telemetry/
 ├── benchmarks/
 ├── examples/            # solutions completas de exemplo
@@ -191,6 +192,11 @@ boto/
 - Um endpoint pode abrir mão de um plugin do projeto quando necessário
   (ex.: `skip :auth` em health check ou login).
 - Endpoints são testados chamando `call` direto, sem subir servidor.
+- **OpenAPI em produção**: sem plugin, `/openapi.json` só existe em
+  development. `app.use :openapi` (core) serve o documento em qualquer
+  ambiente (`path:`, `version:`, `auth:`), protegido pelo `:auth` do projeto
+  por padrão. `app.use :swagger_ui` (gem `boto-rb-swaggerui`) serve a UI em
+  `/docs`, com os arquivos embutidos na gem, sem CDN.
 
 ## Segurança
 

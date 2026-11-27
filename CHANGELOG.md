@@ -4,6 +4,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- `app.use :openapi` (core) serves the OpenAPI document in every environment: `path:` (default `/openapi.json`), `version:` (default `"0.0.0"`) and `auth:` (default `true`, so the project's `:auth` guards it; `auth: false` makes it public). The document is generated once at boot; an endpoint on the same `GET` path fails the boot. Without the plugin, `/openapi.json` still exists only in development.
+- New gem `boto-rb-swaggerui`: `app.use :swagger_ui` (`path:`, default `/docs`) serves Swagger UI 5.36.0, vendored in the gem (no CDN, no inline script), for the `:openapi` document. The page follows the `:openapi` guard; the boot fails without `:openapi`, or when the document is guarded by an `:auth` strategy the browser cannot send by itself (anything but `:basic`).
+- `app.use :name` finds a plugin from any gem: after `boto-rb-security`, it requires `boto/<name>`. `Boto::INFLECTIONS` keeps plugin names and Zeitwerk constants in sync.
+- `:openapi` and `:swagger_ui` in `Boto::Plugin::ORDER`, between `:csrf` and `:auth`.
+
 ## [0.10.0] - 2026-11-26
 
 ### Changed
