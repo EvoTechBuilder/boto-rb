@@ -48,14 +48,21 @@ module Boto
     def app(name, **app_options)
       env_name = environment_name(app_options)
       namespace = load(name)
-      env = project_env(name, env_name)
-      config = Configuration.load(config_paths(name, env_name), env_name: env_name, env: env)
-      context = ProjectContext.new(name: name, env_name: env_name, env: env)
+      config = configuration(name, env_name: env_name)
+      context = ProjectContext.new(name: name, env_name: env_name, env: config.env)
       namespace.extend(ProjectApp::Namespace).bind_app(context)
       app = App.new(**app_options, env_name: env_name, namespace: namespace, plugins: config.plugins)
       app.start
       @apps << app
       app
+    end
+
+    # Builds the project's Configuration without loading its code or starting its plugins, so the CLI can
+    # read plugin options (e.g. a database URL) before the tables exist.
+    def configuration(name, env_name:)
+      env_name = validate_environment_name(env_name)
+      env = project_env(name, env_name)
+      Configuration.load(config_paths(name, env_name), env_name: env_name, env: env)
     end
 
     # Stops the apps before unloading, so plugins still see the project code. Safe to call twice.
@@ -122,7 +129,10 @@ module Boto
     end
 
     def environment_name(app_options)
-      env_name = app_options.fetch(:env_name) { @env.fetch(ENV_NAME_KEY, DEFAULT_ENV_NAME) }
+      validate_environment_name(app_options.fetch(:env_name) { @env.fetch(ENV_NAME_KEY, DEFAULT_ENV_NAME) })
+    end
+
+    def validate_environment_name(env_name)
       return env_name if env_name.is_a?(String) && ENV_NAME_PATTERN.match?(env_name)
 
       raise InvalidEnvironmentError, format(INVALID_ENV_NAME_MESSAGE, name: env_name.inspect)
