@@ -21,6 +21,12 @@ PATH
       jwt (~> 3.0)
 
 PATH
+  remote: gems/boto-rb-swaggerui
+  specs:
+    boto-rb-swaggerui (0.10.0)
+      boto-rb (= 0.10.0)
+
+PATH
   remote: gems/boto-rb
   specs:
     boto-rb (0.10.0)
@@ -144,6 +150,7 @@ DEPENDENCIES
   boto-rb-cli!
   boto-rb-redis!
   boto-rb-security!
+  boto-rb-swaggerui!
   minitest (~> 6.0)
   rake (~> 13.0)
 
@@ -162,6 +169,7 @@ CHECKSUMS
   boto-rb-cli (0.10.0)
   boto-rb-redis (0.10.0)
   boto-rb-security (0.10.0)
+  boto-rb-swaggerui (0.10.0)
   connection_pool (3.0.3) sha256=e0f8ee3ee0039396753e06e8a2dde0ef028e40f7df29e97f57da7577c489cb5e
   console (1.38.0) sha256=35b82f59130e95e9be6b832d9e539c8b3988fc192e4a8e9a86ab4922f44ad5de
   drb (2.2.3) sha256=0b00d6fdb50995fe4a45dea13663493c841112e4068656854646f418fda13373
