@@ -29,9 +29,9 @@ class WritingTest < Minitest::Test
   ITEM_REPO = WritingTestShop::ItemRepository
   ORDER_REPO = WritingTestShop::OrderRepository
   PRODUCT = WritingTestShop::Product
-  # Local time on purpose: Sequel reads DateTime back in the local zone, so a UTC clock would not round-trip.
-  NOW = Time.new(2026, 11, 27, 12)
-  LATER = Time.new(2026, 11, 27, 13)
+  # UTC on purpose: boto-rb-data stores and reads times in UTC, so a UTC clock round-trips unchanged.
+  NOW = Time.utc(2026, 11, 27, 12)
+  LATER = Time.utc(2026, 11, 27, 13)
   BOOM = Class.new(StandardError)
 
   def setup

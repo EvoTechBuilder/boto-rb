@@ -1,7 +1,11 @@
 # frozen_string_literal: true
 
 require "boto"
+require "sequel"
 require "zeitwerk"
+
+# Times are stored and read in UTC, so a created_at written by one server reads back the same on any other.
+Sequel.default_timezone = :utc
 
 loader = Zeitwerk::Loader.for_gem_extension(Boto)
 loader.setup
