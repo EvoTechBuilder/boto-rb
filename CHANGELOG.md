@@ -4,9 +4,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.11.2] - 2026-11-26
+
+Same code as 0.11.1, which reached RubyGems for every gem except `boto-rb-swaggerui`. This is the first published version of `boto-rb-swaggerui`.
+
+### Fixed
+
+- The release job drops the first RubyGems key before configuring the owner of a new gem; `configure-rubygems-credentials` refuses to overwrite it.
+
 ## [0.11.1] - 2026-11-26
 
-Same code as 0.11.0, which reached RubyGems only for `boto-rb`, `boto-rb-security` and `boto-rb-redis`: the first push of `boto-rb-swaggerui` failed, and `boto-rb-cli` 0.11.0 was never published. Use 0.11.1 for every gem.
+Published for every gem except `boto-rb-swaggerui` (see 0.11.2). Same code as 0.11.0, which reached RubyGems only for `boto-rb`, `boto-rb-security` and `boto-rb-redis`: the first push of `boto-rb-swaggerui` failed, and `boto-rb-cli` 0.11.0 was never published.
 
 ### Fixed
 

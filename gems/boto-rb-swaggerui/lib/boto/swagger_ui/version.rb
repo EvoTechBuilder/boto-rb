@@ -2,6 +2,6 @@
 
 module Boto
   module SwaggerUi
-    VERSION = "0.11.1"
+    VERSION = "0.11.2"
   end
 end
