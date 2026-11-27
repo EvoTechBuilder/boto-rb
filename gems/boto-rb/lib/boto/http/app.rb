@@ -39,11 +39,14 @@ module Boto
     AUTH_PLUGIN = :auth
     OPENAPI_PLUGIN = :openapi
 
-    attr_reader :endpoints, :title
+    attr_reader :endpoints, :title, :services
 
-    def initialize(namespace:, plugins: [], env_name: ENV.fetch("BOTO_ENV", "production"), error_output: $stderr)
+    # services: the apps of the referenced HTTP projects, by project name, when this app is a gateway.
+    def initialize(namespace:, plugins: [], env_name: ENV.fetch("BOTO_ENV", "production"), error_output: $stderr,
+                   services: EMPTY)
       @env_name = env_name
       @error_output = error_output
+      @services = services.dup.freeze
       @title = namespace.name.freeze
       @global_plugins, @endpoint_plugins = ordered(plugins).partition { |plugin| plugin.class.scope == GLOBAL_SCOPE }
       @auth_by_endpoint = {}

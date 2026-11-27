@@ -23,6 +23,8 @@ module Boto
 
       def http?(name) = fetch(name).http
 
+      def mounts_refs?(name) = fetch(name).mounts_refs
+
       def all = registry.values.sort_by(&:name)
 
       def unknown_message(name)

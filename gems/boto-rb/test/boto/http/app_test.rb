@@ -424,5 +424,19 @@ module Boto
     def post_json(path, body, namespace: AppTestShop)
       request_for(namespace: namespace).post(path, input: JSON.generate(body), "CONTENT_TYPE" => JSON_TYPE)
     end
+
+    def test_services_are_empty_and_frozen_by_default
+      assert_empty app.services
+      assert_predicate app.services, :frozen?
+    end
+
+    def test_services_are_kept_as_a_frozen_copy
+      services = { "catalogo" => app }
+      gateway = Boto::App.new(namespace: AppTestShop, error_output: @error_output, services: services)
+
+      assert_equal services, gateway.services
+      assert_predicate gateway.services, :frozen?
+      refute_same services, gateway.services
+    end
   end
 end

@@ -12,11 +12,13 @@ module Boto
         @path = path
         @source = source
         @official = official
-        @options = { folder: nil, http: false, files: nil, summary: nil, legacy_services: false }
+        @options = { folder: nil, http: false, files: nil, summary: nil, legacy_services: false, mounts_refs: false }
       end
 
       def folder(value) = store(:folder, value)
       def http(value) = store(:http, value)
+      # The projects referenced by this template are mounted in the same process as its app.
+      def mounts_refs(value) = store(:mounts_refs, value)
       def files(value) = store(:files, value)
       def summary(value) = store(:summary, value)
 
@@ -61,7 +63,7 @@ module Boto
       end
 
       def check_booleans
-        %i[http legacy_services].each { |key| check_boolean(key) }
+        %i[http legacy_services mounts_refs].each { |key| check_boolean(key) }
         invalid!("legacy_services is internal to boto-rb") if option(:legacy_services) && !@official
       end
 

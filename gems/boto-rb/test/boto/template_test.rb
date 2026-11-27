@@ -68,4 +68,25 @@ class Boto::TemplateTest < Minitest::Test
   def test_gem_source_is_the_root_holding_boto_dir
     assert_equal "/opt/vendor/demo", Boto::Template.source_for("/opt/vendor/demo/boto/templates/demo/template.rb")
   end
+
+  def test_mounts_refs_defaults_to_false
+    assert_equal false, built_template.mounts_refs
+  end
+
+  def test_mounts_refs_can_be_enabled
+    assert_equal true, built_template(mounts_refs: true).mounts_refs
+  end
+
+  def test_mounts_refs_must_be_boolean
+    assert_invalid(%(mounts_refs must be true or false, got "sim")) { |t| t.folder "apps"; t.mounts_refs "sim" }
+  end
+
+  private
+
+  def built_template(**options)
+    builder = Boto::Template::Builder.new(name: :gateway, path: "gateway/template.rb", source: "test", official: false)
+    builder.folder("apps")
+    options.each { |option, value| builder.public_send(option, value) }
+    builder.to_template
+  end
 end

@@ -18,6 +18,7 @@ module Boto
     SKIP_VALUE = "1"
     SKIP_WARNING = "Boto: project isolation check skipped (BOTO_SKIP_ISOLATION=1)"
     UNLOAD_WARNING = "Boto: failed to unload project %<name>s (%<error>s): %<message>s"
+    NOT_HTTP_REF_MESSAGE = "%<template>s %<name>s: ref %<ref>s is not an HTTP project"
 
     # process_env: the variables set before any .env was read. A process that boots again (the dev reload) passes
     # the snapshot it took first, so solution values a previous boot wrote to ENV do not count as process values.
@@ -28,7 +29,7 @@ module Boto
       @process_env = process_env&.to_h&.dup&.freeze
       @warn_output = warn_output
       @loaders = {}
-      @apps = []
+      @apps_by_key = {}
       @checked = Set.new
       @skip_warned = false
     end
@@ -46,18 +47,10 @@ module Boto
       loader_for(name).namespace
     end
 
+    # Keyed by environment too: one Boot can build the same project for several environments.
     def app(name, **app_options)
-      env_name = environment_name(app_options)
-      config = nil
-      # The configuration is read before the eager load: app.use :database requires boto-rb-data, whose
-      # Boto::Repository the project's repositories inherit from. Constants named in config files still autoload.
-      namespace = load(name) { config = configuration(name, env_name: env_name) }
-      context = ProjectContext.new(name: name, env_name: env_name, env: config.env)
-      namespace.extend(ProjectApp::Namespace).bind_app(context)
-      app = App.new(**app_options, env_name: env_name, namespace: namespace, plugins: config.plugins)
-      app.start
-      @apps << app
-      app
+      key = [name, environment_name(app_options)]
+      @apps_by_key[key] ||= build_app(name, **app_options)
     end
 
     # Builds the project's Configuration without loading its code or starting its plugins, so the CLI can
@@ -70,12 +63,46 @@ module Boto
 
     # Stops the apps before unloading, so plugins still see the project code. Safe to call twice.
     def shutdown
-      @apps.reverse_each(&:stop)
-      @apps.clear
+      @apps_by_key.values.reverse_each(&:stop)
+      @apps_by_key.clear
       unload_all
     end
 
     private
+
+    def build_app(name, **app_options)
+      env_name = environment_name(app_options)
+      project = @solution.project(name)
+      mounts = mount_options(project, env_name)
+      config = nil
+      # The configuration is read before the eager load: app.use :database requires boto-rb-data, whose
+      # Boto::Repository the project's repositories inherit from. Constants named in config files still autoload.
+      namespace = load(name) { config = configuration(name, env_name: env_name) }
+      context = ProjectContext.new(name: name, env_name: env_name, env: config.env)
+      namespace.extend(ProjectApp::Namespace).bind_app(context)
+      app = App.new(**app_options, **mounts, env_name: env_name, namespace: namespace, plugins: config.plugins)
+      app.start
+      app
+    end
+
+    # Only gateway templates get services; the other apps are built exactly as before.
+    def mount_options(project, env_name)
+      return {} unless Templates.mounts_refs?(project.template)
+
+      { services: mount_refs(project, env_name) }
+    end
+
+    def mount_refs(project, env_name)
+      project.refs.each { |ref| check_http_ref!(project, ref) }
+      project.refs.to_h { |ref| [ref, app(ref, env_name: env_name)] }
+    end
+
+    def check_http_ref!(project, ref)
+      return if Templates.http?(@solution.project(ref).template)
+
+      message = format(NOT_HTTP_REF_MESSAGE, template: project.template, name: project.name, ref: ref.inspect)
+      raise App::BootError, message
+    end
 
     def load_loaders(loaders, created)
       loaders.each(&:setup)

@@ -2,7 +2,7 @@
 
 module Boto
   # A project template. Declared with `Template.define` in a `boto/templates/<name>/template.rb` file.
-  class Template < Data.define(:name, :folder, :http, :files, :summary, :source, :legacy_services)
+  class Template < Data.define(:name, :folder, :http, :files, :summary, :source, :legacy_services, :mounts_refs)
     # Official declarations live inside the core; their files ship with boto-rb-cli.
     OFFICIAL_DIR = File.expand_path("templates", __dir__)
     OFFICIAL_SOURCE = "boto-rb"
