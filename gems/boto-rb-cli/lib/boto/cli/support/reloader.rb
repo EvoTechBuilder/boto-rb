@@ -12,6 +12,8 @@ module Boto
       BOTOFILE = "Botofile"
       GEMFILE_CHANGED = "Gemfile changed: restart boto run"
       BOTOFILE_CHANGED = "Botofile changed: restart boto run"
+      SOLUTION_ENV = ".env*"
+      SOLUTION_ENV_CHANGED = ".env changed: restart boto run"
       RELOADED = "Reloaded in %d ms (%d %s changed)"
       FAILED = "Reload failed: %s: %s"
       BACKTRACE_LINES = 5
@@ -21,9 +23,12 @@ module Boto
       PROBLEM_ABOUT = "about:blank"
       CONTENT_TYPE = "content-type"
 
+      # process_env is the snapshot taken before any .env was read, so every rebuilt Boot sees the same process values.
       def initialize(root:, ports:, env_name:, out:, err:, load_solution:, watcher:,
-                     manifest_watchers: {}, clock: MONOTONIC_CLOCK)
+                     manifest_watchers: {}, clock: MONOTONIC_CLOCK, env: ENV, process_env: nil)
         @root, @ports, @env_name = root, ports, env_name
+        @env = env
+        @process_env = process_env
         @out, @err, @load_solution, @watcher = out, err, load_solution, watcher
         @manifest_watchers, @clock = manifest_watchers, clock
         @mutex = Thread::Mutex.new
@@ -69,6 +74,7 @@ module Boto
 
       def check_manifests
         @err.puts GEMFILE_CHANGED if manifest_changed?(GEMFILE)
+        @err.puts SOLUTION_ENV_CHANGED if manifest_changed?(SOLUTION_ENV)
         check_botofile if manifest_changed?(BOTOFILE)
       end
 
@@ -113,7 +119,7 @@ module Boto
 
       # Assigns @boot before the apps are built, so a partial boot is still shut down by the next #shutdown.
       def build
-        @boot = Boto::Boot.new(@solution, root: @root)
+        @boot = Boto::Boot.new(@solution, root: @root, env: @env, process_env: @process_env)
         @apps = @ports.to_h { |name, port| [port, @boot.app(name, env_name: @env_name)] }
       end
 

@@ -17,6 +17,8 @@ class Boto::CLI::ReloaderTest < Minitest::Test
   EXTRA_PROJECT = %(project "extra", template: :webapi\n)
   GEMFILE_MESSAGE = "Gemfile changed: restart boto run"
   BOTOFILE_MESSAGE = "Botofile changed: restart boto run"
+  SOLUTION_ENV_MESSAGE = ".env changed: restart boto run"
+  ENV_KEY = "BOTO_RELOADER_TEST_VALUE"
   ZERO_CLOCK = -> { 0 }
 
   # One-shot like FileWatcher: changed? is true once per change.
@@ -149,7 +151,78 @@ class Boto::CLI::ReloaderTest < Minitest::Test
     refute_includes @out.string, "Reloaded"
   end
 
+  def test_changed_project_env_is_seen_after_reload
+    write_ping(env_ping_source)
+    write_env_file(File.join(@dir, "apps", API, ".env"), "one")
+    build_reloader
+    assert_equal "one", ping_value
+
+    write_env_file(File.join(@dir, "apps", API, ".env"), "two")
+    @watcher.touch
+
+    assert_equal "two", ping_value
+  end
+
+  def test_reload_keeps_process_values_over_solution_env_values
+    write_ping(env_ping_source)
+    write_env_file(File.join(@dir, ".env"), "solution")
+    write_env_file(File.join(@dir, "apps", API, ".env"), "project")
+
+    with_env_key_restored do
+      build_reloader(process_env: {})
+      assert_equal "project", ping_value
+
+      @watcher.touch
+      assert_equal "project", ping_value
+    end
+  end
+
+  def test_solution_env_change_warns_once_and_does_not_reload
+    env_watcher = FakeWatcher.new
+    build_reloader(manifest_watchers: { Boto::CLI::Reloader::SOLUTION_ENV => env_watcher })
+    app = @reloader.current(PORT)
+
+    env_watcher.touch
+    assert_same app, @reloader.current(PORT)
+    assert_same app, @reloader.current(PORT)
+
+    assert_equal 1, @err.string.scan(SOLUTION_ENV_MESSAGE).size
+    refute_includes @out.string, "Reloaded"
+  end
+
   private
+
+  # Solution .env values are written to the real ENV at boot, so the key is restored after the test.
+  def with_env_key_restored
+    previous = ENV.fetch(ENV_KEY, nil)
+    yield
+  ensure
+    if previous.nil?
+      ENV.delete(ENV_KEY)
+    else
+      ENV[ENV_KEY] = previous
+    end
+  end
+
+  def write_env_file(path, value)
+    File.write(path, "#{ENV_KEY}=#{value}\n")
+  end
+
+  def env_ping_source
+    <<~RUBY
+      # frozen_string_literal: true
+
+      class Api::Ping < Boto::Endpoint
+        get "/ping"
+
+        def call = { v: app.env.fetch("#{ENV_KEY}", "missing") }
+      end
+    RUBY
+  end
+
+  def ping_value
+    JSON.parse(get_ping.body).fetch("v")
+  end
 
   def create_solution(root)
     quiet = { out: StringIO.new, err: StringIO.new }
@@ -159,11 +232,12 @@ class Boto::CLI::ReloaderTest < Minitest::Test
     dir
   end
 
-  def build_reloader(manifest_watchers: {})
+  def build_reloader(manifest_watchers: {}, process_env: {})
     @reloader = Boto::CLI::Reloader.new(
       root: @dir, ports: { API => PORT }, env_name: ENV_NAME, out: @out, err: @err,
       load_solution: -> { Boto::Botofile.load(File.join(@dir, BOTOFILE_NAME)) },
-      watcher: @watcher, manifest_watchers: manifest_watchers, clock: ZERO_CLOCK
+      watcher: @watcher, manifest_watchers: manifest_watchers, clock: ZERO_CLOCK,
+      process_env: process_env
     )
   end
 

@@ -1,0 +1,6 @@
+# frozen_string_literal: true
+
+# Development: a fixed token keeps boto run working without API_TOKENS.
+Boto.configure do |app|
+  app.use :auth, tokens: %w[dev-token]
+end

@@ -1,0 +1,6 @@
+# frozen_string_literal: true
+
+# Production reads its secrets from app.env in config/app.rb. Per-environment overrides go here, e.g.:
+Boto.configure do |app|
+  # app.use :hosts, allow: -> { app.env.fetch("ALLOWED_HOSTS").split(",") }
+end

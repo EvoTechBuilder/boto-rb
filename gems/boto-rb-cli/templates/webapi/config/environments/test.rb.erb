@@ -1,0 +1,6 @@
+# frozen_string_literal: true
+
+# Tests use a fixed token; see test/test_helper.rb.
+Boto.configure do |app|
+  app.use :auth, tokens: %w[test-token]
+end

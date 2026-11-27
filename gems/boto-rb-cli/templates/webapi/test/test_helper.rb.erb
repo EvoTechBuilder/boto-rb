@@ -4,9 +4,6 @@ require "minitest/autorun"
 require "rack/mock"
 require "boto"
 
-# config/app.rb requires API_TOKENS (bearer rejects an empty list), so boot needs a value.
-ENV["API_TOKENS"] ||= "test-token"
-
 SOLUTION_ROOT = File.expand_path("../../..", __dir__)
 BOOT = Boto::Boot.new(Boto::Botofile.load(File.join(SOLUTION_ROOT, "Botofile")), root: SOLUTION_ROOT)
-APP = BOOT.app("<%= name %>")
+APP = BOOT.app("<%= name %>", env_name: "test")

@@ -2,6 +2,7 @@
 
 require "test_helper"
 require "fileutils"
+require "rack/mock"
 require "stringio"
 require "tmpdir"
 
@@ -17,7 +18,7 @@ class Boto::CLI::AddCommandTest < Minitest::Test
       end
       refute File.exist?(File.join(dir, "apps/api/endpoints/health.rb"))
       refute File.exist?(File.join(dir, "apps/api/schemas/health_schema.rb"))
-      assert_includes read(dir, "apps/api/test/test_helper.rb"), %(BOOT.app("api"))
+      assert_includes read(dir, "apps/api/test/test_helper.rb"), %(BOOT.app("api", env_name: "test"))
       assert_includes out.string, "create apps/api/test/config/health_test.rb"
       assert_includes out.string, "update Botofile"
     end
@@ -31,6 +32,47 @@ class Boto::CLI::AddCommandTest < Minitest::Test
       assert_includes app_config, "app.use :auth"
       assert_includes app_config, "app.use :health"
       assert_includes read(dir, "apps/api/test/config/health_test.rb"), "/health/live"
+    end
+  end
+
+  def test_webapi_generates_one_config_file_per_environment
+    with_solution do |dir|
+      add_command(%w[webapi api], cwd: dir).call
+
+      %w[development test production].each do |env_name|
+        assert File.file?(File.join(dir, "apps/api/config/environments", "#{env_name}.rb")), env_name
+      end
+    end
+  end
+
+  def test_webapi_app_config_reads_secrets_without_branches
+    with_solution do |dir|
+      add_command(%w[webapi api], cwd: dir).call
+
+      app_config = read(dir, "apps/api/config/app.rb")
+      assert_includes app_config, %(tokens: -> { app.env.fetch("API_TOKENS").split(",") })
+      refute_includes app_config, "default_tokens"
+      refute_match(/\bif\b/, app_config)
+    end
+  end
+
+  def test_generated_api_boots_in_development_and_test_without_env_vars
+    with_solution do |dir|
+      add_command(%w[webapi api], cwd: dir).call
+      write_ping(dir)
+
+      { "development" => "dev-token", "test" => "test-token" }.each do |env_name, token|
+        assert_token_accepted(dir, env_name: env_name, token: token)
+      end
+    end
+  end
+
+  def test_generated_api_in_production_fails_at_boot_without_api_tokens
+    with_solution do |dir|
+      add_command(%w[webapi api], cwd: dir).call
+
+      error = assert_raises(KeyError) { with_api_app(dir, env_name: "production") { flunk "booted" } }
+      assert_includes error.message, "API_TOKENS"
     end
   end
 
@@ -152,6 +194,35 @@ class Boto::CLI::AddCommandTest < Minitest::Test
 
   def add_command(argv, cwd:, out: StringIO.new)
     Boto::CLI::Commands::Add.new(argv, out: out, err: StringIO.new, cwd: cwd)
+  end
+
+  # Boots the generated api with an empty env, so the test never reads or writes the real ENV.
+  def with_api_app(dir, env_name:)
+    boot = Boto::Boot.new(Boto::Botofile.load(File.join(dir, "Botofile")),
+                          root: dir, env: {}, warn_output: StringIO.new)
+    yield boot.app("api", env_name: env_name)
+  ensure
+    boot&.shutdown
+  end
+
+  def assert_token_accepted(dir, env_name:, token:)
+    with_api_app(dir, env_name: env_name) do |app|
+      request = Rack::MockRequest.new(app)
+      assert_equal 200, request.get("/ping", "HTTP_AUTHORIZATION" => "Bearer #{token}").status, env_name
+      assert_equal 401, request.get("/ping", "HTTP_AUTHORIZATION" => "Bearer wrong").status, env_name
+    end
+  end
+
+  def write_ping(dir)
+    File.write(File.join(dir, "apps/api/endpoints/ping.rb"), <<~RUBY)
+      # frozen_string_literal: true
+
+      class Api::Ping < Boto::Endpoint
+        get "/ping"
+
+        def call = { ok: true }
+      end
+    RUBY
   end
 
   def read(dir, relative)

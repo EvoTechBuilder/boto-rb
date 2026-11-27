@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
-# Security plugins for <%= name %>. Secrets come from the environment and are read once at boot.
-# In development a fixed token keeps `boto run` working out of the box; elsewhere API_TOKENS is required.
+# Plugins for <%= name %>, for every environment. Secrets come from app.env (process, .env files) at boot.
+# config/environments/<env>.rb overrides options per environment.
 Boto.configure do |app|
   # Probes: GET /health/live (always 200) and GET /health/ready (503 while a check fails). No token needed.
   app.use :health
-  default_tokens = app.env_name == "development" ? "dev-token" : ""
-  app.use :cors, origins: ENV.fetch("CORS_ORIGINS", "").split(",")
-  app.use :auth, strategy: :bearer, tokens: -> { ENV.fetch("API_TOKENS", default_tokens).split(",") }
+  # The cors plugin takes the origins Array itself (no lambda), so it is read once here at boot.
+  app.use :cors, origins: app.env.fetch("CORS_ORIGINS", "").split(",")
+  app.use :auth, strategy: :bearer, tokens: -> { app.env.fetch("API_TOKENS").split(",") }
   app.use :rate_limit, limit: 300, period: 60
 end

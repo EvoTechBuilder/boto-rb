@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "fileutils"
 require "stringio"
 require "tmpdir"
 
@@ -66,7 +67,46 @@ class Boto::CLI::NewCommandTest < Minitest::Test
     end
   end
 
+  def test_gitignore_lists_env_files_but_not_the_example
+    Dir.mktmpdir do |cwd|
+      new_command(["shop"], cwd: cwd).call
+
+      gitignore = File.read(File.join(cwd, "shop", ".gitignore"))
+      assert_includes gitignore.lines.map(&:chomp), ".env.*"
+      assert_includes gitignore.lines.map(&:chomp), "!.env.example"
+    end
+  end
+
+  def test_git_ignores_env_files_in_subfolders_and_keeps_the_example
+    skip "git is not installed" unless system("git", "--version", out: File::NULL, err: File::NULL)
+
+    Dir.mktmpdir do |cwd|
+      new_command(["shop"], cwd: cwd).call
+      repo = File.join(cwd, "shop")
+      system("git", "init", "-q", repo, out: File::NULL, err: File::NULL)
+      touch_all(repo, %w[.env .env.local .env.development apps/x/.env.test.local .env.example])
+
+      assert_equal %w[.env .env.local .env.development apps/x/.env.test.local],
+                   ignored_paths(repo, %w[.env .env.local .env.development apps/x/.env.test.local .env.example])
+    end
+  end
+
   private
+
+  def touch_all(repo, relatives)
+    relatives.each do |relative|
+      path = File.join(repo, relative)
+      FileUtils.mkdir_p(File.dirname(path))
+      FileUtils.touch(path)
+    end
+  end
+
+  # git check-ignore -q exits 0 for each ignored path; the paths are listed in the order given.
+  def ignored_paths(repo, relatives)
+    relatives.select do |relative|
+      system("git", "-C", repo, "check-ignore", "-q", relative, out: File::NULL, err: File::NULL)
+    end
+  end
 
   def new_command(argv, cwd:, out: StringIO.new)
     Boto::CLI::Commands::New.new(argv, out: out, err: StringIO.new, cwd: cwd)

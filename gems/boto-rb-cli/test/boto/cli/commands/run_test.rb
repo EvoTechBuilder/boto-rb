@@ -237,10 +237,7 @@ class Boto::CLI::RunCommandTest < Minitest::Test
   def test_production_serves_the_booted_apps_without_reload
     out = StringIO.new
 
-    # The template reads API_TOKENS from the real ENV, so the variable is set here and restored after.
-    with_api_tokens("t") do
-      assert_equal 0, run_command([], out: out, env: { "BOTO_ENV" => "production" })
-    end
+    assert_equal 0, run_command([], out: out, env: { "BOTO_ENV" => "production", "API_TOKENS" => "t" })
 
     assert @server.apps_by_port.values.all? { |app| app.is_a?(Boto::App) }
     refute_includes out.string, "reload on"
@@ -313,14 +310,6 @@ class Boto::CLI::RunCommandTest < Minitest::Test
     factory = ->(apps_by_port, host:) { @server = server_class.new(apps_by_port, host: host) }
     Boto::CLI::Commands::Run.new(argv, out: out, err: StringIO.new, cwd: cwd,
                                        server_factory: factory, env: env).call
-  end
-
-  def with_api_tokens(value)
-    previous = ENV.fetch("API_TOKENS", nil)
-    ENV["API_TOKENS"] = value
-    yield
-  ensure
-    ENV["API_TOKENS"] = previous
   end
 
   def write_ping(dir, source)

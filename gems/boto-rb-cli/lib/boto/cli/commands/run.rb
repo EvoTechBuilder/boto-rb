@@ -23,6 +23,7 @@ module Boto
         GEMFILE = "Gemfile"
         GEMFILE_LOCK = "Gemfile.lock"
         CODE_GLOB = "{endpoints,schemas,operations,models,config}/**/*.rb"
+        ENV_FILES_GLOB = ".env*"
         OPTIONS = [
           Option.new(key: :port, flags: %w[--port], argument: "N", type: Integer,
                      description: "First port; each service gets the next one (default #{DEFAULT_PORT})"),
@@ -45,12 +46,17 @@ module Boto
         end
 
         def call
+          process_env = env.to_h.dup.freeze
           options = parse_options
           plan = solution
           ports = port_assignments(select_projects(plan, options[:project]), options[:port])
           env_name = env.fetch(ENV_VARIABLE, DEFAULT_ENV)
           reloading = reload?(options, env_name)
-          runtime = reloading ? build_reloader(plan, ports, env_name) : Boto::Boot.new(plan, root: cwd)
+          runtime = if reloading
+                      build_reloader(plan, ports, env_name, process_env)
+                    else
+                      Boto::Boot.new(plan, root: cwd, env: env)
+                    end
           serve(runtime, ports, options, env_name: env_name, reloading: reloading)
         ensure
           # Releases the Zeitwerk loaders so the same solution can be booted again in this process.
@@ -143,22 +149,26 @@ module Boto
           ports.to_h { |name, port| [port, runtime.app(name, env_name: env_name)] }
         end
 
-        def build_reloader(plan, ports, env_name)
+        def build_reloader(plan, ports, env_name, process_env)
           Boto::CLI::Reloader.new(
             root: cwd, ports: ports, env_name: env_name, out: out, err: err,
             load_solution: -> { solution },
             watcher: Boto::CLI::FileWatcher.new(code_patterns(plan)),
-            manifest_watchers: manifest_watchers
+            manifest_watchers: manifest_watchers, env: env, process_env: process_env
           )
         end
 
         def code_patterns(plan)
-          plan.projects.map { |project| File.join(cwd, project.path, CODE_GLOB) }
+          plan.projects.flat_map do |project|
+            dir = File.join(cwd, project.path)
+            [File.join(dir, CODE_GLOB), File.join(dir, ENV_FILES_GLOB)]
+          end
         end
 
         def manifest_watchers
           { BOTOFILE_NAME => manifest_watcher(BOTOFILE_NAME),
-            GEMFILE => manifest_watcher(GEMFILE, GEMFILE_LOCK) }
+            GEMFILE => manifest_watcher(GEMFILE, GEMFILE_LOCK),
+            Boto::CLI::Reloader::SOLUTION_ENV => manifest_watcher(ENV_FILES_GLOB) }
         end
 
         def manifest_watcher(*names)
