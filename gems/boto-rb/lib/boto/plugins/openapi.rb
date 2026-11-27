@@ -26,6 +26,9 @@ module Boto
 
       def auth? = @auth_required
 
+      # The :auth instance protecting the document, or nil. Other plugins answer through it too.
+      def guard = @auth
+
       def attach(app)
         @app = app
         @auth = app.plugins.find { |plugin| plugin.class.plugin_name == AUTH_PLUGIN } if auth?

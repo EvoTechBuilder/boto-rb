@@ -128,6 +128,19 @@ module Boto
         assert_equal 200, get(application, "/openapi.json").status
       end
 
+      def test_guard_is_the_auth_plugin_that_protects_the_document
+        openapi = plugin
+        auth = OpenAPIPluginFakes::Auth.new(env_name: "production")
+        app(plugins: [openapi, auth])
+        assert_same auth, openapi.guard
+      end
+
+      def test_guard_is_nil_when_the_document_is_not_authenticated
+        openapi = plugin(auth: false)
+        app(plugins: [openapi, OpenAPIPluginFakes::Auth.new(env_name: "production")])
+        assert_nil openapi.guard
+      end
+
       def test_no_auth_plugin_in_project_is_served
         assert_equal 200, get(app, "/openapi.json").status
       end
