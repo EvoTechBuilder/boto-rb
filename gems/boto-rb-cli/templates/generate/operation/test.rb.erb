@@ -4,6 +4,6 @@ require "test_helper"
 
 class <%= test_class %> < Minitest::Test
   def test_call
-    flunk "call <%= constant %> and assert the result"
+    flunk "call <%= constant %>.call(input) and assert result.success? and result.value"
   end
 end

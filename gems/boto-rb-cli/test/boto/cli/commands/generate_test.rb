@@ -369,9 +369,9 @@ class Boto::CLI::GenerateCommandTest < Minitest::Test
     assert_equal <<~RUBY, read(OPERATION_PATH)
       # frozen_string_literal: true
 
-      module Catalogo::CreateProduct
-        def self.call(input)
-          raise NotImplementedError, "Catalogo::CreateProduct.call"
+      class Catalogo::CreateProduct < Boto::Operation
+        def call
+          raise NotImplementedError, "Catalogo::CreateProduct#call"
         end
       end
     RUBY
@@ -382,7 +382,7 @@ class Boto::CLI::GenerateCommandTest < Minitest::Test
 
       class Catalogo::CreateProductTest < Minitest::Test
         def test_call
-          flunk "call Catalogo::CreateProduct and assert the result"
+          flunk "call Catalogo::CreateProduct.call(input) and assert result.success? and result.value"
         end
       end
     RUBY
@@ -488,6 +488,19 @@ class Boto::CLI::GenerateCommandTest < Minitest::Test
 
     assert_equal Boto::Schema, Catalogo::ProductSchema.superclass
     assert_equal %i[id name], Catalogo::Product.members
+  ensure
+    boot&.shutdown
+  end
+
+  def test_generated_operation_loads_with_the_project_and_is_not_implemented_yet
+    generate(%w[operation catalogo create_product --skip-tests])
+    boot = Boto::Boot.new(Boto::Botofile.load(File.join(@dir, "Botofile")), root: @dir, warn_output: StringIO.new)
+
+    boot.load(PROJECT)
+
+    assert_equal Boto::Operation, Catalogo::CreateProduct.superclass
+    assert_raises(NotImplementedError) { Catalogo::CreateProduct.call }
+    assert_raises(NoMethodError) { Catalogo::CreateProduct.new }
   ensure
     boot&.shutdown
   end
