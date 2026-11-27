@@ -44,6 +44,11 @@ module Boto
       raise NotImplementedError, "#{self.class} must implement #call"
     end
 
+    # A plugin without #call of its own only has a lifecycle (start, stop, health_checks) and stays out of the stack.
+    def handles_requests?
+      method(:call).owner != Boto::Plugin
+    end
+
     # Receives the Boto::App right before start, so the plugin can call back into it.
     def attach(_app) = nil
 

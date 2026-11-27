@@ -24,6 +24,18 @@ module Boto
         end
       end
 
+      class LifecycleOnly < Boto::Plugin
+        def start = nil
+      end
+
+      def test_lifecycle_only_plugins_stay_out_of_the_stack
+        inner = ->(_env) { [200, {}, ["ok"]] }
+
+        assert_same inner, Boto::Plugin::Stack.build([LifecycleOnly.new(env_name: "test")], inner)
+        refute LifecycleOnly.new(env_name: "test").handles_requests?
+        assert Halter.new(env_name: "test").handles_requests?
+      end
+
       def test_empty_list_returns_the_inner_app
         inner = ->(_env) { [200, {}, ["ok"]] }
 
