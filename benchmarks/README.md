@@ -36,7 +36,7 @@ RUBY_YJIT_ENABLE=1 bundle exec ruby run.rb --save-baseline   # grava results/bas
 RUBY_YJIT_ENABLE=1 bundle exec ruby run.rb --compare         # compara o boto com o baseline
 ```
 
-Regressão: req/s caiu mais de 5%, p99 subiu mais de 5%, ou alocações por request aumentaram. Nesse caso o script sai com código 1. Sem baseline, avisa e sai com 0. `--compare` e `--save-baseline` podem vir juntos: a comparação roda antes de gravar.
+Regressão: req/s caiu mais de 10% (as rodadas num runner compartilhado do CI variam ~7%), p99 subiu mais de 5%, ou alocações por request aumentaram. Nesse caso o script sai com código 1. Sem baseline, avisa e sai com 0. `--compare` e `--save-baseline` podem vir juntos: a comparação roda antes de gravar.
 
 Compare sempre com o mesmo `RUBY_YJIT_ENABLE` com que gravou o baseline: o YJIT muda as alocações por request.
 

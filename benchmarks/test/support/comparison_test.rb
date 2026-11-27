@@ -25,12 +25,12 @@ class BenchComparisonTest < Minitest::Test
     assert_empty regressed_metrics(base, base)
   end
 
-  def test_rps_drop_over_five_percent_regresses
-    assert_equal ["rps"], regressed_metrics(document(hello: numbers(rps: 940.0)), document(hello: numbers))
+  def test_rps_drop_over_ten_percent_regresses
+    assert_equal ["rps"], regressed_metrics(document(hello: numbers(rps: 890.0)), document(hello: numbers))
   end
 
   def test_rps_drop_within_tolerance_passes
-    assert_empty regressed_metrics(document(hello: numbers(rps: 960.0)), document(hello: numbers))
+    assert_empty regressed_metrics(document(hello: numbers(rps: 910.0)), document(hello: numbers))
   end
 
   def test_p99_rise_over_five_percent_and_one_ms_regresses
@@ -67,7 +67,7 @@ class BenchComparisonTest < Minitest::Test
   end
 
   def test_db_schema_regression_is_compared_when_both_have_it
-    current = document(hello: numbers, db_schema: numbers(rps: 940.0))
+    current = document(hello: numbers, db_schema: numbers(rps: 890.0))
     baseline = document(hello: numbers, db_schema: numbers)
     assert_equal ["rps"], regressed_metrics(current, baseline)
     assert_equal ["db_schema"], rows_for(current, baseline).select(&:regressed).map(&:scenario)

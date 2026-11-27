@@ -2,10 +2,10 @@
 
 require_relative "scenarios"
 
-# Compares only the boto numbers. Regression: rps down >5%, p99 up >5% and by more than 1 ms
+# Compares only the boto numbers. Regression: rps down >10% (rounds on a shared CI runner spread ~7%), p99 up >5% and by more than 1 ms
 # (ab reports whole ms), or allocations up by at least half an object per request.
 module BenchComparison
-  RPS_TOLERANCE = 0.05
+  RPS_TOLERANCE = 0.10
   P99_TOLERANCE = 0.05
   P99_MIN_DIFF_MS = 1
   ALLOCATIONS_TOLERANCE = 0.5
