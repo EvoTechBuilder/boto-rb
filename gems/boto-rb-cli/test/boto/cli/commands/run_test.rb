@@ -102,6 +102,19 @@ class Boto::CLI::RunCommandTest < Minitest::Test
     dir
   end
 
+  def test_code_glob_watches_repositories_with_the_other_code_folders
+    Dir.mktmpdir do |dir|
+      %w[repositories/thing_repository.rb endpoints/show.rb config/app.rb test/show_test.rb].each do |path|
+        FileUtils.mkdir_p(File.join(dir, File.dirname(path)))
+        File.write(File.join(dir, path), "")
+      end
+
+      matches = Dir.glob(Boto::CLI::Commands::Run::CODE_GLOB, base: dir).sort
+
+      assert_equal %w[config/app.rb endpoints/show.rb repositories/thing_repository.rb], matches
+    end
+  end
+
   def test_serves_servable_projects_in_order_on_consecutive_ports
     out = StringIO.new
     assert_equal 0, run_command([], out: out)

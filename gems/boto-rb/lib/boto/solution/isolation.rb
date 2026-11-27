@@ -8,7 +8,7 @@ module Boto
     Violation = Data.define(:project, :path, :line, :constant, :missing_ref)
     NamespaceViolation = Data.define(:project, :path, :line, :constant, :namespace)
 
-    SOURCE_DIRS = %w[endpoints operations models schemas config test].freeze
+    SOURCE_DIRS = (Project::CODE_DIRS + %w[config test]).freeze
     RUBY_GLOB = "**/*.rb"
     TEST_DIR = "test"
     SORT_KEYS = ->(violation) { [violation.project, violation.path, violation.line] }

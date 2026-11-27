@@ -10,6 +10,8 @@ module Boto
       web: "apps",
       spa: "apps"
     }.freeze
+    # Code folders loaded under the project namespace; every tool reads this list.
+    CODE_DIRS = %w[endpoints operations models repositories schemas].freeze
     HTTP_TEMPLATES = %i[webapi microservice].freeze
     LEGACY_HTTP_DIR = "services"
     PATH_SEPARATOR = "/"

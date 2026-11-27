@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "fileutils"
+require "tmpdir"
 
 class Boto::ProjectLoaderTest < Minitest::Test
   FIXTURE = File.expand_path("../../fixtures/shop", __dir__)
@@ -25,6 +27,18 @@ class Boto::ProjectLoaderTest < Minitest::Test
     @loader = Boto::ProjectLoader.new(project, root: FIXTURE).setup
 
     assert_equal "Orders::GreetingSchema", Orders::GreetingSchema.name
+  end
+
+  def test_setup_loads_repositories_directory_under_the_namespace
+    Dir.mktmpdir do |root|
+      path = File.join(root, "apps/catalogo/repositories/thing_repository.rb")
+      FileUtils.mkdir_p(File.dirname(path))
+      File.write(path, "class Catalogo::ThingRepository\n  def self.ok = true\nend\n")
+      project = Boto::Botofile.parse("solution \"shop\"\nproject \"catalogo\", template: :webapi\n").project("catalogo")
+      @loader = Boto::ProjectLoader.new(project, root: root).setup
+
+      assert Catalogo::ThingRepository.ok
+    end
   end
 
   def test_setup_twice_does_not_fail

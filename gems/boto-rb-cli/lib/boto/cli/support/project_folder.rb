@@ -6,7 +6,7 @@ module Boto
     class ProjectFolder
       SCHEMAS_FOLDER = "schemas"
       # Zeitwerk loads the same relative path in any of these folders as one constant.
-      CODE_FOLDERS = %w[endpoints operations models schemas].freeze
+      CODE_FOLDERS = Boto::Project::CODE_DIRS
       CONFIG_FILE = File.join("config", "app.rb")
       AUTH_PLUGIN = /^\s*app\.use\s+:auth\b/
 

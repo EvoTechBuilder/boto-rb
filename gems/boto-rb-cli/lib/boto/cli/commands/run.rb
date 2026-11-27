@@ -22,7 +22,7 @@ module Boto
         RUNNING_RELOAD_MESSAGE = "Boto running (Ctrl-C to stop, reload on)"
         GEMFILE = "Gemfile"
         GEMFILE_LOCK = "Gemfile.lock"
-        CODE_GLOB = "{endpoints,schemas,operations,models,config}/**/*.rb"
+        CODE_GLOB = "{#{(Boto::Project::CODE_DIRS + %w[config]).join(",")}}/**/*.rb"
         ENV_FILES_GLOB = ".env*"
         OPTIONS = [
           Option.new(key: :port, flags: %w[--port], argument: "N", type: Integer,

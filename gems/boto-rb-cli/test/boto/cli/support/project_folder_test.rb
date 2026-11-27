@@ -40,6 +40,12 @@ class Boto::CLI::ProjectFolderTest < Minitest::Test
     assert_equal "models/create_product.rb", folder.clashing_path(file("operations/create_product.rb"))
   end
 
+  def test_same_path_in_repositories_is_a_clash
+    write("repositories/thing_repository.rb")
+
+    assert_equal "repositories/thing_repository.rb", folder.clashing_path(file("operations/thing_repository.rb"))
+  end
+
   def test_same_path_in_the_same_folder_is_not_a_clash
     write("operations/create_product.rb")
 

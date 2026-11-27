@@ -412,6 +412,17 @@ class Boto::CLI::GenerateCommandTest < Minitest::Test
     refute File.exist?(File.join(@dir, OPERATION_PATH))
   end
 
+  def test_operation_is_refused_when_a_repository_has_the_same_constant
+    path = "apps/catalogo/repositories/thing_repository.rb"
+    FileUtils.mkdir_p(File.dirname(File.join(@dir, path)))
+    File.write(File.join(@dir, path), "class Catalogo::ThingRepository; end\n")
+
+    error = assert_raises(Boto::CLI::Error) { generate(%w[operation catalogo thing_repository]) }
+
+    assert_equal "Catalogo::ThingRepository already exists in #{path}", error.message
+    refute File.exist?(File.join(@dir, "apps/catalogo/operations/thing_repository.rb"))
+  end
+
   def test_endpoint_is_refused_when_an_operation_has_the_same_constant
     generate(%w[operation catalogo create_product --skip-tests])
 

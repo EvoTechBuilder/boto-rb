@@ -47,6 +47,15 @@ class Boto::IsolationTest < Minitest::Test
                  violations
   end
 
+  def test_transitive_reference_in_repositories_is_a_violation
+    path = "apps/orders/repositories/order_repository.rb"
+    violations = check({ path => "Domain::Customer.find\n" })
+
+    assert_equal [Violation.new(project: "orders", path: path, line: 1,
+                                constant: "Domain::Customer", missing_ref: "domain")],
+                 violations
+  end
+
   def test_project_without_refs_using_another_is_a_violation
     violations = check({ "libs/domain/models/order.rb" => "Billing::Invoice\n" })
 
