@@ -1,6 +1,6 @@
 # Gem `boto-rb-gateway` (proposta 0023)
 
-Status: **em andamento**
+Status: **concluído**
 
 ## Objetivo
 

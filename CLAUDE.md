@@ -68,7 +68,10 @@ no `dotnet new install`.
   (atalho `boto g`): gera o arquivo e o teste; `--skip-tests`, `--force`, e
   `generators tests: false` no Botofile (por projeto: `generators: { tests: }`)
 - `boto graph`
-- `boto run [projeto]` (sem argumento, sobe a solution inteira)
+- `boto run [projeto]` (sem argumento, sobe a solution inteira). `PORT` no
+  `.env` do próprio projeto fixa a porta (`0` = livre); com um projeto
+  `gateway`, tudo responde na porta dele, em `/<projeto>`, e cada serviço
+  segue na própria porta. `PORT` sempre existe no `app.env` do projeto servido
 - `boto test [--all | --affected]`
 - `boto openapi <projeto> [-o arquivo]`
 - `boto check [projeto]` (isolamento: só usa projetos referenciados)
@@ -142,6 +145,7 @@ boto/
 │   ├── boto-rb-redis/    # store Redis do rate_limit
 │   ├── boto-rb-swaggerui/ # plugin :swagger_ui (Swagger UI embutido)
 │   ├── boto-rb-data/     # Boto::Repository, :database e migrations (Sequel)
+│   ├── boto-rb-gateway/  # template gateway, plugin :gateway e painel /_boto (dev)
 │   └── boto-rb-telemetry/
 ├── benchmarks/
 ├── examples/            # solutions completas de exemplo

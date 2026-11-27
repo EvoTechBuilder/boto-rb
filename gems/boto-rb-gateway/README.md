@@ -1,33 +1,42 @@
 # boto-rb-gateway
 
-TODO: one paragraph on what this gem adds to Boto.
+Single entry point for a Boto solution in development: the `gateway` template
+mounts the solution's HTTP services in one process, each under `/<project>`,
+and serves the `/_boto` panel.
 
 ## Installation
 
-Add it to the Gemfile of the solution (or of the project that uses it):
-
 ```ruby
+# Gemfile of the solution
 gem "boto-rb-gateway"
 ```
 
-Then run `bundle install`.
+```bash
+bundle install
+boto add gateway borda --refs catalogo,users
+boto run
+```
 
 ## Plugin
 
-Enable it in the project's `config/app.rb`:
-
 ```ruby
+# apps/borda/config/app.rb
 Boto.configure do |app|
-  app.use :gateway
+  app.use :health
+  app.use :gateway, prefixes: { "users" => "/contas" }, panel: true
 end
 ```
 
-## Template
+- `prefixes:` overrides the default `/<project>` prefix of a service.
+- `panel:` turns `/_boto` on or off (default: on in development only).
+- The gateway refuses to boot in `production`; there, route with your ingress.
 
-Create a project from it:
+## Panel
 
-```sh
-boto add gateway <name>
-```
+`GET /_boto` lists each service with its prefix, port, health (probed in the
+same process), routes, OpenAPI and Swagger links and its env variables, with
+sensitive values masked. `GET /_boto/services.json` has the same data.
 
-The project is created in `apps/`, as an HTTP project.
+## License
+
+MIT.

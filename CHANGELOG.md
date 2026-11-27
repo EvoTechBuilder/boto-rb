@@ -4,6 +4,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- New gem `boto-rb-gateway`: the template `gateway` (`boto add gateway borda --refs catalogo,users`) and the plugin `:gateway` (`prefixes:`, `panel:`). In development and test, the gateway mounts the apps of its HTTP refs in the same process, each under `/<project>`, so the solution answers on one port. Refuses to boot in production.
+- The `/_boto` panel (development only by default): each service with its prefix, port, health probed in-process, routes, OpenAPI and Swagger links and env variables (sensitive values masked), plus `/_boto/services.json`.
+- `boto run`: `PORT` in a project's own `.env` files fixes its port; `PORT=0`, or no `PORT` on a gateway ref, picks a free one. Every service of a gateway also answers on its own port. Other projects keep the sequence from `--port`, skipping fixed ports. Invalid and repeated ports are errors.
+- `PORT` is always in `app.env` of a project served by `boto run`, with the port it listens on.
+- `Template#mounts_refs`, `Boto::Templates.mounts_refs?`, `App#services`, `App#env`, `App#port`, `Boot.new(ports:)`, `Env#source(key)`, `Env#file_keys`, `Boto::Plugins::SwaggerUi#path`.
+
+### Changed
+
+- The OpenAPI document (development `/openapi.json` and `:openapi`) and the Swagger UI page follow `SCRIPT_NAME`: an app mounted under a prefix gets `servers: [{ url: prefix }]` and prefixed links.
+- `Boot#app` returns the app already built for the same project and environment.
+
 ## [0.17.0] - 2026-11-27
 
 ### Added

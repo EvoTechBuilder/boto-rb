@@ -1,6 +1,6 @@
 # 0023 — `boto-rb-gateway`: a solution numa porta só, com painel
 
-Status: **aprovada** (em implementação)
+Status: **implementada**
 
 Depende da 0021 (templates como gems) e da 0022 (`boto plugin new`, que gera a
 gem).

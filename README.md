@@ -63,6 +63,7 @@ Open source, sob a licença [MIT](LICENSE), mantido pela
   - [OpenAPI e Swagger UI](#openapi-e-swagger-ui)
 - **Operação**
   - [Rodando a solution](#rodando-a-solution)
+  - [Gateway e painel `/_boto`](#gateway-e-painel-_boto)
   - [Gerando código](#gerando-código)
   - [Testes](#testes)
 - **Referência**
@@ -480,6 +481,7 @@ O Boto lê os arquivos `.env` sozinho. Vence o primeiro que tiver a chave:
 | `:hosts` | [`boto-rb-security`](gems/boto-rb-security) | Só aceita os hosts de `allow:`, contra DNS rebinding. |
 | `:cors` | [`boto-rb-security`](gems/boto-rb-security) | [CORS](https://developer.mozilla.org/docs/Web/HTTP/CORS) com `origins:`, `methods:`, `headers:`, `expose:`, `credentials:` e `max_age:`. Responde o preflight. |
 | `:auth` | [`boto-rb-security`](gems/boto-rb-security) | Estratégias `:basic`, `:bearer`, `:api_key`, `:jwt` e `:signature` (webhooks). |
+| `:gateway` | [`boto-rb-gateway`](gems/boto-rb-gateway) | Monta os serviços das `refs` do projeto, cada um em `/<projeto>` (`prefixes:`), e serve o painel `/_boto` (`panel:`, ligado só em development). Só em development e test. |
 | `:rate_limit` | [`boto-rb-security`](gems/boto-rb-security) | Limite por chave (`limit:` e `period:`), em memória. Com o [`boto-rb-redis`](gems/boto-rb-redis), a contagem é compartilhada entre processos. |
 
 ### Ordem de execução
@@ -537,6 +539,57 @@ boto run pedidos --port 4000 # só um projeto
   responder `503`. Depois de `--drain-delay`, o servidor para de aceitar
   conexões e espera até `--shutdown-timeout` segundos (25 por padrão) pelos
   requests em andamento.
+- **Portas:** cada projeto pode fixar a própria porta com `PORT` no `.env` da
+  pasta dele (`apps/catalogo/.env`). `PORT=0` pede uma porta livre. Sem
+  `PORT`, a porta segue a sequência a partir de `--port`, pulando as fixas. A
+  `PORT` do processo e a do `.env` da raiz não contam aqui, porque valeriam
+  para todos os projetos. No `app.env`, `PORT` sempre traz a porta em que o
+  projeto está escutando.
+
+### Gateway e painel `/_boto`
+
+Com a gem [`boto-rb-gateway`](gems/boto-rb-gateway), a solution inteira
+responde numa porta só:
+
+```bash
+# Gemfile: gem "boto-rb-gateway"
+boto add gateway borda --refs catalogo,users
+boto run
+```
+
+```
+Gateway borda on http://localhost:3000
+  catalogo  http://localhost:3000/catalogo   http://localhost:4101
+  users     http://localhost:3000/users      http://localhost:53817 (random)
+  panel     http://localhost:3000/_boto
+```
+
+- **Um prefixo por serviço:** `GET /catalogo/products/1` chega ao `catalogo`
+  como `GET /products/1`. Os serviços rodam no mesmo processo do gateway, sem
+  proxy, e os endpoints não mudam nada.
+- **Porta própria também:** cada serviço segue respondendo na porta dele (a
+  `PORT` do projeto ou uma livre), com o mesmo app.
+- **Plugins:** `:cors` e `:hosts` do gateway valem para tudo o que passa por
+  ele; os plugins de cada serviço continuam valendo dentro do serviço.
+- **OpenAPI e Swagger:** o documento de um serviço montado ganha
+  `servers: [{ url: "/catalogo" }]`, e o Swagger em `/catalogo/docs` chama as
+  rotas com o prefixo.
+- **Painel `/_boto`:** lista os serviços com prefixo, porta, health (chamado
+  no mesmo processo), rotas, links do OpenAPI e do Swagger e as variáveis da
+  solution e de cada projeto, com senhas, tokens e chaves mascarados. Também
+  em JSON, em `/_boto/services.json`. Fica ligado só em development.
+- **Produção:** o gateway não sobe em `production` por enquanto. Lá, cada
+  serviço roda separado, atrás do ingress.
+
+```ruby
+# apps/borda/config/app.rb
+Boto.configure do |app|
+  app.use :health
+  app.use :gateway, prefixes: { "users" => "/contas" }
+end
+```
+
+<p align="right"><a href="#sumário">↑ voltar ao sumário</a></p>
 
 ## Gerando código
 
@@ -607,7 +660,7 @@ assert_equal 200, response.status
 | `boto generate <tipo> <projeto> <nome>` | Gera schema, model, endpoint ou operation com o teste (`boto g`, `--skip-tests`, `--force`). |
 | `boto graph` | Mostra o grafo de dependências. |
 | `boto check [projeto]` | Confere o isolamento entre projetos. |
-| `boto run [projeto]` | Sobe os serviços num processo, com reload em development (`--port`, `--host`, `--no-reload`, `--shutdown-timeout`, `--drain-delay`). |
+| `boto run [projeto]` | Sobe os serviços num processo, com reload em development (`--port`, `--host`, `--no-reload`, `--shutdown-timeout`, `--drain-delay`). Com um gateway, tudo responde na porta dele. |
 | `boto test [projeto]` | Roda os testes (`--affected`, `--base REF`). |
 | `boto db <migrate\|rollback\|status> [projeto]` | Migrations por projeto (`--steps N` no rollback). Precisa da `boto-rb-data`. |
 | `boto openapi <projeto>` | Imprime ou grava (`-o`) o documento OpenAPI (`--api-version`). |
@@ -660,6 +713,7 @@ Só entram templates das gems do bundle, e os nomes oficiais (`webapi`,
 | [`boto-rb-redis`](https://rubygems.org/gems/boto-rb-redis) | Store Redis do `:rate_limit`. |
 | [`boto-rb-swaggerui`](gems/boto-rb-swaggerui) | Plugin `:swagger_ui`. |
 | [`boto-rb-data`](gems/boto-rb-data) | `Boto::Repository`, plugin `:database` e migrations, sobre o Sequel. |
+| [`boto-rb-gateway`](gems/boto-rb-gateway) | Template `gateway`, plugin `:gateway` e o painel `/_boto`. |
 
 O módulo Ruby é sempre `Boto`, e o executável é `boto`. As gems se chamam
 `boto-rb-*` porque o nome `boto` já existia no RubyGems.
