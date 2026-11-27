@@ -1,6 +1,6 @@
 # 0018 — `Boto::Repository`, plugin `:database` e migrations (gem `boto-rb-data`)
 
-Status: **aprovada** (depende da 0019 e da 0020)
+Status: **implementada**
 
 ## Problema
 

@@ -52,6 +52,7 @@ Open source, sob a licença [MIT](LICENSE), mantido pela
   - [Endpoints](#endpoints)
   - [Schemas](#schemas)
   - [Operations](#operations)
+  - [Banco de dados](#banco-de-dados)
   - [Erros](#erros)
 - **Plugins**
   - [Configurando plugins](#plugins)
@@ -292,6 +293,68 @@ result.value!            # o valor, ou levanta Boto::Operation::FailedError
   | `:unauthorized` | 401 |
   | `:forbidden` | 403 |
   | `:invalid` e qualquer outro | 422 |
+
+## Banco de dados
+
+A gem opcional [`boto-rb-data`](gems/boto-rb-data) traz repositórios no
+estilo do Spring Data, o plugin `:database` e migrations, sobre o
+[Sequel](https://sequel.jeremyevans.net/).
+
+```ruby
+# Gemfile: gem "boto-rb-data" e o driver (sqlite3, pg ou mysql2)
+
+# apps/catalogo/config/app.rb
+app.use :database, url: -> { app.env.fetch("DATABASE_URL") }, pool: 10
+
+# apps/catalogo/models/product.rb
+Catalogo::Product = Data.define(:id, :name, :price, :created_at, :updated_at)
+
+# apps/catalogo/repositories/product_repository.rb
+class Catalogo::ProductRepository < Boto::Repository
+  entity Catalogo::Product
+  table :products
+end
+```
+
+```ruby
+repo = Catalogo::ProductRepository
+repo.find(1)                               # entidade ou nil (find! levanta NotFound)
+repo.all(order: :name, limit: 50, offset: 0)
+repo.where(price: 10..50, order: :price)   # igualdade, Range, Array (IN) e nil (IS NULL)
+repo.find_by_name("Caneca")                # um find_by_<campo> por campo da entidade
+repo.exists?(name: "Caneca")
+repo.count
+repo.create(name: "Caneca", price: 39.9)   # id, created_at e updated_at preenchidos
+repo.update(1, price: 29.9)
+repo.delete(1)
+repo.transaction { ... }                   # transaction(rollback: :always) nos testes
+```
+
+- **Entidades imutáveis:** são `Data`, serializadas direto pelos schemas no
+  `returns`.
+- **O boot confere cada repositório contra a sua tabela:** um campo da
+  entidade sem coluna faz o boot falhar, não o primeiro request.
+- **Só os campos da entidade:** `where`, `create` e `update` recusam outras
+  chaves, e `id` e os timestamps são controlados pelo repositório. Os valores
+  passam sempre por parâmetros do Sequel.
+- **Erros do banco:** unicidade e chave estrangeira viram
+  `Boto::Repository::UniqueViolation` e `ForeignKeyViolation`, sem os valores
+  na mensagem.
+- **Consulta própria:** um método privado `query { |dataset| ... }` dentro do
+  repositório devolve entidades.
+- **Conexão:** uma por projeto, compatível com fibers (Falcon), e o
+  `/health/ready` ganha o check `database`. Os horários são gravados e lidos
+  em UTC.
+
+```bash
+boto g migration catalogo create_products   # db/migrations/<timestamp>_create_products.rb
+boto g repository catalogo product          # repositories/product_repository.rb e o teste
+boto db migrate [projeto]
+boto db rollback catalogo --steps 2
+boto db status [projeto]
+```
+
+O `boto test` migra o banco de teste de cada projeto antes de rodar.
 
 ## Erros
 
@@ -543,6 +606,7 @@ assert_equal 200, response.status
 | `boto check [projeto]` | Confere o isolamento entre projetos. |
 | `boto run [projeto]` | Sobe os serviços num processo, com reload em development (`--port`, `--host`, `--no-reload`, `--shutdown-timeout`, `--drain-delay`). |
 | `boto test [projeto]` | Roda os testes (`--affected`, `--base REF`). |
+| `boto db <migrate\|rollback\|status> [projeto]` | Migrations por projeto (`--steps N` no rollback). Precisa da `boto-rb-data`. |
 | `boto openapi <projeto>` | Imprime ou grava (`-o`) o documento OpenAPI (`--api-version`). |
 
 `boto help <comando>` mostra as opções, e `boto -v`, a versão.
@@ -556,6 +620,7 @@ assert_equal 200, response.status
 | [`boto-rb-security`](https://rubygems.org/gems/boto-rb-security) | `:hosts`, `:cors`, `:auth` e `:rate_limit`. |
 | [`boto-rb-redis`](https://rubygems.org/gems/boto-rb-redis) | Store Redis do `:rate_limit`. |
 | [`boto-rb-swaggerui`](gems/boto-rb-swaggerui) | Plugin `:swagger_ui`. |
+| [`boto-rb-data`](gems/boto-rb-data) | `Boto::Repository`, plugin `:database` e migrations, sobre o Sequel. |
 
 O módulo Ruby é sempre `Boto`, e o executável é `boto`. As gems se chamam
 `boto-rb-*` porque o nome `boto` já existia no RubyGems.

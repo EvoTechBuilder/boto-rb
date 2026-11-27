@@ -6,6 +6,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- New gem `boto-rb-data` (namespace `Boto::Database`, on Sequel):
+  - `Boto::Repository`: `entity` (a `Data`) and `table`; `find`, `find!`, `all(order:, limit:, offset:)`, `where(**filters, order:, limit:, offset:)` (equality, Range, Array, nil), `find_by_<field>` defined at boot, `exists?`, `count`, `create`, `update`, `delete`, `transaction(**options)` and a private `query { |dataset| }`. Only entity fields are accepted, `id` and `created_at`/`updated_at` are managed, values go through Sequel parameters, and unique and foreign key violations become `Boto::Repository::UniqueViolation` and `ForeignKeyViolation`.
+  - `app.use :database, url:, pool:`: one connection per project with fiber concurrency, a `database` health check, every repository of the project checked against its table at start, the URL password never shown, times stored and read in UTC.
+  - `Boto::Database::Migrator` and `boto db migrate|rollback|status [project]`; `boto generate migration` and `boto generate repository`; `boto test` migrates each project's test database first.
+- `repositories/` is a code folder, loaded under the project namespace. `Boto::Project::CODE_DIRS` is the single list of code folders.
+- `Boot#configuration(name, env_name:)` and `Configuration#build_only(name)`.
+- Plugins without `#call` (lifecycle only) stay out of the request stack.
+
+### Fixed
+
+- `Boot#app` reads the configuration before eager loading the project, so project code can inherit from classes of plugin gems required by `app.use`.
+
+### Added
+
 - `config/environments/<env>.rb`: read after `config/app.rb` for the current `BOTO_ENV`. `app.use` of a plugin already declared in `config/app.rb` merges its options, a new plugin is added, and `app.remove :name` drops one. Plugins are built once, with the final options, so a production-only lambda in `config/app.rb` does not run when the environment file replaces it.
 - `.env` files are read at boot with this precedence: process variables, `.env.<env>.local`, `.env.local` (skipped in test), `.env.<env>`, `.env`. The solution's files also reach `ENV` without overwriting it; each project's files stay in its own `app.env`, so two projects can have different values for the same key in one `boto run`. The parser takes `KEY=value`, `export`, comments and quotes, with no interpolation or command substitution.
 - `app.env` in `config/` files, `#app` in endpoints and operations, and `<Project>.app` anywhere in the project (`env`, `env_name`, `name`).

@@ -64,7 +64,7 @@ no `dotnet new install`.
 - `boto new <solution> [-t <template>]` (sem template: solution vazia)
 - `boto add <template> <nome> [--framework react|vue]`
 - `boto ref <projeto> <referencia>`
-- `boto generate <schema|model|endpoint|operation> <projeto> <nome> [campos]`
+- `boto generate <schema|model|endpoint|operation|repository|migration> <projeto> <nome> [campos]`
   (atalho `boto g`): gera o arquivo e o teste; `--skip-tests`, `--force`, e
   `generators tests: false` no Botofile (por projeto: `generators: { tests: }`)
 - `boto graph`
@@ -72,6 +72,7 @@ no `dotnet new install`.
 - `boto test [--all | --affected]`
 - `boto openapi <projeto> [-o arquivo]`
 - `boto check [projeto]` (isolamento: só usa projetos referenciados)
+- `boto db migrate|rollback|status [projeto]` (gem `boto-rb-data`)
 - `boto templates list | install <gem>`
 
 ## Estrutura de pastas
@@ -105,7 +106,9 @@ apps/pedidos/
 ├── endpoints/           # um endpoint por classe
 ├── schemas/             # contratos de entrada/saída
 ├── operations/          # regras de negócio: subclasses de Boto::Operation, .call devolve Result
-├── models/              # persistência
+├── models/              # entidades (Data)
+├── repositories/        # Boto::Repository (gem boto-rb-data)
+├── db/migrations/       # migrations do Sequel
 ├── test/                # espelha as pastas acima
 └── Dockerfile
 ```
@@ -135,6 +138,7 @@ boto/
 │   ├── boto-rb-security/ # plugins de segurança (hosts, cors, auth, rate_limit...)
 │   ├── boto-rb-redis/    # store Redis do rate_limit
 │   ├── boto-rb-swaggerui/ # plugin :swagger_ui (Swagger UI embutido)
+│   ├── boto-rb-data/     # Boto::Repository, :database e migrations (Sequel)
 │   └── boto-rb-telemetry/
 ├── benchmarks/
 ├── examples/            # solutions completas de exemplo

@@ -1,6 +1,6 @@
 # `Boto::Repository`, `:database` e migrations (proposta 0018)
 
-Status: **aprovado, em execução**
+Status: **concluído**
 
 ## Objetivo
 
