@@ -4,6 +4,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-11-27
+
 ### Added
 
 - `Boto::Operation`: base class of operations. `.call(...)` builds the instance (`new` is private) and always returns a `Boto::Operation::Result`; inside, `success(value)` and `failure(code, message, **details)` build it, and any other return is wrapped as success. Exceptions are not caught.
