@@ -177,7 +177,7 @@ jobs:
       - name: Build gems
         run: |
           version="${GITHUB_REF_NAME#v}"
-          for gem in boto-rb boto-rb-security boto-rb-redis boto-rb-swaggerui boto-rb-cli; do
+          for gem in boto-rb boto-rb-security boto-rb-redis boto-rb-swaggerui boto-rb-data boto-rb-cli; do
             (cd "gems/$gem" && gem build "$gem.gemspec")
             test -f "gems/$gem/$gem-$version.gem" || { echo "::error::$gem is not at version $version"; exit 1; }
           done
@@ -192,7 +192,7 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           new_gems=""
-          for gem in boto-rb boto-rb-security boto-rb-redis boto-rb-swaggerui boto-rb-cli; do
+          for gem in boto-rb boto-rb-security boto-rb-redis boto-rb-swaggerui boto-rb-data boto-rb-cli; do
             if curl -sf "https://rubygems.org/api/v2/rubygems/$gem/versions/$version.json" > /dev/null; then
               echo "$gem $version is already on RubyGems; skipping"
             elif curl -sf "https://rubygems.org/api/v1/gems/$gem.json" > /dev/null; then
