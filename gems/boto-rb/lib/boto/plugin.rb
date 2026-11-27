@@ -4,7 +4,7 @@ module Boto
   # Base class of project plugins. A plugin wraps the app like Rack middleware: it either
   # calls app.call(env) to continue, or returns a Rack response itself.
   class Plugin
-    ORDER = %i[health hosts cors secure_headers sessions csrf auth rate_limit].freeze
+    ORDER = %i[health hosts cors secure_headers sessions csrf openapi swagger_ui auth rate_limit].freeze
     SCOPES = %i[global endpoint].freeze
     DEFAULT_SCOPE = :endpoint
     NO_ERROR_STATUSES = [].freeze

@@ -28,6 +28,7 @@ module Boto
     PATH_PARAMS_KEY = "boto.path_params"
     GLOBAL_SCOPE = :global
     AUTH_PLUGIN = :auth
+    OPENAPI_PLUGIN = :openapi
 
     attr_reader :endpoints, :title
 
@@ -242,6 +243,7 @@ module Boto
 
     def build_openapi_json
       return nil unless @env_name == DEVELOPMENT
+      return nil if plugin_named?(@global_plugins, OPENAPI_PLUGIN)
 
       JSON.generate(Boto::OpenAPI.generate(self, title: title, version: OPENAPI_VERSION)).freeze
     end
