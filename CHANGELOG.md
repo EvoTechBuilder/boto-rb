@@ -4,6 +4,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-26
+
 ### Added
 
 - `app.use :openapi` (core) serves the OpenAPI document in every environment: `path:` (default `/openapi.json`), `version:` (default `"0.0.0"`) and `auth:` (default `true`, so the project's `:auth` guards it; `auth: false` makes it public). The document is generated once at boot; an endpoint on the same `GET` path fails the boot. Without the plugin, `/openapi.json` still exists only in development.
